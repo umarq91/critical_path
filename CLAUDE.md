@@ -21,7 +21,7 @@ npx tsc --noEmit # Type check
 ## Stack
 
 - **Next.js 16** (App Router) + React 19 + TypeScript
-- **Tailwind CSS v4** + **shadcn/ui** (default primitives — no bespoke design system yet; keep it boring and consistent)
+- **Tailwind CSS v4** + **shadcn/ui** (`base-nova` style, built on **Base UI**, not Radix — check a component's own source before assuming a Radix prop like `asChild` exists) + the token-based design system in `src/app/globals.css`, see "Design system" below
 - **Supabase** — Auth (Google Workspace OAuth only), Postgres, Storage (task attachments), RLS
 - **Supabase clients** — `@supabase/supabase-js` + `@supabase/ssr`
 - **`@tanstack/react-table`** — headless engine for the spreadsheet-like task grid (sort/filter/column visibility). Pairs with shadcn's `<Table>` primitives; don't hand-roll a second table implementation for the Gantt/calendar row lists — reuse the same column defs where the data overlaps.
@@ -369,6 +369,42 @@ Configured in `vercel.json`, each hitting a Route Handler under `app/api/cron/`,
 | `reminders` | Daily (or per confirmed cadence) | Reads `reminder_rules`, finds matching tasks via `listTasks()`, dedupes against `notifications_log`, sends via `lib/mailer/send.ts` |
 | `holiday-sync` | Nightly | Pulls AU/China/India/Türkiye holidays via `lib/holidays/provider.ts`, upserts `public_holidays` where `source = 'api'` (manual rows untouched) |
 | `group-sync` | Nightly | Re-resolves every profile's role via `lib/google/admin-directory.ts` |
+
+---
+
+## Design system
+
+Source of truth: `Design and color palette.md` (client-provided). Every color/type/spacing/radius/shadow value in the app must trace back to a token from that file — never a raw hex or one-off pixel value in a component. If a value you need isn't in the file, that's a sign to check with whoever owns the design doc before inventing one, not to hardcode it.
+
+**Where it lives in code**: `src/app/globals.css`. This project is Tailwind v4 (CSS-first config, no `tailwind.config.js`) — the design doc's "Tailwind `theme.extend`" JS snippet doesn't apply here; its `@theme inline` block is the real equivalent.
+
+**Token → Tailwind class mapping** — the design doc uses its own token names (`--bg-app`, `--text-primary`, …); this codebase maps the ones that overlap with shadcn's existing semantic slots onto shadcn's names instead of duplicating them, so shadcn primitives (`Button`, `Card`, `Input`, …) pick up the palette automatically with zero per-component edits:
+
+| Design doc token | Use in code | Design doc token | Use in code |
+|---|---|---|---|
+| `--bg-app` | `bg-background` | `--text-primary` | `text-foreground` |
+| `--bg-surface` | `bg-card` / `bg-popover` | `--text-muted` | `text-muted-foreground` |
+| `--bg-muted` | `bg-muted` | `--text-secondary` | `text-text-secondary` |
+| `--border-default` | `border` / `border-border` | `--text-disabled` | `text-text-disabled` |
+| `--color-primary` | `bg-primary` / `text-primary` | `--text-inverse` | `text-text-inverse` |
+
+Tokens with **no shadcn equivalent** keep the doc's own name as a generated Tailwind utility (defined in `globals.css`'s `@theme inline`): `bg-primary-hover`, `bg-primary-tint`, `bg-brand`, `bg-brand-hover`, `bg-brand-tint`, `text-accent-teal`, `bg-status-{notstarted,progress,complete,overdue}-{base,soft,text}`, `bg-prio-{high,med,low}(-soft)`, `bg-viz-{1..7}`, `bg-viz-track`, `border-border-subtle`, `border-border-strong`.
+
+**Typography** — the doc bundles size+line-height+weight per named style (`text-h1`, `text-body`, …), which Tailwind's default `text-*` scale can't express in one class. These are defined as custom `@utility` rules in `globals.css` — use `text-h1`, `text-body`, `text-label`, etc. directly; don't compose `text-[22px] leading-[30px] font-semibold` by hand.
+
+**Spacing** — the doc's `space-1..space-16` scale (4px base grid) is numerically identical to Tailwind's default spacing scale (`space-4` = 16px = Tailwind's `4`). Just use standard Tailwind spacing utilities (`p-6`, `gap-5`, `px-4`) — no custom spacing tokens needed.
+
+**Radius** — `rounded-xs` (6px) / `rounded-sm` (8px) / `rounded-md` (10px) / `rounded-lg` (12px) map to the doc's scale via `@theme inline` overrides. For pills (status badges, avatars), use Tailwind's built-in `rounded-full` — the doc's `radius-pill` is the same 9999px value, not a separate token.
+
+**Shadows** — `shadow-sm`, `shadow-card`, `shadow-md`, `shadow-lg` are defined verbatim from the doc (note `shadow-card` is a real, distinct utility name, not a typo for `shadow-md`).
+
+**Charts** — `src/constants/chart-colors.ts` exports `VIZ_COLORS`/`VIZ_TRACK_COLOR` as plain hex strings mirroring the `viz-*` CSS tokens, for charting libraries (Recharts) that take color values as props, not classes. Keep both in sync if the palette changes.
+
+**Status/priority color → task field mapping** (e.g. `TASK_STATUS_CONFIG` consumed by the generic `<StatusBadge>` from "Shared, generic components" below) is deliberately **not** created yet — it depends on the tasks table's actual status enum values, which don't exist until that migration is written. Build it then, sourcing the hex values from the `status-*`/`prio-*` tokens already in `globals.css`.
+
+**Dark mode is not specced** in the design doc (light-only, sampled from the live screens). `.dark` in `globals.css` still holds the original shadcn scaffold's default dark values as a non-broken fallback — don't invent brand dark-mode colors; get real values from the design doc's owner if/when the client asks for dark mode.
+
+**Font**: Inter, wired via `next/font/google` in `src/app/layout.tsx` directly into the `--font-sans` CSS variable (not `--font-inter` or similar — the `@theme inline` block expects that exact name).
 
 ---
 

@@ -1,0 +1,308 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Design tokens sourced from Design and color palette.md — that file is the source of
+ * truth; edit values there first, then mirror the change here. See CLAUDE.md "Design
+ * system" for the full token → Tailwind-class mapping table.
+ */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+  --font-heading: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-border-subtle: var(--border-subtle);
+  --color-border-strong: var(--border-strong);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-tint: var(--primary-tint);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+
+  /* brand green — not one of shadcn's default semantic slots */
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-tint: var(--brand-tint);
+  --color-accent-teal: var(--accent-teal);
+
+  /* text tiers beyond shadcn's foreground/muted-foreground pair */
+  --color-text-secondary: var(--text-secondary);
+  --color-text-disabled: var(--text-disabled);
+  --color-text-inverse: var(--text-inverse);
+
+  /* task status — base/soft/text triad per status, see §1 of the design doc */
+  --color-status-notstarted-base: var(--status-notstarted-base);
+  --color-status-notstarted-soft: var(--status-notstarted-soft);
+  --color-status-notstarted-text: var(--status-notstarted-text);
+  --color-status-progress-base: var(--status-progress-base);
+  --color-status-progress-soft: var(--status-progress-soft);
+  --color-status-progress-text: var(--status-progress-text);
+  --color-status-complete-base: var(--status-complete-base);
+  --color-status-complete-soft: var(--status-complete-soft);
+  --color-status-complete-text: var(--status-complete-text);
+  --color-status-overdue-base: var(--status-overdue-base);
+  --color-status-overdue-soft: var(--status-overdue-soft);
+  --color-status-overdue-text: var(--status-overdue-text);
+
+  /* task priority */
+  --color-prio-high: var(--prio-high);
+  --color-prio-high-soft: var(--prio-high-soft);
+  --color-prio-med: var(--prio-med);
+  --color-prio-med-soft: var(--prio-med-soft);
+  --color-prio-low: var(--prio-low);
+  --color-prio-low-soft: var(--prio-low-soft);
+
+  /* data visualization — fixed order, see §3 of the design doc */
+  --color-viz-1: var(--viz-1);
+  --color-viz-2: var(--viz-2);
+  --color-viz-3: var(--viz-3);
+  --color-viz-4: var(--viz-4);
+  --color-viz-5: var(--viz-5);
+  --color-viz-6: var(--viz-6);
+  --color-viz-7: var(--viz-7);
+  --color-viz-track: var(--viz-track);
+
+  /* radius — fixed pixel scale per design doc §6, not proportional like shadcn's default */
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+
+  /* elevation per design doc §6 */
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05);
+  --shadow-card: 0 1px 3px rgba(16, 24, 40, 0.06), 0 1px 2px rgba(16, 24, 40, 0.04);
+  --shadow-md: 0 4px 12px rgba(16, 24, 40, 0.08);
+  --shadow-lg: 0 12px 32px rgba(16, 24, 40, 0.12);
+}
+
+:root {
+  --background: #f6f7f9;
+  --foreground: #111827;
+  --card: #ffffff;
+  --card-foreground: #111827;
+  --popover: #ffffff;
+  --popover-foreground: #111827;
+
+  --primary: #2b6ef6;
+  --primary-foreground: #ffffff;
+  --primary-hover: #1d54db;
+  --primary-tint: #eaf1ff;
+
+  --secondary: #f1f3f5;
+  --secondary-foreground: #111827;
+  --muted: #f1f3f5;
+  --muted-foreground: #98a2b3;
+  --accent: #eaf1ff;
+  --accent-foreground: #1d54db;
+  --destructive: #f0463c;
+
+  --border: #e2e5ea;
+  --border-subtle: #eaecef;
+  --border-strong: #d0d5dd;
+  --input: #d0d5dd;
+  --ring: #2b6ef6;
+  --radius: 12px;
+
+  /* Inter is wired to --font-sans directly via next/font's `variable` option in
+     src/app/layout.tsx. No webfont for mono — this app has no code/monospace UI. */
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --brand: #1fbf75;
+  --brand-hover: #159c5e;
+  --brand-tint: #e7f8ef;
+  --accent-teal: #14b8a6;
+
+  --text-secondary: #475467;
+  --text-disabled: #c4ccd4;
+  --text-inverse: #ffffff;
+
+  --status-notstarted-base: #94a3b8;
+  --status-notstarted-soft: #f1f3f5;
+  --status-notstarted-text: #64748b;
+  --status-progress-base: #f5a524;
+  --status-progress-soft: #fef3e2;
+  --status-progress-text: #b76e00;
+  --status-complete-base: #1fbf75;
+  --status-complete-soft: #e7f8ef;
+  --status-complete-text: #128a50;
+  --status-overdue-base: #f0463c;
+  --status-overdue-soft: #fdecec;
+  --status-overdue-text: #d5382e;
+
+  --prio-high: #e03a30;
+  --prio-high-soft: #fdecec;
+  --prio-med: #f5a524;
+  --prio-med-soft: #fef3e2;
+  --prio-low: #2b6ef6;
+  --prio-low-soft: #eaf1ff;
+
+  --viz-1: #2b6ef6;
+  --viz-2: #1fbf75;
+  --viz-3: #f5a524;
+  --viz-4: #f0463c;
+  --viz-5: #14b8a6;
+  --viz-6: #8b5cf6;
+  --viz-7: #6366f1;
+  --viz-track: #e9ecf1;
+  --chart-1: var(--viz-1);
+  --chart-2: var(--viz-2);
+  --chart-3: var(--viz-3);
+  --chart-4: var(--viz-4);
+  --chart-5: var(--viz-5);
+
+  --sidebar: #ffffff;
+  --sidebar-foreground: #475467;
+  --sidebar-primary: #2b6ef6;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #eaf1ff;
+  --sidebar-accent-foreground: #2b6ef6;
+  --sidebar-border: #e2e5ea;
+  --sidebar-ring: #2b6ef6;
+
+  /* fixed layout measurements per design doc §5 — consumed directly (e.g. inline style
+     or a one-off class) by the sidebar nav component once it's built, not a Tailwind
+     utility scale */
+  --layout-sidebar-width: 248px;
+  --layout-sidebar-width-collapsed: 72px;
+  --layout-content-max-width: 1440px;
+  --layout-content-gutter: 24px;
+}
+
+/*
+ * Dark mode is not specced in the design doc (light-only, sampled from the product
+ * screens). These values are the original shadcn scaffold defaults, kept as a
+ * non-broken fallback — revisit if/when the client asks for a dark theme.
+ */
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+}
+
+/* Typography scale per design doc §4 — one utility class per named style, bundling
+   size/line-height/weight/tracking together since Tailwind's default text-* utilities
+   only carry size+leading, not weight. */
+@utility text-display {
+  font-size: 28px;
+  line-height: 36px;
+  font-weight: 700;
+}
+@utility text-h1 {
+  font-size: 22px;
+  line-height: 30px;
+  font-weight: 600;
+}
+@utility text-h2 {
+  font-size: 18px;
+  line-height: 26px;
+  font-weight: 600;
+}
+@utility text-h3 {
+  font-size: 15px;
+  line-height: 22px;
+  font-weight: 600;
+}
+@utility text-body {
+  font-size: 14px;
+  line-height: 21px;
+  font-weight: 400;
+}
+@utility text-body-strong {
+  font-size: 14px;
+  line-height: 21px;
+  font-weight: 600;
+}
+@utility text-label {
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 500;
+}
+@utility text-caption {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 400;
+}
+@utility text-overline {
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+@utility text-metric {
+  font-size: 26px;
+  line-height: 32px;
+  font-weight: 700;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}
