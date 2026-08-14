@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Asterisk } from "lucide-react";
+import { CriticalPathLogo } from "@/components/icons/critical-path-logo";
 import {
   Sidebar,
   SidebarContent,
@@ -24,7 +24,7 @@ export function AppSidebar() {
     <Sidebar collapsible="icon">
       <SidebarHeader className="px-2 pt-4 pb-2">
         <div className="flex h-10 items-center gap-2 px-2">
-          <Asterisk className="size-6 shrink-0 text-primary" />
+          <CriticalPathLogo className="size-6 shrink-0" />
           <span className="text-h3 truncate group-data-[collapsible=icon]:hidden">
             Critical Path
           </span>

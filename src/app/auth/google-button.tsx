@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { GoogleLogo } from "@/components/icons/google-logo";
 import { createClient } from "@/lib/supabase/client";
 import { publicEnv } from "@/lib/env";
 import { ROUTES } from "@/constants/routes";
@@ -33,8 +34,15 @@ export function GoogleButton({ next }: { next: string }) {
   }
 
   return (
-    <Button onClick={handleClick} disabled={isLoading} className="w-full" size="lg">
-      {isLoading ? "Redirecting…" : "Continue with Google"}
+    <Button
+      onClick={handleClick}
+      disabled={isLoading}
+      variant="outline"
+      size="lg"
+      className="h-12 w-full gap-2 border-border-strong text-base font-semibold"
+    >
+      <GoogleLogo className="size-6" />
+      {isLoading ? "Redirecting…" : "Sign in with Google Workspace"}
     </Button>
   );
 }

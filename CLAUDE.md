@@ -118,6 +118,13 @@ npx tsc --noEmit # Type check
 │   │
 │   ├── components/
 │   │   ├── ui/                           # shadcn primitives, unmodified defaults
+│   │   ├── icons/                        # Hand-built icon/logo components — NOT third-party brand
+│   │   │   │                             #   assets (Google, etc.) or the app's own logo mark. Generic
+│   │   │   │                             #   glyphs stay npm imports from lucide-react inline at the
+│   │   │   │                             #   call site — this folder is only for things we drew or
+│   │   │   │                             #   composed ourselves, so they have exactly one source of truth.
+│   │   │   ├── google-logo.tsx           # Multi-colour "G" mark — svg has no lucide equivalent
+│   │   │   └── critical-path-logo.tsx    # Wraps lucide's Asterisk — used by sidebar header + auth panel
 │   │   ├── data-table/                   # Generic list-view engine — every table in the app is an instance
 │   │   │   ├── data-table.tsx            # <DataTable columns data /> — @tanstack/react-table + shadcn <Table>
 │   │   │   ├── data-table-toolbar.tsx    # Renders filter controls FROM a config array — see below
