@@ -1,9 +1,11 @@
 "use client";
 
+import { LogOut } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -31,21 +33,32 @@ function initials(name: string | null, email: string) {
 export function UserMenu({ profile }: { profile: Profile }) {
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring">
+      <DropdownMenuTrigger className="flex items-center gap-2 rounded-md p-1 outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring">
         <Avatar>
           <AvatarImage src={profile.avatar_url ?? undefined} alt="" />
-          <AvatarFallback>{initials(profile.full_name, profile.email)}</AvatarFallback>
+          <AvatarFallback className="bg-accent-teal text-text-inverse">
+            {initials(profile.full_name, profile.email)}
+          </AvatarFallback>
         </Avatar>
+        <div className="hidden flex-col items-start sm:flex">
+          <span className="text-label text-foreground">{profile.full_name ?? profile.email}</span>
+          <span className="text-caption text-muted-foreground">{ROLE_LABEL[profile.role]}</span>
+        </div>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuLabel className="flex flex-col">
-          <span className="font-medium">{profile.full_name ?? profile.email}</span>
-          <span className="text-xs font-normal text-muted-foreground">
-            {profile.email} · {ROLE_LABEL[profile.role]}
-          </span>
-        </DropdownMenuLabel>
+        <DropdownMenuGroup>
+          <DropdownMenuLabel className="flex flex-col">
+            <span className="font-medium">{profile.full_name ?? profile.email}</span>
+            <span className="text-xs font-normal text-muted-foreground">
+              {profile.email} · {ROLE_LABEL[profile.role]}
+            </span>
+          </DropdownMenuLabel>
+        </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => void signOut()}>Sign out</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => void signOut()}>
+          <LogOut />
+          Logout
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

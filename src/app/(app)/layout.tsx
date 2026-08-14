@@ -3,8 +3,8 @@ import { getCurrentProfile } from "@/data/profiles";
 import { ROUTES } from "@/constants/routes";
 import { UserMenu } from "@/app/(app)/user-menu";
 import { AppSidebar } from "@/app/(app)/app-sidebar";
+import { NavSearch } from "@/app/(app)/nav-search";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
-import { Separator } from "@/components/ui/separator";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const profile = await getCurrentProfile();
@@ -18,10 +18,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <SidebarProvider>
       <AppSidebar />
       <SidebarInset>
-        <header className="flex h-14 shrink-0 items-center justify-between gap-2 border-b px-4">
-          <div className="flex items-center gap-2">
-            <SidebarTrigger />
-            <Separator orientation="vertical" className="h-5" />
+        <header className="flex h-16 shrink-0 items-center gap-4 border-b bg-card px-4">
+          <SidebarTrigger />
+          <div className="flex flex-1 items-center">
+            <NavSearch />
           </div>
           <UserMenu profile={profile} />
         </header>
