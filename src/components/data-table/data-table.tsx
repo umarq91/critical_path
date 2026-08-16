@@ -22,6 +22,17 @@ import { dataTableFeatures, type DataTableColumnMeta } from "@/components/data-t
 import type { DataTableQueryState } from "@/components/data-table/use-data-table-query-state";
 import { cn } from "@/lib/utils";
 
+// Pins a column (e.g. Actions) to an edge during horizontal scroll, with a border and an
+// opaque background matching its row so scrolled-away columns don't show through underneath.
+function getStickyCellClassName(meta: DataTableColumnMeta | undefined, background: string) {
+  if (!meta?.sticky) return undefined;
+  return cn(
+    "sticky z-10 border-border",
+    background,
+    meta.sticky === "right" ? "right-0 border-l" : "left-0 border-r"
+  );
+}
+
 function createSelectionColumn<TData extends Record<string, unknown>>(): ColumnDef<
   typeof dataTableFeatures,
   TData,
@@ -157,7 +168,13 @@ export const DataTable = <TData extends Record<string, unknown>>({
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id} className="bg-muted/40 hover:bg-muted/40">
                 {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id} className="px-4 py-3.5">
+                  <TableHead
+                    key={header.id}
+                    className={cn(
+                      "px-4 py-3.5",
+                      getStickyCellClassName(header.column.columnDef.meta as DataTableColumnMeta | undefined, "bg-muted/40")
+                    )}
+                  >
                     {header.isPlaceholder ? null : <FlexRender header={header} />}
                   </TableHead>
                 ))}
@@ -181,7 +198,13 @@ export const DataTable = <TData extends Record<string, unknown>>({
                   className={cn(onRowClick && "cursor-pointer", getRowClassName?.(row.original))}
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id} className="px-4 py-3.5">
+                    <TableCell
+                      key={cell.id}
+                      className={cn(
+                        "px-4 py-3.5",
+                        getStickyCellClassName(cell.column.columnDef.meta as DataTableColumnMeta | undefined, "bg-card")
+                      )}
+                    >
                       <FlexRender cell={cell} />
                     </TableCell>
                   ))}

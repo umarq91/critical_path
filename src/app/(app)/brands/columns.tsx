@@ -118,7 +118,7 @@ export function createBrandColumns({ canManage, canDelete, rowEditing, isSaving,
     columnHelper.display({
       id: "actions",
       header: "Actions",
-      meta: { label: "Actions" },
+      meta: { label: "Actions", sticky: "right" },
       cell: ({ row }) => {
         if (!canManage && !canDelete) return null;
         const brand = row.original;

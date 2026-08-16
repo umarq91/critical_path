@@ -105,4 +105,6 @@ Server Actions instead. See `0003_seasons.sql` for the reference shape.
 
 ## Not built yet
 
-Key stages, tasks, templates, holidays, leave, reminder rules, notifications log, sales toolkit links, audit log — see `plan.md` §4 for the original full sketch. Add each here as its migration lands.
+Tasks, templates, holidays, leave, reminder rules, notifications log, sales toolkit links, audit log — see `plan.md` §4 for the original full sketch. Add each here as its migration lands.
+
+**Key stages — skipped for now, build only if necessary.** `tasks.key_stage_id` can ship nullable and Timeline/Gantt grouping can fall back to "no stage" until this is actually needed; revisit once real task data shows whether the client is using Stage in practice.

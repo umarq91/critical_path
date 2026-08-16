@@ -29,6 +29,8 @@ export interface DataTableColumnMeta {
   filterOptions?: DataTableFilterOption[];
   filterPlaceholder?: string;
   align?: "left" | "center" | "right";
+  /** Pins the column to the given edge during horizontal scroll (e.g. an Actions column). */
+  sticky?: "left" | "right";
 }
 
 export const dataTableFeatures = tableFeatures({

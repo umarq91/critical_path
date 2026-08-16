@@ -150,7 +150,7 @@ export function createSeasonColumns({ canManage, rowEditing, isSaving, onConfirm
     columnHelper.display({
       id: "actions",
       header: "Actions",
-      meta: { label: "Actions" },
+      meta: { label: "Actions", sticky: "right" },
       cell: ({ row }) => {
         if (!canManage) return null;
         const season = row.original;
