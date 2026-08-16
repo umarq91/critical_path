@@ -212,16 +212,15 @@ npx tsc --noEmit # Type check
 │   └── proxy.ts
 │
 ├── supabase/
+│   ├── schema.md                          # As-built tables/columns/enums — read before any DB
+│   │                                       #   decision, keep in sync with migrations below
 │   └── migrations/
 │       ├── 0001_profiles_roles.sql
-│       ├── 0002_seasons_brands_key_stages.sql
-│       ├── 0003_tasks.sql                # + attachments, comments, locking columns
-│       ├── 0004_task_templates.sql
-│       ├── 0005_saved_views.sql
-│       ├── 0006_holidays_leave.sql
-│       ├── 0007_reminder_rules_notifications_log.sql
-│       ├── 0008_sales_toolkit_links.sql
-│       └── 0009_audit_log.sql
+│       ├── 0002_rename_role_manager_to_standard_user.sql
+│       ├── 0003_seasons.sql
+│       └── (brands, key stages, tasks + attachments/comments/locking, task templates,
+│           saved views, holidays/leave, reminder rules/notifications log, sales toolkit
+│           links, audit log — not built yet, numbering TBD as each lands)
 │
 ├── vercel.json                           # Cron schedule → app/api/cron/* routes
 ├── components.json
@@ -538,4 +537,4 @@ PUBLIC_HOLIDAY_API_KEY=...
 CRON_SECRET=...                          # checked by every app/api/cron/* route
 ```
 
-After any DB migration: `supabase gen types typescript --linked > src/types/supabase.ts`.
+After any DB migration: `supabase gen types typescript --linked > src/types/supabase.ts`, and update `supabase/schema.md` in the same PR — read that file before any schema/RLS decision, it's the as-built source of truth over `plan.md` §4's original sketch.

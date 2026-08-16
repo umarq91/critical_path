@@ -64,6 +64,10 @@ These are reasonable defaults so the plan can proceed — confirm or correct in 
 
 ## 4. Data model (high-level)
 
+This is the original planning sketch — once building starts, `supabase/schema.md` is the
+as-built source of truth (kept in sync with `supabase/migrations/`); this section stops
+being updated once a table below actually exists there.
+
 Core tables (Postgres via Supabase migrations, RLS on every table):
 
 - `profiles` — mirrors `auth.users`, plus `role`, `google_group_id`, `department`
