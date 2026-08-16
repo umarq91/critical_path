@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
 
@@ -17,7 +18,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${inter.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">
-        <TooltipProvider delay={200}>{children}</TooltipProvider>
+        <NuqsAdapter>
+          <TooltipProvider delay={200}>{children}</TooltipProvider>
+        </NuqsAdapter>
       </body>
     </html>
   );
