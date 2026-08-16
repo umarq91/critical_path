@@ -1,37 +1,13 @@
 "use client";
 
 import { useCallback, useMemo } from "react";
-import { parseAsInteger, parseAsJson, parseAsString, useQueryStates } from "nuqs";
-import { z } from "zod";
+import { useQueryStates } from "nuqs";
 import { functionalUpdate } from "@tanstack/react-table";
 import type { ColumnFiltersState, OnChangeFn, PaginationState, SortingState } from "@tanstack/react-table";
+import { dataTableSearchParams, type DataTableSearchParamsOptions } from "@/components/data-table/data-table-search-params";
 
-const filtersSchema = z.record(z.string(), z.string());
-
-function parseFilters(value: unknown): Record<string, string> | null {
-  const result = filtersSchema.safeParse(value);
-  return result.success ? result.data : null;
-}
-
-export interface UseDataTableQueryStateOptions {
-  defaultPageSize?: number;
-  defaultSort?: { id: string; desc: boolean };
-}
-
-export function useDataTableQueryState({
-  defaultPageSize = 10,
-  defaultSort,
-}: UseDataTableQueryStateOptions = {}) {
-  const [urlState, setUrlState] = useQueryStates(
-    {
-      page: parseAsInteger.withDefault(1),
-      pageSize: parseAsInteger.withDefault(defaultPageSize),
-      sortBy: parseAsString.withDefault(defaultSort?.id ?? ""),
-      sortDir: parseAsString.withDefault(defaultSort?.desc ? "desc" : "asc"),
-      filters: parseAsJson(parseFilters).withDefault({}),
-    },
-    { clearOnDefault: true }
-  );
+export function useDataTableQueryState(options: DataTableSearchParamsOptions = {}) {
+  const [urlState, setUrlState] = useQueryStates(dataTableSearchParams(options), { clearOnDefault: true });
 
   const sorting = useMemo<SortingState>(
     () => (urlState.sortBy ? [{ id: urlState.sortBy, desc: urlState.sortDir === "desc" }] : []),

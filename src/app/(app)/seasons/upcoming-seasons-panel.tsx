@@ -1,13 +1,17 @@
 import { Calendar } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import type { Season } from "@/data/seasons";
+import type { listUpcomingSeasons } from "@/data/seasons";
 
 function daysUntil(startDate: string) {
   const diff = new Date(startDate).getTime() - Date.now();
   return Math.max(Math.round(diff / (1000 * 60 * 60 * 24)), 0);
 }
 
-export const UpcomingSeasonsPanel = ({ seasons }: { seasons: Season[] }) => {
+interface UpcomingSeasonsPanelProps {
+  seasons: Awaited<ReturnType<typeof listUpcomingSeasons>>;
+}
+
+export const UpcomingSeasonsPanel = ({ seasons }: UpcomingSeasonsPanelProps) => {
   return (
     <Card className="gap-3 px-4">
       <div className="flex items-center justify-between">

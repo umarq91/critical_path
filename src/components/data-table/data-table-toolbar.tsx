@@ -1,11 +1,11 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { Settings2 } from "lucide-react";
+import { RotateCcw, Settings2 } from "lucide-react";
 import type { ReactTable } from "@tanstack/react-table";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -31,6 +31,8 @@ export interface DataTableToolbarConfig {
   searchPlaceholder?: string;
   actions?: ReactNode;
   enableColumnVisibility?: boolean;
+  /** Defaults to on whenever there's a search box or filters to reset. */
+  enableResetFilters?: boolean;
 }
 
 interface DataTableToolbarProps<TData extends Record<string, unknown>> extends DataTableToolbarConfig {
@@ -46,8 +48,10 @@ export const DataTableToolbar = <TData extends Record<string, unknown>>({
   searchPlaceholder,
   actions,
   enableColumnVisibility = true,
+  enableResetFilters,
 }: DataTableToolbarProps<TData>) => {
   const searchColumn = searchColumnId ? table.getColumn(searchColumnId) : undefined;
+  const showResetFilters = enableResetFilters ?? (!!searchColumn || !!filters?.length);
 
   return (
     <div className="flex flex-wrap items-center gap-3">
@@ -91,6 +95,12 @@ export const DataTableToolbar = <TData extends Record<string, unknown>>({
         );
       })}
       {actions}
+      {showResetFilters ? (
+        <Button variant="link" className="px-1 text-primary" onClick={() => table.resetColumnFilters()}>
+          <RotateCcw />
+          Reset Filters
+        </Button>
+      ) : null}
       {enableColumnVisibility ? (
         <DropdownMenu>
           <DropdownMenuTrigger className={cn(buttonVariants({ variant: "outline", size: "icon" }))}>

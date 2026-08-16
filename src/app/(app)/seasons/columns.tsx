@@ -129,15 +129,17 @@ export function createSeasonColumns({ canManage, rowEditing, isSaving, onConfirm
       meta: { label: "Completion %" },
       cell: () => <span className="text-muted-foreground">—</span>,
     }),
-    columnHelper.accessor((row) => row.owner?.full_name ?? row.owner?.email ?? "", {
-      id: "ownerName",
+    // Filters on owner_id (a stable id the server can query directly), not the derived
+    // display name — filtering is server-side now, so it needs a real column to match on.
+    columnHelper.accessor((row) => row.owner_id ?? "", {
+      id: "owner_id",
       header: "Owner",
       meta: { label: "Owner" },
-      filterFn: "weakEquals",
       enableSorting: false,
-      cell: ({ getValue }) => {
-        const name = getValue();
-        if (!name) return <span className="text-muted-foreground">Unassigned</span>;
+      cell: ({ row }) => {
+        const owner = row.original.owner;
+        if (!owner) return <span className="text-muted-foreground">Unassigned</span>;
+        const name = owner.full_name ?? owner.email;
         return (
           <span className="flex items-center gap-2">
             <span className={cn("size-6 shrink-0 rounded-full", ownerColor(name))} />
