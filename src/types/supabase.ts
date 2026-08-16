@@ -1,4 +1,4 @@
-// Hand-authored to match `supabase/migrations/0001_profiles_roles.sql`.
+// Hand-authored to match `supabase/migrations/0001_profiles_roles.sql` and `0003_seasons.sql`.
 // Regenerate after every migration: `supabase gen types typescript --linked > src/types/supabase.ts`
 
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
@@ -45,6 +45,56 @@ export type Database = {
         };
         Relationships: [];
       };
+      seasons: {
+        Row: {
+          id: string;
+          season_code: string;
+          season_name: string;
+          status: Database["public"]["Enums"]["season_status"];
+          start_date: string;
+          end_date: string;
+          color: string;
+          owner_id: string | null;
+          created_at: string;
+          updated_at: string;
+          deleted_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          season_code: string;
+          season_name: string;
+          status?: Database["public"]["Enums"]["season_status"];
+          start_date: string;
+          end_date: string;
+          color?: string;
+          owner_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          deleted_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          season_code?: string;
+          season_name?: string;
+          status?: Database["public"]["Enums"]["season_status"];
+          start_date?: string;
+          end_date?: string;
+          color?: string;
+          owner_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          deleted_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "seasons_owner_id_fkey";
+            columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -59,6 +109,7 @@ export type Database = {
     };
     Enums: {
       user_role: "admin" | "standard_user" | "viewer";
+      season_status: "planning" | "upcoming" | "active" | "completed";
     };
     CompositeTypes: Record<string, never>;
   };

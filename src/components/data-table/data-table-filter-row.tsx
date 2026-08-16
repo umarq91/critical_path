@@ -30,7 +30,8 @@ export const DataTableFilterRow = <TData extends Record<string, unknown>>({
         }
 
         if (variant === "select") {
-          const value = (column.getFilterValue() as string | undefined) ?? ALL_VALUE;
+          // Left undefined when unset — see the matching comment in data-table-toolbar.tsx.
+          const value = column.getFilterValue() as string | undefined;
           return (
             <TableCell key={header.id} className="py-1.5">
               <Select

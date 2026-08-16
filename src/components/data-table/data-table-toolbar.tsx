@@ -21,6 +21,8 @@ export interface DataTableToolbarFilter {
   columnId: string;
   title: string;
   options: DataTableFilterOption[];
+  /** Trigger placeholder when no value is selected. Defaults to `All {title}`. */
+  placeholder?: string;
 }
 
 export interface DataTableToolbarConfig {
@@ -48,71 +50,73 @@ export const DataTableToolbar = <TData extends Record<string, unknown>>({
   const searchColumn = searchColumnId ? table.getColumn(searchColumnId) : undefined;
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2">
-      <div className="flex flex-wrap items-center gap-2">
-        {filters?.map((filter) => {
-          const column = table.getColumn(filter.columnId);
-          if (!column) return null;
-          const value = (column.getFilterValue() as string | undefined) ?? ALL_VALUE;
+    <div className="flex flex-wrap items-center gap-2">
+      {searchColumn ? (
+        <Input
+          value={(searchColumn.getFilterValue() as string | undefined) ?? ""}
+          onChange={(event) => searchColumn.setFilterValue(event.target.value || undefined)}
+          placeholder={searchPlaceholder ?? "Search..."}
+          className="w-56"
+        />
+      ) : null}
+      {filters?.map((filter) => {
+        const column = table.getColumn(filter.columnId);
+        if (!column) return null;
+        // Deliberately left `undefined` (not defaulted to ALL_VALUE) when unset — Base UI's
+        // SelectValue only resolves a value to a label via SelectItems that have actually
+        // mounted, which doesn't happen until the popup opens once. A controlled value that
+        // never matches a mounted item falls back to printing the raw string, so passing
+        // ALL_VALUE by default would flash "__all__" on first render. Leaving it undefined
+        // lets the placeholder prop handle the unset state instead.
+        const value = column.getFilterValue() as string | undefined;
 
-          return (
-            <Select
-              key={filter.columnId}
-              value={value}
-              onValueChange={(next) => column.setFilterValue(next === ALL_VALUE ? undefined : next)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={`All ${filter.title}`} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL_VALUE}>All {filter.title}</SelectItem>
-                {filter.options.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          );
-        })}
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
-        {actions}
-        {searchColumn ? (
-          <Input
-            value={(searchColumn.getFilterValue() as string | undefined) ?? ""}
-            onChange={(event) => searchColumn.setFilterValue(event.target.value || undefined)}
-            placeholder={searchPlaceholder ?? "Search..."}
-            className="w-56"
-          />
-        ) : null}
-        {enableColumnVisibility ? (
-          <DropdownMenu>
-            <DropdownMenuTrigger className={cn(buttonVariants({ variant: "outline", size: "icon" }))}>
-              <Settings2 />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {table
-                .getAllLeafColumns()
-                .filter((column) => column.getCanHide())
-                .map((column) => {
-                  const meta = column.columnDef.meta as DataTableColumnMeta | undefined;
-                  return (
-                    <DropdownMenuCheckboxItem
-                      key={column.id}
-                      checked={column.getIsVisible()}
-                      onCheckedChange={(checked) => column.toggleVisibility(!!checked)}
-                    >
-                      {meta?.label ?? column.id}
-                    </DropdownMenuCheckboxItem>
-                  );
-                })}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ) : null}
-      </div>
+        return (
+          <Select
+            key={filter.columnId}
+            value={value}
+            onValueChange={(next) => column.setFilterValue(next === ALL_VALUE ? undefined : next)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder={filter.placeholder ?? `All ${filter.title}`} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_VALUE}>All {filter.title}</SelectItem>
+              {filter.options.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        );
+      })}
+      {actions}
+      {enableColumnVisibility ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger className={cn(buttonVariants({ variant: "outline", size: "icon" }))}>
+            <Settings2 />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {table
+              .getAllLeafColumns()
+              .filter((column) => column.getCanHide())
+              .map((column) => {
+                const meta = column.columnDef.meta as DataTableColumnMeta | undefined;
+                return (
+                  <DropdownMenuCheckboxItem
+                    key={column.id}
+                    checked={column.getIsVisible()}
+                    onCheckedChange={(checked) => column.toggleVisibility(!!checked)}
+                  >
+                    {meta?.label ?? column.id}
+                  </DropdownMenuCheckboxItem>
+                );
+              })}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : null}
     </div>
   );
 };

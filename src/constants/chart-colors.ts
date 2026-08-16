@@ -1,14 +1,6 @@
-// Mirrors --viz-1..7 / --viz-track in globals.css. Charting libraries (Recharts, etc.)
-// take raw color values in props, not Tailwind classes, so this is the JS-usable form of
-// the same tokens — keep both in sync with Design and color palette.md §3 if either changes.
-export const VIZ_COLORS = [
-  "#2B6EF6",
-  "#1FBF75",
-  "#F5A524",
-  "#F0463C",
-  "#14B8A6",
-  "#8B5CF6",
-  "#6366F1",
-] as const;
+// Plain hex mirrors of the --viz-* tokens in globals.css, for consumers that need color
+// values as props/data rather than Tailwind classes — Recharts series, <ColorField> swatches.
+// Keep in sync with globals.css if the palette changes.
+export const VIZ_COLORS = ["#2b6ef6", "#1fbf75", "#f5a524", "#f0463c", "#14b8a6", "#8b5cf6", "#6366f1"] as const;
 
-export const VIZ_TRACK_COLOR = "#E9ECF1";
+export const VIZ_TRACK_COLOR = "#e9ecf1";

@@ -1,7 +1,12 @@
 import "server-only";
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 
-export async function getCurrentProfile() {
+// cache() memoizes per-request — (app)/layout.tsx calls this for the auth guard/UserMenu,
+// and individual pages call it again for role checks (e.g. seasons/page.tsx's
+// canCreateSeason). Without this, that's two auth.getUser() + profile SELECT round trips
+// for the same data on every request.
+export const getCurrentProfile = cache(async () => {
   const supabase = await createClient();
   const {
     data: { user },
@@ -15,4 +20,4 @@ export async function getCurrentProfile() {
     .single();
 
   return profile;
-}
+});
