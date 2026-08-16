@@ -18,6 +18,7 @@ Server Actions instead. See `0003_seasons.sql` for the reference shape.
 |---|---|---|
 | `user_role` | `admin`, `standard_user`, `viewer` | `profiles.role` |
 | `season_status` | `planning`, `upcoming`, `active`, `completed` | `seasons.status` |
+| `brand_status` | `active`, `inactive` | `brands.status` |
 
 ## Helper functions
 
@@ -71,6 +72,25 @@ Server Actions instead. See `0003_seasons.sql` for the reference shape.
 
 **Deliberately not columns:** task count, brand count, completion %, owner count — all shown on the Seasons admin page but computed from `tasks` once that table exists, not stored here.
 
+### `brands`
+*Migration: `0005_brands.sql`. Stable brand identity tasks will reference (`tasks.brand_id`, not built yet).*
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid, PK | |
+| `brand_code` | text, unique | stable short code, e.g. `BR-A` |
+| `brand_name` | text | display name, e.g. `Brand A` |
+| `description` | text, nullable | |
+| `status` | `brand_status`, default `active` | |
+| `color` | text, default `#2b6ef6` | brand colour-coding, same pattern as `seasons.color` |
+| `season_id` | uuid, FK → `seasons.id`, not null | every brand belongs to exactly one season (confirmed requirement) |
+| `created_at` / `updated_at` | timestamptz | |
+| `deleted_at` | timestamptz, nullable | soft delete |
+
+**RLS:** any authenticated user reads; only admin writes — matches `brand.view` being granted to every role in `lib/permissions.ts`, while `brand.manage`/`brand.delete` stay admin-only (Brands has its own granular row on the client's Role-Based Access screen, unlike most other lookups which still fall under `admin.manage_lookups`).
+
+**Deliberately not a column:** brand's task count — shown on the admin Brands page but computed from `tasks` once that table exists, same reasoning as `seasons`.
+
 ---
 
 ## Migration log
@@ -80,7 +100,9 @@ Server Actions instead. See `0003_seasons.sql` for the reference shape.
 | `0001_profiles_roles.sql` | `user_role` enum (originally `admin`/`manager`/`viewer`), `profiles` table, `is_admin()`/`current_user_role()`, sign-up trigger, RLS. |
 | `0002_rename_role_manager_to_standard_user.sql` | Renames the `manager` enum value to `standard_user` in place (0001 was already applied when this was needed, so it's a follow-up rename, not an edit to 0001). |
 | `0003_seasons.sql` | `season_status` enum, `seasons` table, RLS. |
+| `0004_profiles_guard_allow_dashboard.sql` | Exempts direct Supabase Dashboard/SQL Editor connections (`postgres`/`supabase_admin` session roles) from the privileged-column guard on `profiles` — stopgap until a real admin-bootstrap flow exists. |
+| `0005_brands.sql` | `brand_status` enum, `brands` table (incl. required `season_id` FK → `seasons.id`), RLS. |
 
 ## Not built yet
 
-Brands, key stages, tasks, templates, holidays, leave, reminder rules, notifications log, sales toolkit links, audit log — see `plan.md` §4 for the original full sketch. Add each here as its migration lands.
+Key stages, tasks, templates, holidays, leave, reminder rules, notifications log, sales toolkit links, audit log — see `plan.md` §4 for the original full sketch. Add each here as its migration lands.

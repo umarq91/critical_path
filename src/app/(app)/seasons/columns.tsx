@@ -46,9 +46,8 @@ export function createSeasonColumns({ canManage, rowEditing, isSaving, onConfirm
       filterFn: "includesString",
     }),
     columnHelper.accessor("season_name", {
-      header: "Season Name",
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Season Name" />,
       meta: { label: "Season Name" },
-      enableSorting: false,
       cell: ({ row, getValue }) => (
         <EditableCell
           value={getValue()}

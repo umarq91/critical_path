@@ -10,7 +10,7 @@ export interface ListSeasonsParams {
   filters?: Record<string, string>;
 }
 
-const SORTABLE_COLUMNS = new Set(["season_code", "status", "start_date"]);
+const SORTABLE_COLUMNS = new Set(["season_code", "season_name", "status", "start_date"]);
 
 function isSeasonStatus(value: string | undefined): value is SeasonInput["status"] {
   return !!value && (seasonStatusValues as readonly string[]).includes(value);
@@ -96,6 +96,19 @@ export async function listUpcomingSeasons(limit = 4) {
     .eq("status", "upcoming")
     .order("start_date", { ascending: true })
     .limit(limit);
+  if (error) throw error;
+  return data ?? [];
+}
+
+// Options for pickers that link another entity to a season (e.g. the brand form's Season
+// select) — id/name/color only, every non-deleted season regardless of status.
+export async function listSeasonOptions() {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("seasons")
+    .select("id, season_name, color")
+    .is("deleted_at", null)
+    .order("season_name", { ascending: true });
   if (error) throw error;
   return data ?? [];
 }

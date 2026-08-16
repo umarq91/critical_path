@@ -85,6 +85,12 @@ export const SeasonsBoard = ({
               options: yearOptions.map((year) => ({ label: year, value: year })),
             },
           ],
+          sortOptions: [
+            { columnId: "season_name", desc: false, label: "Season Name (A-Z)" },
+            { columnId: "season_name", desc: true, label: "Season Name (Z-A)" },
+            { columnId: "start_date", desc: false, label: "Start Date (Earliest)" },
+            { columnId: "start_date", desc: true, label: "Start Date (Latest)" },
+          ],
           searchColumnId: "season_code",
           searchPlaceholder: "Search seasons...",
           // Brands aren't built yet — placeholder only, not wired to a real filter.

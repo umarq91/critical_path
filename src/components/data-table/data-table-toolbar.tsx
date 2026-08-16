@@ -25,14 +25,26 @@ export interface DataTableToolbarFilter {
   placeholder?: string;
 }
 
+export interface DataTableToolbarSortOption {
+  columnId: string;
+  desc: boolean;
+  label: string;
+}
+
 export interface DataTableToolbarConfig {
   filters?: DataTableToolbarFilter[];
   searchColumnId?: string;
   searchPlaceholder?: string;
+  /** A labeled alternative to clicking column headers — same sorting state either way. */
+  sortOptions?: DataTableToolbarSortOption[];
   actions?: ReactNode;
   enableColumnVisibility?: boolean;
-  /** Defaults to on whenever there's a search box or filters to reset. */
+  /** Defaults to on only once a search value or a filter is actually applied. */
   enableResetFilters?: boolean;
+}
+
+function encodeSortValue(option: DataTableToolbarSortOption) {
+  return `${option.columnId}:${option.desc ? "desc" : "asc"}`;
 }
 
 interface DataTableToolbarProps<TData extends Record<string, unknown>> extends DataTableToolbarConfig {
@@ -46,12 +58,20 @@ export const DataTableToolbar = <TData extends Record<string, unknown>>({
   filters,
   searchColumnId,
   searchPlaceholder,
+  sortOptions,
   actions,
-  enableColumnVisibility = true,
+  enableColumnVisibility = false,
   enableResetFilters,
 }: DataTableToolbarProps<TData>) => {
   const searchColumn = searchColumnId ? table.getColumn(searchColumnId) : undefined;
-  const showResetFilters = enableResetFilters ?? (!!searchColumn || !!filters?.length);
+  const hasSearchValue = !!(searchColumn?.getFilterValue() as string | undefined);
+  const hasFilterValue = !!filters?.some((filter) => table.getColumn(filter.columnId)?.getFilterValue() !== undefined);
+  const showResetFilters = enableResetFilters ?? (hasSearchValue || hasFilterValue);
+
+  const currentSort = table.options.state?.sorting?.[0];
+  const currentSortValue = currentSort
+    ? sortOptions?.find((option) => option.columnId === currentSort.id && option.desc === currentSort.desc)
+    : undefined;
 
   return (
     <div className="flex flex-wrap items-center gap-3">
@@ -99,6 +119,31 @@ export const DataTableToolbar = <TData extends Record<string, unknown>>({
           </Select>
         );
       })}
+      {sortOptions?.length ? (
+        <Select
+          value={currentSortValue ? encodeSortValue(currentSortValue) : ""}
+          onValueChange={(next) => {
+            const option = sortOptions.find((candidate) => encodeSortValue(candidate) === next);
+            if (option) table.setSorting([{ id: option.columnId, desc: option.desc }]);
+          }}
+        >
+          <SelectTrigger className="h-10">
+            <SelectValue>
+              {(current: string) =>
+                (current ? sortOptions.find((option) => encodeSortValue(option) === current)?.label : undefined) ??
+                "Sort by"
+              }
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {sortOptions.map((option) => (
+              <SelectItem key={encodeSortValue(option)} value={encodeSortValue(option)}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      ) : null}
       {actions}
       {showResetFilters ? (
         <Button variant="link" className="px-1 text-primary" onClick={() => table.resetColumnFilters()}>

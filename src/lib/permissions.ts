@@ -11,7 +11,7 @@ import { ROLE, type Role } from "@/constants/roles";
 // specific to gate. Lookup entities without their own row on that screen yet (seasons, key
 // stages, templates, holidays, leave, reminder rules) fall under admin.manage_lookups until
 // the client gives us a granular matrix for them the way they did for Brands.
-type Action =
+export type Action =
   | "profile.update_own"
   | "dashboard.view"
   | "dashboard.export_reports"

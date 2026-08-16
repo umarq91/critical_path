@@ -39,7 +39,15 @@ export const SelectField = <TFieldValues extends FieldValues>({
               fallback for the next form that doesn't. */}
           <Select value={field.value ?? ""} onValueChange={field.onChange}>
             <SelectTrigger className="w-full" aria-invalid={!!fieldState.error}>
-              <SelectValue placeholder={placeholder ?? `Select ${label.toLowerCase()}`} />
+              {/* children render-fn resolves the label ourselves instead of relying on
+                  SelectItem registration timing — see data-table-toolbar.tsx for the same
+                  fix; without it, an option whose SelectItem hasn't mounted yet prints its
+                  raw value (e.g. a season's uuid) instead of its label. */}
+              <SelectValue>
+                {(current: string) =>
+                  current ? (options.find((option) => option.value === current)?.label ?? current) : (placeholder ?? `Select ${label.toLowerCase()}`)
+                }
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {options.map((option) => (
