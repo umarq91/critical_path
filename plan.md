@@ -24,7 +24,7 @@ These are reasonable defaults so the plan can proceed — confirm or correct in 
 
 | Area | Assumption | Why it matters |
 |---|---|---|
-| Task locking / RBAC | 3 roles: **Admin** (full access, can lock/unlock, manage users/templates/holidays), **Manager** (create/edit/assign tasks, cannot lock/unlock, cannot manage users), **Viewer** (read-only, export only). Locked tasks block **due date edits only** for Manager/Viewer, per the client's own description; other fields (comments, status) remain editable unless client says otherwise. | Changes permission model and RLS policies significantly if wrong. |
+| Task locking / RBAC | **Confirmed** via the client's Role-Based Access screen — supersedes the earlier assumption below. 3 roles: **Administrator** (full access everywhere), **Standard User** (view/create/edit/assign tasks and events, comment, upload attachments; no delete, no bulk update, no lock/unlock, no user/lookup management, brands view-only), **Viewer** (view dashboard/tasks/calendar/brands only — no export, no writes anywhere). Locked tasks block **due date edits only** for Standard User; other fields remain editable. Full matrix lives in `src/lib/permissions.ts` (source of truth, not this table) — update both together if it changes. Superseded assumption, kept for history: originally "Viewer: read-only, **export only**" — the confirmed screen instead gives Viewer *no* export access and gives it to Standard User instead. | Changes permission model and RLS policies significantly if wrong. |
 | Email reminders | Automatic, cron-driven (not manual trigger) — confirmed by client's email. Default cadence: 7 days before due, on due date, and every 3 days while overdue, fully configurable per the "set by user" requirement. | Confirms architecture (scheduled job, not on-demand). |
 | Public holidays | Use a holiday API (candidates: Calendarific, Nager.Date) for AU, China, India, Türkiye. Admins can **also** manually add/override holidays (client didn't explicitly re-confirm this from our original question, but it's low-cost and avoids being stuck if the API misses a region-specific date). | Avoids a hard dependency on third-party API coverage. |
 | Google Workspace | Domain-wide delegated service account with Admin SDK Directory API read access to Groups, used both for SSO gating and for role sync. Group → role mapping (e.g. `cp-admins@threebyone.com.au` → Admin) to be confirmed with client in week 1. | Needs Workspace admin cooperation to provision — a lead-time risk, flagged in §8. |
@@ -67,7 +67,7 @@ These are reasonable defaults so the plan can proceed — confirm or correct in 
 Core tables (Postgres via Supabase migrations, RLS on every table):
 
 - `profiles` — mirrors `auth.users`, plus `role`, `google_group_id`, `department`
-- `roles` — admin / manager / viewer, seeded, not user-editable
+- `roles` — admin / standard_user / viewer, seeded, not user-editable
 - `seasons` — code, name, start/end date, status
 - `brands` — code, name, status
 - `key_stages` — ordered lookup list (Design Brief, Range Review, Range Development, Range Refinement, Range Finalisation, …) seeded from the reference screenshots, editable by Admin
@@ -134,7 +134,7 @@ Six weeks (~42 days), sitting inside the client's 30–45 day ask, assuming a 2�
 - Data encryption in transit (enforced by Vercel/Supabase TLS) and at rest (Supabase default) — confirm and document, not build.
 - Mobile responsiveness pass (desktop-first, but usable on mobile per scope).
 - RLS/permission test pass across all three roles.
-- **Demo**: full walkthrough as Admin, Manager, and Viewer roles.
+- **Demo**: full walkthrough as Administrator, Standard User, and Viewer roles.
 
 ### Week 6 — Hardening, UAT, launch
 - Bug fixing from client UAT.

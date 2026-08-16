@@ -58,7 +58,7 @@ export type Database = {
       };
     };
     Enums: {
-      user_role: "admin" | "manager" | "viewer";
+      user_role: "admin" | "standard_user" | "viewer";
     };
     CompositeTypes: Record<string, never>;
   };

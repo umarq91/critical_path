@@ -154,7 +154,7 @@ npx tsc --noEmit # Type check
 │   │
 │   ├── constants/
 │   │   ├── routes.ts                     # ROUTES, PROTECTED_PREFIXES, ADMIN_PREFIXES
-│   │   ├── roles.ts                      # ROLE.ADMIN | ROLE.MANAGER | ROLE.VIEWER
+│   │   ├── roles.ts                      # ROLE.ADMIN | ROLE.STANDARD_USER | ROLE.VIEWER
 │   │   ├── task-status.ts                # TASK_STATUS_CONFIG — consumed by <StatusBadge>, not a new component
 │   │   └── colors.ts                     # Shared colour palette tokens — consumed by <ColorTag> and <ColorField>
 │   │
@@ -344,21 +344,24 @@ One capability matrix, imported everywhere a permission decision is made — UI,
 
 ```ts
 // src/lib/permissions.ts
-export const ROLE = { ADMIN: 'admin', MANAGER: 'manager', VIEWER: 'viewer' } as const;
+export const ROLE = { ADMIN: 'admin', STANDARD_USER: 'standard_user', VIEWER: 'viewer' } as const;
 export type Role = (typeof ROLE)[keyof typeof ROLE];
 
+// Illustrative shape only — the real Action union and per-role allow-lists are the source
+// of truth in lib/permissions.ts and are derived from the client's Role-Based Access
+// screen, not this doc. Update both together if the matrix changes.
 type Action =
   | 'task.create' | 'task.update' | 'task.delete'
   | 'task.lock' | 'task.edit_due_date_when_locked'
-  | 'admin.manage_users' | 'admin.manage_holidays' | 'admin.manage_templates';
+  | 'admin.manage_users' | 'admin.manage_lookups';
 
-export function can(user: { role: Role }, action: Action, resource?: { is_locked?: boolean }): boolean {
-  if (user.role === ROLE.ADMIN) return true;
-  if (action === 'task.edit_due_date_when_locked') return !resource?.is_locked;
+export function can(role: Role, action: Action, resource?: { isLocked?: boolean }): boolean {
+  if (role === ROLE.ADMIN) return true;
+  if (action === 'task.edit_due_date_when_locked') return !resource?.isLocked;
   if (action.startsWith('admin.')) return false;
   if (action === 'task.lock') return false;
-  if (user.role === ROLE.VIEWER) return false;
-  return true; // manager: create/update/delete unlocked tasks
+  if (role === ROLE.VIEWER) return false;
+  return true; // standard_user: create/update unlocked tasks, no delete/lock/admin
 }
 ```
 

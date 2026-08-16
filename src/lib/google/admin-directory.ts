@@ -15,11 +15,11 @@ export async function resolveUserRole(email: string): Promise<Role | null> {
   if (!auth) return null;
 
   const groupRoleMap = getGroupRoleMap();
-  if (!groupRoleMap[ROLE.ADMIN] && !groupRoleMap[ROLE.MANAGER]) return null;
+  if (!groupRoleMap[ROLE.ADMIN] && !groupRoleMap[ROLE.STANDARD_USER]) return null;
 
   const directory = google.admin({ version: "directory_v1", auth });
 
-  for (const role of [ROLE.ADMIN, ROLE.MANAGER] as const) {
+  for (const role of [ROLE.ADMIN, ROLE.STANDARD_USER] as const) {
     const groupEmail = groupRoleMap[role];
     if (!groupEmail) continue;
     if (await isGroupMember(directory, groupEmail, email)) return role;
