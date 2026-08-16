@@ -135,11 +135,14 @@ export const DataTable = <TData extends Record<string, unknown>>({
     enableColumnFilterRow ??
     tableColumns.some((column) => (column.meta as DataTableColumnMeta | undefined)?.filterVariant);
   const rows = table.getRowModel().rows;
+  // Nothing to paginate when everything already fits on one page — a lone "1" button and
+  // a page-size select add noise, not utility.
+  const showPagination = table.getPageCount() > 1;
 
   return (
-    <Card>
+    <Card className="gap-5 py-6">
       {toolbar ? (
-        <div className="px-4">
+        <div className="px-6">
           <DataTableToolbar table={table} {...toolbar} />
         </div>
       ) : null}
@@ -148,7 +151,9 @@ export const DataTable = <TData extends Record<string, unknown>>({
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id} className="bg-muted/40 hover:bg-muted/40">
               {headerGroup.headers.map((header) => (
-                <TableHead key={header.id}>{header.isPlaceholder ? null : <FlexRender header={header} />}</TableHead>
+                <TableHead key={header.id} className="px-4 py-3.5">
+                  {header.isPlaceholder ? null : <FlexRender header={header} />}
+                </TableHead>
               ))}
             </TableRow>
           ))}
@@ -170,7 +175,7 @@ export const DataTable = <TData extends Record<string, unknown>>({
                 className={cn(onRowClick && "cursor-pointer", getRowClassName?.(row.original))}
               >
                 {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id}>
+                  <TableCell key={cell.id} className="px-4 py-3.5">
                     <FlexRender cell={cell} />
                   </TableCell>
                 ))}
@@ -179,9 +184,11 @@ export const DataTable = <TData extends Record<string, unknown>>({
           )}
         </TableBody>
       </Table>
-      <div className="px-4">
-        <DataTablePagination table={table} totalLabel={paginationLabel} pageSizeOptions={pageSizeOptions} />
-      </div>
+      {showPagination ? (
+        <div className="px-6">
+          <DataTablePagination table={table} totalLabel={paginationLabel} pageSizeOptions={pageSizeOptions} />
+        </div>
+      ) : null}
     </Card>
   );
 };

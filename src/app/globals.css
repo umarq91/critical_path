@@ -92,13 +92,14 @@
   --color-viz-7: var(--viz-7);
   --color-viz-track: var(--viz-track);
 
-  /* radius — fixed pixel scale per design doc §6, not proportional like shadcn's default */
-  --radius-xs: 6px;
-  --radius-sm: 8px;
-  --radius-md: 10px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
-  --radius-2xl: 20px;
+  /* radius — deliberately minimal, overriding design doc §6's larger scale per direct
+     instruction (flag back to the design doc owner if this needs to be reflected there too) */
+  --radius-xs: 2px;
+  --radius-sm: 2px;
+  --radius-md: 3px;
+  --radius-lg: 4px;
+  --radius-xl: 4px;
+  --radius-2xl: 6px;
 
   /* elevation per design doc §6 */
   --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05);
@@ -133,7 +134,7 @@
   --border-strong: #d0d5dd;
   --input: #d0d5dd;
   --ring: #2b6ef6;
-  --radius: 12px;
+  --radius: 4px;
 
   /* Inter is wired to --font-sans directly via next/font's `variable` option in
      src/app/layout.tsx. No webfont for mono — this app has no code/monospace UI. */

@@ -50,13 +50,13 @@ export const DataTableToolbar = <TData extends Record<string, unknown>>({
   const searchColumn = searchColumnId ? table.getColumn(searchColumnId) : undefined;
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-wrap items-center gap-3">
       {searchColumn ? (
         <Input
           value={(searchColumn.getFilterValue() as string | undefined) ?? ""}
           onChange={(event) => searchColumn.setFilterValue(event.target.value || undefined)}
           placeholder={searchPlaceholder ?? "Search..."}
-          className="w-56"
+          className="h-10 w-64"
         />
       ) : null}
       {filters?.map((filter) => {
@@ -76,7 +76,7 @@ export const DataTableToolbar = <TData extends Record<string, unknown>>({
             value={value}
             onValueChange={(next) => column.setFilterValue(next === ALL_VALUE ? undefined : next)}
           >
-            <SelectTrigger>
+            <SelectTrigger className="h-10">
               <SelectValue placeholder={filter.placeholder ?? `All ${filter.title}`} />
             </SelectTrigger>
             <SelectContent>

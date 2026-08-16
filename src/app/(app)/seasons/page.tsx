@@ -10,7 +10,7 @@ import { can } from "@/lib/permissions";
 
 export default async function SeasonsPage() {
   const [seasons, profile] = await Promise.all([listSeasons(), getCurrentProfile()]);
-  const canCreateSeason = !!profile && can(profile.role, "admin.manage_lookups");
+  const canManage = !!profile && can(profile.role, "admin.manage_lookups");
   const activeCount = seasons.filter((season) => season.status === "active").length;
   const upcomingCount = seasons.filter((season) => season.status === "upcoming").length;
   const completedCount = seasons.filter((season) => season.status === "completed").length;
@@ -20,7 +20,7 @@ export default async function SeasonsPage() {
       <PageHeader
         title="Seasons"
         description="Manage and organise all active and upcoming seasons."
-        action={<SeasonPageActions canCreateSeason={canCreateSeason} />}
+        action={<SeasonPageActions canCreateSeason={canManage} />}
       />
       <div className="flex flex-col gap-4 px-6 pb-6">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -54,7 +54,7 @@ export default async function SeasonsPage() {
           />
         </div>
 
-        <SeasonsBoard seasons={seasons} />
+        <SeasonsBoard seasons={seasons} canManage={canManage} />
 
         {/* Season Performance charts land here — reserved, not built yet. */}
         <div className="flex h-[340px] items-center justify-center rounded-xl border border-dashed border-border text-sm text-muted-foreground">
