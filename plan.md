@@ -12,7 +12,7 @@ Three sources define this project, and they don't all carry equal weight:
 
 1. **Original scope PDF** — the contract-level scope (hosting, auth, task management, calendar, dashboard, upcoming tasks + email, data integrations, security, code ownership, scalability).
 2. **Client's follow-up email** — confirmed additions layered on top of #1: extra task columns, CSV bulk upload, templates, task locking, season colour-coding, auto-complete on due date, Gantt filter by Key Stage, public holiday sync, leave upload, mandatory overdue email reminders, Sales Toolkit page, Google Groups user sync.
-3. **TBO Critical Path Integration API Spec (Databricks/Kong)** — **explicitly out of scope for this engagement.** The client's data engineer sent this so we understand what their side eventually expects, but per your confirmation, we are not building the Databricks/Kong integration API. Noted in §9. We will, however, shape the Postgres schema sensibly (proper `updated_at`, soft deletes, stable IDs) so that a future read API isn't a rebuild — that's good practice regardless, not scope.
+3. **TBO Critical Path Integration API Spec (Databricks/Kong)** — **explicitly out of scope for this engagement.** The client's data engineer sent this so we understand what their side eventually expects, but per your confirmation, we are not building the Databricks/Kong integration API. Noted in §8. We will, however, shape the Postgres schema sensibly (proper `updated_at`, soft deletes, stable IDs) so that a future read API isn't a rebuild — that's good practice regardless, not scope. Full spec transcribed at `docs/databricks-integration-api-spec.md` — hand this back to the client's data engineer once this project ships, so they can pick up the integration themselves.
 
 The three reference screenshots of the client's current Airtable-style tool ("TBO Range Critical Path – DPSP Workflow") are the best source of truth for what a "task" actually looks like in practice: Status, Deliverable (task name), **Stage** (= Key Stage), Owner, People (multiple), Working Timeline (start → end), Due date, and a DPSP category tag (Demand / Product / Sales / Profit). This maps directly onto the "Key Stages" column the client asked for, and confirms tasks are grouped by **Season** at the top level with sub-grouping by category.
 
@@ -83,6 +83,8 @@ Core tables (Postgres via Supabase migrations, RLS on every table):
 - `sales_toolkit_links` — label, url, sort_order, category
 
 This schema is a superset of what the core app needs but deliberately keeps `key_stage`, `updated_at`, soft-delete (`deleted_at`), and stable UUIDs consistent with the field names the client's Databricks spec used (`key_stage`, `season_code`, `brand_code`, etc.) — free future-proofing, not extra work now, since we'd want clean naming and soft deletes regardless.
+
+**Fields to design in from the start** so the tables in `docs/databricks-integration-api-spec.md` are a thin read-layer over this schema later, not a rebuild: `version` (int, incremented on every update — the spec's optimistic-concurrency/change-tracking field), `season_code`/`brand_code` as stable short codes distinct from their UUID `id`s, `blocked_status`, `priority`, `days_at_risk`/`days_late` (derivable, but the spec expects them materialized), `delay_reason_code` (FK to a `delay_reason_codes` table — not yet in this schema, add it), `is_milestone`/`milestone_flag`, `escalation_owner_name`, and keeping `planned_*` vs `working_timeline_*` vs `actual_*` date fields distinct rather than collapsing them to one `due_date`. None of this is scope now — just don't pick column names or a shape that would need renaming later.
 
 ---
 
@@ -168,5 +170,5 @@ Everything else in §5 is either contractually explicit in the original scope PD
 
 ## 8. Explicitly out of scope for this engagement
 
-- **TBO Critical Path Integration API Spec (Databricks/Kong)** — per your direction, this is not being built. The client's data engineer supplied it as their target shape for a *future* integration; nothing in this plan blocks that from being picked up later, but no endpoints, API-key/Kong auth, `task_history_snapshots`, or change-feed work is scheduled here.
+- **TBO Critical Path Integration API Spec (Databricks/Kong)** — per your direction, this is not being built. The client's data engineer supplied it as their target shape for a *future* integration; nothing in this plan blocks that from being picked up later, but no endpoints, API-key/Kong auth, `task_history_snapshots`, or change-feed work is scheduled here. Full spec kept at `docs/databricks-integration-api-spec.md` — deliverable back to the client's data engineer at project handoff, not something we build against.
 - **Employment Hero HR platform integration** — explicitly flagged by the client as "future phase" for leave sync.

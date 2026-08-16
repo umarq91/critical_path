@@ -17,4 +17,4 @@
 - Task-lock roles, reminder cadence, holiday manual-override — see `plan.md` §2 assumptions, need sign-off
 
 ## Not started
-- Databricks/Kong integration API — explicitly out of scope (see `plan.md` §8)
+- Databricks/Kong integration API — explicitly out of scope (see `plan.md` §8, spec at `docs/databricks-integration-api-spec.md`). Hand the spec doc back to the client's data engineer at project handoff.
