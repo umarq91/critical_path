@@ -30,8 +30,10 @@ export const DataTableFilterRow = <TData extends Record<string, unknown>>({
         }
 
         if (variant === "select") {
-          // Left undefined when unset — see the matching comment in data-table-toolbar.tsx.
-          const value = column.getFilterValue() as string | undefined;
+          // Always defined — see the matching comment in data-table-toolbar.tsx (undefined on
+          // first render then a real string later trips Base UI's controlled-state warning).
+          const value = (column.getFilterValue() as string | undefined) ?? ALL_VALUE;
+          const allLabel = meta?.filterPlaceholder ?? "All";
           return (
             <TableCell key={header.id} className="py-1.5">
               <Select
@@ -39,10 +41,16 @@ export const DataTableFilterRow = <TData extends Record<string, unknown>>({
                 onValueChange={(next) => column.setFilterValue(next === ALL_VALUE ? undefined : next)}
               >
                 <SelectTrigger className="h-8 w-full">
-                  <SelectValue placeholder={meta?.filterPlaceholder ?? "Select"} />
+                  <SelectValue>
+                    {(current: string) =>
+                      current === ALL_VALUE
+                        ? allLabel
+                        : (meta?.filterOptions?.find((option) => option.value === current)?.label ?? current)
+                    }
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={ALL_VALUE}>{meta?.filterPlaceholder ?? "All"}</SelectItem>
+                  <SelectItem value={ALL_VALUE}>{allLabel}</SelectItem>
                   {meta?.filterOptions?.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
                       {option.label}

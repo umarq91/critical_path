@@ -66,13 +66,14 @@ export const DataTableToolbar = <TData extends Record<string, unknown>>({
       {filters?.map((filter) => {
         const column = table.getColumn(filter.columnId);
         if (!column) return null;
-        // Deliberately left `undefined` (not defaulted to ALL_VALUE) when unset — Base UI's
-        // SelectValue only resolves a value to a label via SelectItems that have actually
-        // mounted, which doesn't happen until the popup opens once. A controlled value that
-        // never matches a mounted item falls back to printing the raw string, so passing
-        // ALL_VALUE by default would flash "__all__" on first render. Leaving it undefined
-        // lets the placeholder prop handle the unset state instead.
-        const value = column.getFilterValue() as string | undefined;
+        // Always defined (never undefined) — a Select's controlled/uncontrolled nature is
+        // fixed on first render, so flipping value between undefined and a real string
+        // across renders trips Base UI's controlled-state warning. The `children` render-fn
+        // on SelectValue (not the `placeholder` prop) supplies the "All X" label instead,
+        // since relying on SelectItem registration for that label is what caused the
+        // earlier "__all__" flash — this renders it ourselves regardless of registry timing.
+        const value = (column.getFilterValue() as string | undefined) ?? ALL_VALUE;
+        const allLabel = filter.placeholder ?? `All ${filter.title}`;
 
         return (
           <Select
@@ -81,10 +82,14 @@ export const DataTableToolbar = <TData extends Record<string, unknown>>({
             onValueChange={(next) => column.setFilterValue(next === ALL_VALUE ? undefined : next)}
           >
             <SelectTrigger className="h-10">
-              <SelectValue placeholder={filter.placeholder ?? `All ${filter.title}`} />
+              <SelectValue>
+                {(current: string) =>
+                  current === ALL_VALUE ? allLabel : (filter.options.find((option) => option.value === current)?.label ?? current)
+                }
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL_VALUE}>All {filter.title}</SelectItem>
+              <SelectItem value={ALL_VALUE}>{allLabel}</SelectItem>
               {filter.options.map((option) => (
                 <SelectItem key={option.value} value={option.value}>
                   {option.label}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, type ReactNode } from "react";
+import { Loader2 } from "lucide-react";
 import { FlexRender, useTable } from "@tanstack/react-table";
 import type {
   ColumnDef,
@@ -138,6 +139,10 @@ export const DataTable = <TData extends Record<string, unknown>>({
   // Nothing to paginate when everything already fits on one page — a lone "1" button and
   // a page-size select add noise, not utility.
   const showPagination = table.getPageCount() > 1;
+  // True while a filter/sort/page change's server round trip is in flight — nuqs wraps that
+  // navigation in a transition, so the old rows stay mounted (no loading.tsx flash); this is
+  // the lighter-weight "something's updating" treatment for that window instead of nothing.
+  const isPending = queryState?.isPending ?? false;
 
   return (
     <Card className="gap-5 py-6">
@@ -146,44 +151,51 @@ export const DataTable = <TData extends Record<string, unknown>>({
           <DataTableToolbar table={table} {...toolbar} />
         </div>
       ) : null}
-      <Table>
-        <TableHeader>
-          {table.getHeaderGroups().map((headerGroup) => (
-            <TableRow key={headerGroup.id} className="bg-muted/40 hover:bg-muted/40">
-              {headerGroup.headers.map((header) => (
-                <TableHead key={header.id} className="px-4 py-3.5">
-                  {header.isPlaceholder ? null : <FlexRender header={header} />}
-                </TableHead>
-              ))}
-            </TableRow>
-          ))}
-          {showFilterRow ? <DataTableFilterRow table={table} /> : null}
-        </TableHeader>
-        <TableBody>
-          {rows.length === 0 ? (
-            <TableRow className="hover:bg-transparent">
-              <TableCell colSpan={tableColumns.length} className="p-0">
-                {emptyState ?? <EmptyState title="No results" description="Nothing matches the current filters." />}
-              </TableCell>
-            </TableRow>
-          ) : (
-            rows.map((row) => (
-              <TableRow
-                key={row.id}
-                data-state={row.getIsSelected() ? "selected" : undefined}
-                onClick={onRowClick ? () => onRowClick(row.original) : undefined}
-                className={cn(onRowClick && "cursor-pointer", getRowClassName?.(row.original))}
-              >
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id} className="px-4 py-3.5">
-                    <FlexRender cell={cell} />
-                  </TableCell>
+      <div className="relative">
+        <Table className={cn("transition-opacity", isPending && "pointer-events-none opacity-50")}>
+          <TableHeader>
+            {table.getHeaderGroups().map((headerGroup) => (
+              <TableRow key={headerGroup.id} className="bg-muted/40 hover:bg-muted/40">
+                {headerGroup.headers.map((header) => (
+                  <TableHead key={header.id} className="px-4 py-3.5">
+                    {header.isPlaceholder ? null : <FlexRender header={header} />}
+                  </TableHead>
                 ))}
               </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
+            ))}
+            {showFilterRow ? <DataTableFilterRow table={table} /> : null}
+          </TableHeader>
+          <TableBody>
+            {rows.length === 0 ? (
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={tableColumns.length} className="p-0">
+                  {emptyState ?? <EmptyState title="No results" description="Nothing matches the current filters." />}
+                </TableCell>
+              </TableRow>
+            ) : (
+              rows.map((row) => (
+                <TableRow
+                  key={row.id}
+                  data-state={row.getIsSelected() ? "selected" : undefined}
+                  onClick={onRowClick ? () => onRowClick(row.original) : undefined}
+                  className={cn(onRowClick && "cursor-pointer", getRowClassName?.(row.original))}
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id} className="px-4 py-3.5">
+                      <FlexRender cell={cell} />
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+        {isPending ? (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Loader2 className="size-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : null}
+      </div>
       {showPagination ? (
         <div className="px-6">
           <DataTablePagination table={table} totalLabel={paginationLabel} pageSizeOptions={pageSizeOptions} />

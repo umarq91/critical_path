@@ -33,7 +33,11 @@ export const SelectField = <TFieldValues extends FieldValues>({
       render={({ field, fieldState }) => (
         <FormItem>
           <FormLabel>{label}</FormLabel>
-          <Select value={field.value ?? undefined} onValueChange={field.onChange}>
+          {/* Always a defined string, never undefined — see data-table-toolbar.tsx for why an
+              undefined-then-defined value trips Base UI's controlled-state warning. In
+              practice every form here sets a real defaultValue, so this is a defensive
+              fallback for the next form that doesn't. */}
+          <Select value={field.value ?? ""} onValueChange={field.onChange}>
             <SelectTrigger className="w-full" aria-invalid={!!fieldState.error}>
               <SelectValue placeholder={placeholder ?? `Select ${label.toLowerCase()}`} />
             </SelectTrigger>

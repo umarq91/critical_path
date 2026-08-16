@@ -126,11 +126,24 @@ npx tsc --noEmit # Type check
 │   │   │   ├── google-logo.tsx           # Multi-colour "G" mark — svg has no lucide equivalent
 │   │   │   └── critical-path-logo.tsx    # Wraps lucide's Asterisk — used by sidebar header + auth panel
 │   │   ├── data-table/                   # Generic list-view engine — every table in the app is an instance
-│   │   │   ├── data-table.tsx            # <DataTable columns data /> — @tanstack/react-table + shadcn <Table>
+│   │   │   ├── data-table.tsx            # <DataTable columns data /> — @tanstack/react-table + shadcn <Table>.
+│   │   │   │                             #   Pass queryState + rowCount and it runs in manual (server-paginated)
+│   │   │   │                             #   mode — every real list does; local/uncontrolled mode is for
+│   │   │   │                             #   genuinely small, unpaginated admin lookups only.
 │   │   │   ├── data-table-toolbar.tsx    # Renders filter controls FROM a config array — see below
 │   │   │   ├── data-table-pagination.tsx
 │   │   │   ├── data-table-column-header.tsx  # Sortable header cell, one impl for every column everywhere
-│   │   │   └── use-data-table-query-state.ts # nuqs-backed sort/filter/page state, opt-in per table
+│   │   │   ├── data-table-search-params.ts   # ONE nuqs parser definition (page/pageSize/sortBy/sortDir/filters)
+│   │   │   │                             #   shared by the client hook below AND Server Components — imports
+│   │   │   │                             #   from "nuqs/server" (never bare "nuqs") since it's evaluated in
+│   │   │   │                             #   both worlds and the main "nuqs" entry is a "use client" module.
+│   │   │   ├── use-data-table-query-state.ts # Client hook wrapping the above in useQueryStates — required for
+│   │   │   │                             #   every server-paginated table, not opt-in. See "Data flow" rules.
+│   │   │   │                             #   Exposes `isPending` (via nuqs's startTransition option) — DataTable
+│   │   │   │                             #   reads it to dim + spin during a filter/sort/page round trip.
+│   │   │   ├── data-table-skeleton.tsx   # loading.tsx placeholder — configurable columnCount/rowCount/filterCount
+│   │   │   └── use-row-editing.ts        # editingId + draft state for the pencil/tick inline-edit flow, generic
+│   │   │                                 #   across tables — pairs with shared/editable-cell.tsx + row-edit-toggle.tsx
 │   │   ├── form-fields/                  # Generic react-hook-form + shadcn field wrappers — one impl per input TYPE,
 │   │   │   ├── text-field.tsx            #   not per entity. task-form, season-form, holiday-form etc. all compose these.
 │   │   │   ├── select-field.tsx
@@ -150,7 +163,14 @@ npx tsc --noEmit # Type check
 │   │       ├── filter-bar.tsx            # Thin shell around <DataTableToolbar>, kept for non-table filter UIs
 │   │       │                             #   (calendar/timeline date-range + season/brand pickers)
 │   │       ├── page-header.tsx           # Title + description + action-slot, used by every module's page.tsx
-│   │       └── empty-state.tsx
+│   │       ├── empty-state.tsx
+│   │       ├── stat-card.tsx             # Icon + label + value + description — dashboard tiles, Seasons'
+│   │       │                             #   Total/Active/Upcoming/Completed row, reused wherever
+│   │       ├── stat-card-skeleton.tsx    # Matching loading.tsx placeholder — same layout, no shifting on swap-in
+│   │       ├── editable-cell.tsx         # Controlled inline-edit cell (text/select/date) — driven by a row's
+│   │       │                             #   pencil/tick toggle, not per-cell click; see row-edit-toggle.tsx
+│   │       └── row-edit-toggle.tsx       # Pencil ⇄ tick row-level edit toggle, paired with
+│   │                                     #   data-table/use-row-editing.ts
 │   │
 │   ├── constants/
 │   │   ├── routes.ts                     # ROUTES, PROTECTED_PREFIXES, ADMIN_PREFIXES
@@ -262,31 +282,52 @@ npx tsc --noEmit # Type check
 - **Always re-check `auth.getUser()` and role inside every Server Action** via `lib/permissions.ts`. The proxy and RLS are defense in depth, not the only checks.
 - **Never expose `SUPABASE_SERVICE_ROLE_KEY` to the client.** It's used only in `lib/supabase/admin.ts`, imported only by Route Handlers (cron, export) that need to bypass RLS for system-level reads/writes — never by Server Actions serving a single user's request, which always use the per-user `server.ts` client so RLS applies.
 - **Locking is enforced in three places that must stay consistent**: RLS policy on `tasks.due_date` updates, `lib/permissions.ts` check inside `updateTask`, and the disabled state on the due-date field in `task-form.tsx`. If you change the lock rule, update all three.
+- **Every `DataTable`-backed list paginates, filters, and sorts server-side — never fetch-all-then-slice client-side, and never keep that state in `useState`.** This is not optional per table; it's the only supported shape. Concretely, for a new `data/<domain>.ts` list function:
+  - Its query function takes `{ page, pageSize, sortBy, sortDir, filters }` (see `ListSeasonsParams` in `data/seasons.ts`), applies each filter as a real Postgrest clause (`.ilike`/`.eq`/date-range, never a client-side `.filter()`), and returns `{ data, rowCount }` using `.range()` + `{ count: 'exact' }` — `data` is one page, never the whole table.
+  - The page (`page.tsx`) is a Server Component that parses `searchParams` via `loadDataTableSearchParams` (`components/data-table/data-table-search-params.ts`) and passes the result straight into the list function — this is the same parser definition the client hook uses, so server and client can't drift apart.
+  - The board/table Client Component calls `useDataTableQueryState()` and passes `queryState` + the real `rowCount` into `<DataTable>`, which then runs in manual mode (trusts `data` as already paginated/filtered/sorted — see `data-table.tsx`'s `queryState` prop).
+  - Anything that needs the *whole* dataset regardless of the current page — stat-card counts, filter-dropdown options (e.g. distinct owners), a "date range" summary widget — is its **own** separate, narrow-column query (see `listSeasonSummary`/`listUpcomingSeasons` in `data/seasons.ts`), never derived from the paginated result.
+  - `seasons` (schema + `data/seasons.ts` + `seasons/page.tsx` + `seasons/seasons-board.tsx`) is the reference implementation — copy its shape for `tasks`, `brands`, etc. rather than re-deriving it.
+- **Every route with an async Server Component page gets a sibling `loading.tsx`** — not optional, same as the pagination rule above. Build it from `components/shared/stat-card-skeleton.tsx` and `components/data-table/data-table-skeleton.tsx` (pass roughly the real page's `columnCount`/`filterCount`/`rowCount` so nothing shifts when real content swaps in) rather than a generic spinner. `seasons/loading.tsx` is the reference.
+  - This only covers the *first* navigation to the route (Next.js keeps existing content mounted during the `startTransition`-wrapped searchParams updates `useDataTableQueryState` makes, so `loading.tsx` doesn't re-fire on every filter click — that's deliberate, not a bug). For that in-page case, `useDataTableQueryState()` exposes `isPending` (via nuqs's `startTransition` option — omitting that option makes `isPending` permanently `false`), which `DataTable` already reads to dim the table and show a small spinner during the round trip. Don't rebuild this per page; it's automatic once `queryState` is passed to `DataTable`.
 
-### Example — read (the "one query function per concern" pattern)
+### Example — read (the "one query function per concern" pattern, server-paginated)
 
 ```ts
 // src/data/tasks.ts
 import 'server-only';
 import { createClient } from '@/lib/supabase/server';
-import type { TaskFilters } from '@/schemas/task';
 
-export async function listTasks(filters: TaskFilters = {}) {
+export interface ListTasksParams {
+  page?: number;
+  pageSize?: number;
+  sortBy?: string;
+  sortDir?: string;
+  filters?: Record<string, string>; // e.g. { seasonId, status, dueBefore }
+}
+
+export async function listTasks({ page = 1, pageSize = 10, sortBy, sortDir, filters = {} }: ListTasksParams = {}) {
   const supabase = await createClient();
-  let query = supabase.from('tasks').select('*, season:seasons(*), key_stage:key_stages(*)');
+  let query = supabase
+    .from('tasks')
+    .select('*, season:seasons(*), key_stage:key_stages(*)', { count: 'exact' });
 
   if (filters.seasonId) query = query.eq('season_id', filters.seasonId);
   if (filters.status) query = query.eq('status', filters.status);
   if (filters.dueBefore) query = query.lte('due_date', filters.dueBefore);
 
-  const { data, error } = await query.order('due_date', { ascending: true });
+  query = query.order(sortBy ?? 'due_date', { ascending: sortDir !== 'desc' });
+  const from = (page - 1) * pageSize;
+  const { data, error, count } = await query.range(from, from + pageSize - 1);
   if (error) throw error;
-  return data ?? [];
+  return { data: data ?? [], rowCount: count ?? 0 };
 }
 
-export function listUpcomingTasks(withinDays: number) {
-  const dueBefore = new Date(Date.now() + withinDays * 86_400_000).toISOString();
-  return listTasks({ dueBefore, status: 'in_progress' });
+// A "preset" wrapper still returns the same { data, rowCount } paginated shape — it's not
+// exempt from pagination just because its filters are fixed instead of user-chosen.
+export function listUpcomingTasks(params: Omit<ListTasksParams, 'filters'> = {}) {
+  const dueBefore = new Date(Date.now() + 7 * 86_400_000).toISOString();
+  return listTasks({ ...params, filters: { status: 'in_progress', dueBefore } });
 }
 ```
 
