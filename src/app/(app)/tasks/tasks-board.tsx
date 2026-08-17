@@ -1,0 +1,108 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import { toast } from "sonner";
+import { DataTable } from "@/components/data-table/data-table";
+import { useDataTableQueryState } from "@/components/data-table/use-data-table-query-state";
+import { useRowEditing } from "@/components/data-table/use-row-editing";
+import { createTaskColumns } from "@/app/(app)/tasks/columns";
+import { updateTask } from "@/app/(app)/tasks/_actions";
+import { TASK_STATUS_CONFIG } from "@/constants/task-status";
+import { TASK_GENDER_CONFIG } from "@/constants/task-gender";
+import type { Task } from "@/data/tasks";
+import type { DataTableFilterOption } from "@/components/data-table/table-features";
+
+interface TasksBoardProps {
+  tasks: Task[];
+  rowCount: number;
+  canManage: boolean;
+  canDelete: boolean;
+  seasonOptions: DataTableFilterOption[];
+  brandOptions: DataTableFilterOption[];
+  assigneeOptions: DataTableFilterOption[];
+}
+
+export const TasksBoard = ({
+  tasks,
+  rowCount,
+  canManage,
+  canDelete,
+  seasonOptions,
+  brandOptions,
+  assigneeOptions,
+}: TasksBoardProps) => {
+  const queryState = useDataTableQueryState({ defaultPageSize: 15, defaultSort: { id: "due_date", desc: false } });
+  const rowEditing = useRowEditing();
+  const [isSaving, setIsSaving] = useState(false);
+
+  async function handleConfirmEdit(task: Task) {
+    setIsSaving(true);
+    const result = await updateTask(task.id, rowEditing.draft);
+    setIsSaving(false);
+
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
+    }
+    toast.success(`${task.task_name} updated`);
+    rowEditing.stopEditing();
+  }
+
+  const taskColumns = useMemo(
+    () =>
+      createTaskColumns({
+        canManage,
+        canDelete,
+        rowEditing,
+        isSaving,
+        onConfirmEdit: handleConfirmEdit,
+        seasonOptions,
+        brandOptions,
+        assigneeOptions,
+      }),
+    // rowEditing's methods are stable across renders (from useState setters); only its
+    // values (editingId/draft) actually need to trigger a column rebuild.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [canManage, canDelete, rowEditing.editingId, rowEditing.draft, isSaving, seasonOptions, brandOptions, assigneeOptions]
+  );
+
+  return (
+    <DataTable
+      columns={taskColumns}
+      data={tasks}
+      queryState={queryState}
+      rowCount={rowCount}
+      enableRowSelection
+      enableColumnFilterRow={false}
+      paginationLabel="tasks"
+      getRowClassName={(task) => (task.status === "overdue" ? "bg-status-overdue-soft/40" : undefined)}
+      toolbar={{
+        filters: [
+          { columnId: "season_id", title: "Season", placeholder: "All Seasons", options: seasonOptions },
+          { columnId: "brand_id", title: "Brand", placeholder: "All Brands", options: brandOptions },
+          {
+            columnId: "gender",
+            title: "Gender",
+            placeholder: "All Genders",
+            options: Object.entries(TASK_GENDER_CONFIG).map(([value, { label }]) => ({ value, label })),
+          },
+          {
+            columnId: "status",
+            title: "Status",
+            placeholder: "All Status",
+            options: Object.entries(TASK_STATUS_CONFIG).map(([value, { label }]) => ({ value, label })),
+          },
+          { columnId: "assignee_id", title: "Owner", placeholder: "All Owners", options: assigneeOptions },
+        ],
+        sortOptions: [
+          { columnId: "task_name", desc: false, label: "Task Name (A-Z)" },
+          { columnId: "task_name", desc: true, label: "Task Name (Z-A)" },
+          { columnId: "due_date", desc: false, label: "Due Date (Earliest)" },
+          { columnId: "due_date", desc: true, label: "Due Date (Latest)" },
+        ],
+        searchColumnId: "task_name",
+        searchPlaceholder: "Search in tasks...",
+      }}
+    />
+  );
+};

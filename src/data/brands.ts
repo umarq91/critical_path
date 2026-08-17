@@ -61,3 +61,17 @@ export async function listBrandSummary() {
 
   return { total: rows.length, statusCounts, addedThisYear };
 }
+
+// Options for pickers that link another entity to a brand (e.g. the task form/filters) —
+// id/name only, every non-deleted, active brand.
+export async function listBrandOptions() {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("brands")
+    .select("id, brand_name")
+    .is("deleted_at", null)
+    .eq("status", "active")
+    .order("brand_name", { ascending: true });
+  if (error) throw error;
+  return data ?? [];
+}

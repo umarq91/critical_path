@@ -21,3 +21,17 @@ export const getCurrentProfile = cache(async () => {
 
   return profile;
 });
+
+// Options for pickers that assign another entity to a person (e.g. the task form's
+// Owner/Assignee select, the task grid's Owner filter) — every active profile, not just
+// people already assigned to something.
+export async function listAssignableProfiles() {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id, full_name, email, avatar_url")
+    .eq("status", "active")
+    .order("full_name", { ascending: true });
+  if (error) throw error;
+  return data ?? [];
+}

@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ROLE_LABEL, type Role } from "@/constants/roles";
 import { signOut } from "@/app/auth/_actions";
+import { initials } from "@/lib/utils";
 
 type Profile = {
   full_name: string | null;
@@ -20,15 +21,6 @@ type Profile = {
   avatar_url: string | null;
   role: Role;
 };
-
-function initials(name: string | null, email: string) {
-  const source = name?.trim() || email;
-  return source
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join("");
-}
 
 export function UserMenu({ profile }: { profile: Profile }) {
   return (

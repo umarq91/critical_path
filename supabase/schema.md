@@ -10,6 +10,11 @@ user), one `for all` policy gating writes to `admin` via `is_admin()`. Kept deli
 simple — no per-field/per-row RLS logic; that nuance lives in `lib/permissions.ts` +
 Server Actions instead. See `0003_seasons.sql` for the reference shape.
 
+`tasks` is the one exception: its write matrix genuinely isn't admin-only (`standard_user`
+creates/edits tasks too, per `lib/permissions.ts`), so it has separate insert/update/delete
+policies keyed off `current_user_role()` instead of the single `is_admin()`-gated `for all`
+policy — see `0006_tasks.sql`.
+
 ---
 
 ## Enums
@@ -19,6 +24,8 @@ Server Actions instead. See `0003_seasons.sql` for the reference shape.
 | `user_role` | `admin`, `standard_user`, `viewer` | `profiles.role` |
 | `season_status` | `planning`, `upcoming`, `active`, `completed` | `seasons.status` |
 | `brand_status` | `active`, `inactive` | `brands.status` |
+| `task_gender` | `men`, `women`, `unisex` | `tasks.gender` |
+| `task_status` | `not_started`, `in_progress`, `completed`, `overdue` | `tasks.status` |
 
 ## Helper functions
 
@@ -73,7 +80,7 @@ Server Actions instead. See `0003_seasons.sql` for the reference shape.
 **Deliberately not columns:** task count, brand count, completion %, owner count — all shown on the Seasons admin page but computed from `tasks` once that table exists, not stored here.
 
 ### `brands`
-*Migration: `0005_brands.sql`. Stable brand identity tasks will reference (`tasks.brand_id`, not built yet).*
+*Migration: `0005_brands.sql`. Stable brand identity referenced by `tasks.brand_id`.*
 
 | Column | Type | Notes |
 |---|---|---|
@@ -91,6 +98,27 @@ Server Actions instead. See `0003_seasons.sql` for the reference shape.
 
 **Deliberately not a column:** brand's task count — shown on the admin Brands page but computed from `tasks` once that table exists, same reasoning as `seasons`.
 
+### `tasks`
+*Migration: `0006_tasks.sql`. The core entity — spreadsheet grid, calendar, Gantt/Timeline, and dashboards all read from this table.*
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid, PK | |
+| `task_name` | text | |
+| `season_id` | uuid, FK → `seasons.id`, not null | |
+| `brand_id` | uuid, FK → `brands.id`, not null | |
+| `gender` | `task_gender`, not null | `men` \| `women` \| `unisex` |
+| `due_date` | date, not null | |
+| `assignee_id` | uuid, FK → `profiles.id`, nullable, `on delete set null` | "Owner / Assignee" — one combined field, not the two separate `owner`/`assignee` columns `plan.md`'s original sketch had; collapsed to match the confirmed UI (one column) and current scope |
+| `status` | `task_status`, default `not_started` | `not_started` \| `in_progress` \| `completed` \| `overdue` |
+| `notes` | text, nullable | the UI's "Comments" column — a single free-text field on the task, not a separate `task_comments` table |
+| `created_at` / `updated_at` | timestamptz | |
+| `deleted_at` | timestamptz, nullable | soft delete |
+
+**Deliberately not columns (this pass):** `key_stage_id` (Key Stages skipped for now — see "Not built yet" below), attachments (explicitly deferred), `is_locked`/`locked_by`/`locked_at` (locking is a distinct not-yet-requested feature — add alongside that work, not preemptively).
+
+**RLS — the one table that isn't the simple admin-only-write pattern:** any authenticated user reads (`task.view` is granted to every role). Insert/update require `standard_user` or `admin` (`current_user_role() in ('standard_user', 'admin')`), matching `task.create`/`task.update` in `lib/permissions.ts`. Delete stays admin-only (`task.delete` isn't in `STANDARD_USER_ALLOWED`).
+
 ---
 
 ## Migration log
@@ -102,9 +130,10 @@ Server Actions instead. See `0003_seasons.sql` for the reference shape.
 | `0003_seasons.sql` | `season_status` enum, `seasons` table, RLS. |
 | `0004_profiles_guard_allow_dashboard.sql` | Exempts direct Supabase Dashboard/SQL Editor connections (`postgres`/`supabase_admin` session roles) from the privileged-column guard on `profiles` — stopgap until a real admin-bootstrap flow exists. |
 | `0005_brands.sql` | `brand_status` enum, `brands` table (incl. required `season_id` FK → `seasons.id`), RLS. |
+| `0006_tasks.sql` | `task_gender`/`task_status` enums, `tasks` table (FKs to `seasons`, `brands`, `profiles`), RLS with a non-admin-only write matrix. Also carries an idempotent guard that re-runs `0002`'s `manager` → `standard_user` enum rename if that migration was never applied on this database. |
 
 ## Not built yet
 
-Tasks, templates, holidays, leave, reminder rules, notifications log, sales toolkit links, audit log — see `plan.md` §4 for the original full sketch. Add each here as its migration lands.
+Templates, holidays, leave, reminder rules, notifications log, sales toolkit links, audit log — see `plan.md` §4 for the original full sketch. Add each here as its migration lands.
 
 **Key stages — skipped for now, build only if necessary.** `tasks.key_stage_id` can ship nullable and Timeline/Gantt grouping can fall back to "no stage" until this is actually needed; revisit once real task data shows whether the client is using Stage in practice.

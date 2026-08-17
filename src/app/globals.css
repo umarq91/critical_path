@@ -82,6 +82,17 @@
   --color-prio-low: var(--prio-low);
   --color-prio-low-soft: var(--prio-low-soft);
 
+  /* task gender — base/soft/text triad per value, same shape as task status */
+  --color-gender-men-base: var(--gender-men-base);
+  --color-gender-men-soft: var(--gender-men-soft);
+  --color-gender-men-text: var(--gender-men-text);
+  --color-gender-women-base: var(--gender-women-base);
+  --color-gender-women-soft: var(--gender-women-soft);
+  --color-gender-women-text: var(--gender-women-text);
+  --color-gender-unisex-base: var(--gender-unisex-base);
+  --color-gender-unisex-soft: var(--gender-unisex-soft);
+  --color-gender-unisex-text: var(--gender-unisex-text);
+
   /* data visualization — fixed order, see §3 of the design doc */
   --color-viz-1: var(--viz-1);
   --color-viz-2: var(--viz-2);
@@ -168,6 +179,18 @@
   --prio-med-soft: #fef3e2;
   --prio-low: #2b6ef6;
   --prio-low-soft: #eaf1ff;
+
+  /* task gender — men reuses the primary blue (matches the Season pill's blue), women is a
+     new pink token (no equivalent existed anywhere else in the palette), unisex reuses viz-6 */
+  --gender-men-base: #2b6ef6;
+  --gender-men-soft: #eaf1ff;
+  --gender-men-text: #1d54db;
+  --gender-women-base: #db2777;
+  --gender-women-soft: #fce7f3;
+  --gender-women-text: #be185d;
+  --gender-unisex-base: #8b5cf6;
+  --gender-unisex-soft: #f3effe;
+  --gender-unisex-text: #6d28d9;
 
   --viz-1: #2b6ef6;
   --viz-2: #1fbf75;

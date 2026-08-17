@@ -1,5 +1,66 @@
 import { PageHeader } from "@/components/shared/page-header";
+import { TaskPageActions } from "@/app/(app)/tasks/task-page-actions";
+import { TasksBoard } from "@/app/(app)/tasks/tasks-board";
+import { listTasks } from "@/data/tasks";
+import { listSeasonOptions } from "@/data/seasons";
+import { listBrandOptions } from "@/data/brands";
+import { listAssignableProfiles, getCurrentProfile } from "@/data/profiles";
+import { can } from "@/lib/permissions";
+import { loadDataTableSearchParams } from "@/components/data-table/data-table-search-params";
 
-export default function TasksPage() {
-  return <PageHeader title="Tasks" description="Coming soon." />;
+const QUERY_STATE_OPTIONS = { defaultPageSize: 15, defaultSort: { id: "due_date", desc: false } };
+
+export default async function TasksPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const queryState = await loadDataTableSearchParams(searchParams, QUERY_STATE_OPTIONS);
+
+  const [{ data: tasks, rowCount }, seasons, brands, profiles, profile] = await Promise.all([
+    listTasks(queryState),
+    listSeasonOptions(),
+    listBrandOptions(),
+    listAssignableProfiles(),
+    getCurrentProfile(),
+  ]);
+
+  const canCreateTask = !!profile && can(profile.role, "task.create");
+  const canManage = !!profile && can(profile.role, "task.update");
+  const canDelete = !!profile && can(profile.role, "task.delete");
+
+  const seasonOptions = seasons.map((season) => ({ value: season.id, label: season.season_name }));
+  const brandOptions = brands.map((brand) => ({ value: brand.id, label: brand.brand_name }));
+  const assigneeOptions = profiles.map((assignee) => ({
+    value: assignee.id,
+    label: assignee.full_name ?? assignee.email,
+  }));
+
+  return (
+    <div className="flex flex-col">
+      <PageHeader
+        title="Task Management"
+        description="Manage and track all tasks across seasons, brands and teams"
+        action={
+          <TaskPageActions
+            canCreateTask={canCreateTask}
+            seasonOptions={seasonOptions}
+            brandOptions={brandOptions}
+            assigneeOptions={assigneeOptions}
+          />
+        }
+      />
+      <div className="flex flex-col gap-4 px-6 pb-6">
+        <TasksBoard
+          tasks={tasks}
+          rowCount={rowCount}
+          canManage={canManage}
+          canDelete={canDelete}
+          seasonOptions={seasonOptions}
+          brandOptions={brandOptions}
+          assigneeOptions={assigneeOptions}
+        />
+      </div>
+    </div>
+  );
 }

@@ -143,6 +143,73 @@ export type Database = {
           },
         ];
       };
+      tasks: {
+        Row: {
+          id: string;
+          task_name: string;
+          season_id: string;
+          brand_id: string;
+          gender: Database["public"]["Enums"]["task_gender"];
+          due_date: string;
+          assignee_id: string | null;
+          status: Database["public"]["Enums"]["task_status"];
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+          deleted_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          task_name: string;
+          season_id: string;
+          brand_id: string;
+          gender: Database["public"]["Enums"]["task_gender"];
+          due_date: string;
+          assignee_id?: string | null;
+          status?: Database["public"]["Enums"]["task_status"];
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          deleted_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          task_name?: string;
+          season_id?: string;
+          brand_id?: string;
+          gender?: Database["public"]["Enums"]["task_gender"];
+          due_date?: string;
+          assignee_id?: string | null;
+          status?: Database["public"]["Enums"]["task_status"];
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          deleted_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "tasks_season_id_fkey";
+            columns: ["season_id"];
+            isOneToOne: false;
+            referencedRelation: "seasons";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "tasks_brand_id_fkey";
+            columns: ["brand_id"];
+            isOneToOne: false;
+            referencedRelation: "brands";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "tasks_assignee_id_fkey";
+            columns: ["assignee_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -159,6 +226,8 @@ export type Database = {
       user_role: "admin" | "standard_user" | "viewer";
       season_status: "planning" | "upcoming" | "active" | "completed";
       brand_status: "active" | "inactive";
+      task_gender: "men" | "women" | "unisex";
+      task_status: "not_started" | "in_progress" | "completed" | "overdue";
     };
     CompositeTypes: Record<string, never>;
   };
