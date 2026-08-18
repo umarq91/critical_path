@@ -112,10 +112,19 @@ policy — see `0006_tasks.sql`.
 | `assignee_id` | uuid, FK → `profiles.id`, nullable, `on delete set null` | "Owner / Assignee" — one combined field, not the two separate `owner`/`assignee` columns `plan.md`'s original sketch had; collapsed to match the confirmed UI (one column) and current scope |
 | `status` | `task_status`, default `not_started` | `not_started` \| `in_progress` \| `completed` \| `overdue` |
 | `notes` | text, nullable | the UI's "Comments" column — a single free-text field on the task, not a separate `task_comments` table |
+| `start_date` | date, nullable | working-timeline start, for the future Gantt/Timeline view |
+| `end_date` | date, nullable | expected finish date; `check (end_date >= start_date)` |
+| `created_by` | uuid, FK → `profiles.id`, nullable, `on delete set null` | stamped by `createTask`, never client input |
+| `last_edited_by` | uuid, FK → `profiles.id`, nullable, `on delete set null` | stamped by `createTask`/`updateTask` on every write |
+| `deleted_by` | uuid, FK → `profiles.id`, nullable, `on delete set null` | stamped by `deleteTask` alongside `deleted_at` |
+| `is_locked` | boolean, default `false` | column only — no enforcement yet, see below |
+| `locked_by` / `locked_at` | uuid FK → `profiles.id` / timestamptz, nullable | columns only — no enforcement yet, see below |
 | `created_at` / `updated_at` | timestamptz | |
 | `deleted_at` | timestamptz, nullable | soft delete |
 
-**Deliberately not columns (this pass):** `key_stage_id` (Key Stages skipped for now — see "Not built yet" below), attachments (explicitly deferred), `is_locked`/`locked_by`/`locked_at` (locking is a distinct not-yet-requested feature — add alongside that work, not preemptively).
+**Deliberately not columns (this pass):** `key_stage_id` (Key Stages skipped for now — see "Not built yet" below), attachments (explicitly deferred).
+
+**Locking — columns exist, behavior doesn't yet.** `is_locked`/`locked_by`/`locked_at` were added in `0007_tasks_tracking_and_timeline.sql` alongside the other tracking columns, but nothing sets or enforces them yet (no toggle action, no RLS restriction, no disabled-field UI). `lib/permissions.ts` already has `task.lock`/`task.edit_due_date_when_locked` actions reserved for when that follow-up lands.
 
 **RLS — the one table that isn't the simple admin-only-write pattern:** any authenticated user reads (`task.view` is granted to every role). Insert/update require `standard_user` or `admin` (`current_user_role() in ('standard_user', 'admin')`), matching `task.create`/`task.update` in `lib/permissions.ts`. Delete stays admin-only (`task.delete` isn't in `STANDARD_USER_ALLOWED`).
 
@@ -131,6 +140,7 @@ policy — see `0006_tasks.sql`.
 | `0004_profiles_guard_allow_dashboard.sql` | Exempts direct Supabase Dashboard/SQL Editor connections (`postgres`/`supabase_admin` session roles) from the privileged-column guard on `profiles` — stopgap until a real admin-bootstrap flow exists. |
 | `0005_brands.sql` | `brand_status` enum, `brands` table (incl. required `season_id` FK → `seasons.id`), RLS. |
 | `0006_tasks.sql` | `task_gender`/`task_status` enums, `tasks` table (FKs to `seasons`, `brands`, `profiles`), RLS with a non-admin-only write matrix. Also carries an idempotent guard that re-runs `0002`'s `manager` → `standard_user` enum rename if that migration was never applied on this database. |
+| `0007_tasks_tracking_and_timeline.sql` | Adds `created_by`/`last_edited_by`/`deleted_by` (who-did-what tracking), `is_locked`/`locked_by`/`locked_at` (columns only, no enforcement yet), and `start_date`/`end_date` (working timeline) to `tasks`. |
 
 ## Not built yet
 

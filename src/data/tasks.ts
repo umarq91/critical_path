@@ -27,7 +27,7 @@ export async function listTasks({ page = 1, pageSize = 15, sortBy, sortDir, filt
   let query = supabase
     .from("tasks")
     .select(
-      "*, season:seasons(id, season_code, season_name, color), brand:brands(id, brand_name), assignee:profiles(id, full_name, email, avatar_url)",
+      `*, season:seasons(id, season_code, season_name, color), brand:brands(id, brand_name), assignee:profiles!tasks_assignee_id_fkey(id, full_name, email, avatar_url), created_by_profile:profiles!tasks_created_by_fkey(id, full_name, email, avatar_url), last_edited_by_profile:profiles!tasks_last_edited_by_fkey(id, full_name, email, avatar_url)`,
       { count: "exact" }
     )
     .is("deleted_at", null);

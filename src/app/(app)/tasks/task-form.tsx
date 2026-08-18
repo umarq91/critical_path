@@ -33,6 +33,8 @@ export const TaskForm = ({ onSuccess, seasonOptions, brandOptions, assigneeOptio
       brand_id: brandOptions[0]?.value ?? "",
       gender: "unisex",
       due_date: "",
+      start_date: "",
+      end_date: "",
       assignee_id: assigneeOptions[0]?.value ?? "",
       status: "not_started",
       notes: "",
@@ -67,6 +69,8 @@ export const TaskForm = ({ onSuccess, seasonOptions, brandOptions, assigneeOptio
           options={taskGenderValues.map((value) => ({ value, label: TASK_GENDER_CONFIG[value].label }))}
         />
         <DateField control={form.control} name="due_date" label="Due Date" />
+        <DateField control={form.control} name="start_date" label="Start Date" />
+        <DateField control={form.control} name="end_date" label="Expected Finish Date" />
         <SelectField control={form.control} name="assignee_id" label="Owner / Assignee" options={assigneeOptions} />
         <SelectField
           control={form.control}

@@ -151,9 +151,17 @@ export type Database = {
           brand_id: string;
           gender: Database["public"]["Enums"]["task_gender"];
           due_date: string;
+          start_date: string | null;
+          end_date: string | null;
           assignee_id: string | null;
           status: Database["public"]["Enums"]["task_status"];
           notes: string | null;
+          created_by: string | null;
+          last_edited_by: string | null;
+          deleted_by: string | null;
+          is_locked: boolean;
+          locked_by: string | null;
+          locked_at: string | null;
           created_at: string;
           updated_at: string;
           deleted_at: string | null;
@@ -165,9 +173,17 @@ export type Database = {
           brand_id: string;
           gender: Database["public"]["Enums"]["task_gender"];
           due_date: string;
+          start_date?: string | null;
+          end_date?: string | null;
           assignee_id?: string | null;
           status?: Database["public"]["Enums"]["task_status"];
           notes?: string | null;
+          created_by?: string | null;
+          last_edited_by?: string | null;
+          deleted_by?: string | null;
+          is_locked?: boolean;
+          locked_by?: string | null;
+          locked_at?: string | null;
           created_at?: string;
           updated_at?: string;
           deleted_at?: string | null;
@@ -179,9 +195,17 @@ export type Database = {
           brand_id?: string;
           gender?: Database["public"]["Enums"]["task_gender"];
           due_date?: string;
+          start_date?: string | null;
+          end_date?: string | null;
           assignee_id?: string | null;
           status?: Database["public"]["Enums"]["task_status"];
           notes?: string | null;
+          created_by?: string | null;
+          last_edited_by?: string | null;
+          deleted_by?: string | null;
+          is_locked?: boolean;
+          locked_by?: string | null;
+          locked_at?: string | null;
           created_at?: string;
           updated_at?: string;
           deleted_at?: string | null;
@@ -204,6 +228,34 @@ export type Database = {
           {
             foreignKeyName: "tasks_assignee_id_fkey";
             columns: ["assignee_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "tasks_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "tasks_last_edited_by_fkey";
+            columns: ["last_edited_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "tasks_deleted_by_fkey";
+            columns: ["deleted_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "tasks_locked_by_fkey";
+            columns: ["locked_by"];
             isOneToOne: false;
             referencedRelation: "profiles";
             referencedColumns: ["id"];

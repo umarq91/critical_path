@@ -23,7 +23,7 @@ const STATUS_OPTIONS = Object.entries(TASK_STATUS_CONFIG).map(([value, { label }
 const GENDER_OPTIONS = Object.entries(TASK_GENDER_CONFIG).map(([value, { label }]) => ({ value, label }));
 const EDITABLE_FIELDS = ["task_name", "season_id", "brand_id", "gender", "due_date", "assignee_id", "status", "notes"] as const;
 
-function formatDate(value: string) {
+export function formatDate(value: string) {
   return new Date(value).toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" });
 }
 
