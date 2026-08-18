@@ -30,6 +30,14 @@ export async function GET(request: Request) {
 
   if (!user.email.toLowerCase().endsWith(`@${publicEnv.NEXT_PUBLIC_GOOGLE_WORKSPACE_DOMAIN}`)) {
     await supabase.auth.signOut();
+    // exchangeCodeForSession above already created the auth.users row (and, via
+    // on_auth_user_created, a profiles row with status 'active') before this domain check
+    // ever ran. Left alone, that stray profile shows up in every owner/assignee picker —
+    // listAssignableProfiles() filters on status, not domain — even though this person can
+    // never sign back in. Delete it now; profiles.id has `on delete cascade` (migration
+    // 0001) so one call clears both rows.
+    const admin = createAdminClient();
+    await admin.auth.admin.deleteUser(user.id);
     return NextResponse.redirect(new URL(`${ROUTES.signIn}?error=domain`, url.origin));
   }
 
