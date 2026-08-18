@@ -4,6 +4,13 @@ import { revalidatePath } from "next/cache";
 import { requirePermission } from "@/lib/require-permission";
 import { taskSchema, taskUpdateSchema } from "@/app/(app)/tasks/schema";
 
+// The form/inline-edit selects submit "none" as their "no key stage" sentinel (see
+// task-form.tsx / tasks/columns.tsx), never "" — normalise that (and any other falsy value)
+// to null before it hits the FK column.
+function normaliseKeyStageId(value: string | undefined): string | null {
+  return value && value !== "none" ? value : null;
+}
+
 export async function createTask(input: unknown) {
   const auth = await requirePermission("task.create");
   if (!auth.ok) return auth;
@@ -13,7 +20,12 @@ export async function createTask(input: unknown) {
 
   const { data, error } = await auth.supabase
     .from("tasks")
-    .insert({ ...parsed.data, created_by: auth.userId, last_edited_by: auth.userId })
+    .insert({
+      ...parsed.data,
+      key_stage_id: normaliseKeyStageId(parsed.data.key_stage_id),
+      created_by: auth.userId,
+      last_edited_by: auth.userId,
+    })
     .select()
     .single();
   if (error) return { ok: false as const, error: error.message };
@@ -29,9 +41,16 @@ export async function updateTask(id: string, patch: unknown) {
   const parsed = taskUpdateSchema.safeParse(patch);
   if (!parsed.success) return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid input" };
 
+  // Only normalise key_stage_id when this patch actually touches it — it's optional, so an
+  // unrelated field edit (e.g. inline-editing task_name) mustn't clear an existing selection.
+  const updateData =
+    "key_stage_id" in parsed.data
+      ? { ...parsed.data, key_stage_id: normaliseKeyStageId(parsed.data.key_stage_id) }
+      : parsed.data;
+
   const { error } = await auth.supabase
     .from("tasks")
-    .update({ ...parsed.data, last_edited_by: auth.userId })
+    .update({ ...updateData, last_edited_by: auth.userId })
     .eq("id", id);
   if (error) return { ok: false as const, error: error.message };
 

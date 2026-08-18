@@ -1,5 +1,6 @@
 // Hand-authored to match `supabase/migrations/0001_profiles_roles.sql`, `0003_seasons.sql`,
-// and `0005_brands.sql`.
+// `0005_brands.sql`, `0006_tasks.sql`, `0007_tasks_tracking_and_timeline.sql`, and
+// `0008_key_stages.sql`.
 // Regenerate after every migration: `supabase gen types typescript --linked > src/types/supabase.ts`
 
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
@@ -143,12 +144,40 @@ export type Database = {
           },
         ];
       };
+      key_stages: {
+        Row: {
+          id: string;
+          name: string;
+          description: string | null;
+          created_at: string;
+          updated_at: string;
+          deleted_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          description?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          deleted_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          description?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          deleted_at?: string | null;
+        };
+        Relationships: [];
+      };
       tasks: {
         Row: {
           id: string;
           task_name: string;
           season_id: string;
           brand_id: string;
+          key_stage_id: string | null;
           gender: Database["public"]["Enums"]["task_gender"];
           due_date: string;
           start_date: string | null;
@@ -171,6 +200,7 @@ export type Database = {
           task_name: string;
           season_id: string;
           brand_id: string;
+          key_stage_id?: string | null;
           gender: Database["public"]["Enums"]["task_gender"];
           due_date: string;
           start_date?: string | null;
@@ -193,6 +223,7 @@ export type Database = {
           task_name?: string;
           season_id?: string;
           brand_id?: string;
+          key_stage_id?: string | null;
           gender?: Database["public"]["Enums"]["task_gender"];
           due_date?: string;
           start_date?: string | null;
@@ -223,6 +254,13 @@ export type Database = {
             columns: ["brand_id"];
             isOneToOne: false;
             referencedRelation: "brands";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "tasks_key_stage_id_fkey";
+            columns: ["key_stage_id"];
+            isOneToOne: false;
+            referencedRelation: "key_stages";
             referencedColumns: ["id"];
           },
           {

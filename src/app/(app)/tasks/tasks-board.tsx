@@ -20,6 +20,7 @@ interface TasksBoardProps {
   canDelete: boolean;
   seasonOptions: DataTableFilterOption[];
   brandOptions: DataTableFilterOption[];
+  keyStageOptions: DataTableFilterOption[];
   assigneeOptions: DataTableFilterOption[];
 }
 
@@ -30,6 +31,7 @@ export const TasksBoard = ({
   canDelete,
   seasonOptions,
   brandOptions,
+  keyStageOptions,
   assigneeOptions,
 }: TasksBoardProps) => {
   const queryState = useDataTableQueryState({ defaultPageSize: 15, defaultSort: { id: "due_date", desc: false } });
@@ -60,12 +62,23 @@ export const TasksBoard = ({
         onConfirmEdit: handleConfirmEdit,
         seasonOptions,
         brandOptions,
+        keyStageOptions,
         assigneeOptions,
       }),
     // rowEditing's methods are stable across renders (from useState setters); only its
     // values (editingId/draft) actually need to trigger a column rebuild.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [canManage, canDelete, rowEditing.editingId, rowEditing.draft, isSaving, seasonOptions, brandOptions, assigneeOptions]
+    [
+      canManage,
+      canDelete,
+      rowEditing.editingId,
+      rowEditing.draft,
+      isSaving,
+      seasonOptions,
+      brandOptions,
+      keyStageOptions,
+      assigneeOptions,
+    ]
   );
 
   return (
@@ -86,6 +99,7 @@ export const TasksBoard = ({
           filters: [
             { columnId: "season_id", title: "Season", placeholder: "All Seasons", options: seasonOptions },
             { columnId: "brand_id", title: "Brand", placeholder: "All Brands", options: brandOptions },
+            { columnId: "key_stage_id", title: "Key Stage", placeholder: "All Key Stages", options: keyStageOptions },
             {
               columnId: "gender",
               title: "Gender",

@@ -17,6 +17,7 @@ export const PROTECTED_PREFIXES = [
   "/timeline",
   "/brands",
   "/seasons",
+  "/key-stages",
   "/reports",
   "/sales-toolkit",
   "/management",

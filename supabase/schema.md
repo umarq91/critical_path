@@ -98,6 +98,19 @@ policy — see `0006_tasks.sql`.
 
 **Deliberately not a column:** brand's task count — shown on the admin Brands page but computed from `tasks` once that table exists, same reasoning as `seasons`.
 
+### `key_stages`
+*Migration: `0008_key_stages.sql`. Lightweight lookup entity tasks can optionally be grouped under (e.g. for Timeline/Gantt row grouping). Deliberately minimal: no status/color/season link like brands/seasons.*
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid, PK | |
+| `name` | text | |
+| `description` | text, nullable | |
+| `created_at` / `updated_at` | timestamptz | |
+| `deleted_at` | timestamptz, nullable | soft delete |
+
+**RLS:** any authenticated user reads; only admin writes — falls under the general `admin.manage_lookups` bucket in `lib/permissions.ts`, same as `seasons` (no dedicated `key_stage.*` row on the client's Role-Based Access screen).
+
 ### `tasks`
 *Migration: `0006_tasks.sql`. The core entity — spreadsheet grid, calendar, Gantt/Timeline, and dashboards all read from this table.*
 
@@ -107,6 +120,7 @@ policy — see `0006_tasks.sql`.
 | `task_name` | text | |
 | `season_id` | uuid, FK → `seasons.id`, not null | |
 | `brand_id` | uuid, FK → `brands.id`, not null | |
+| `key_stage_id` | uuid, FK → `key_stages.id`, nullable, `on delete set null` | optional — a task isn't required to belong to a key stage |
 | `gender` | `task_gender`, not null | `men` \| `women` \| `unisex` |
 | `due_date` | date, not null | |
 | `assignee_id` | uuid, FK → `profiles.id`, nullable, `on delete set null` | "Owner / Assignee" — one combined field, not the two separate `owner`/`assignee` columns `plan.md`'s original sketch had; collapsed to match the confirmed UI (one column) and current scope |
@@ -122,7 +136,7 @@ policy — see `0006_tasks.sql`.
 | `created_at` / `updated_at` | timestamptz | |
 | `deleted_at` | timestamptz, nullable | soft delete |
 
-**Deliberately not columns (this pass):** `key_stage_id` (Key Stages skipped for now — see "Not built yet" below), attachments (explicitly deferred).
+**Deliberately not columns (this pass):** attachments (explicitly deferred).
 
 **Locking — columns exist, behavior doesn't yet.** `is_locked`/`locked_by`/`locked_at` were added in `0007_tasks_tracking_and_timeline.sql` alongside the other tracking columns, but nothing sets or enforces them yet (no toggle action, no RLS restriction, no disabled-field UI). `lib/permissions.ts` already has `task.lock`/`task.edit_due_date_when_locked` actions reserved for when that follow-up lands.
 
@@ -141,9 +155,8 @@ policy — see `0006_tasks.sql`.
 | `0005_brands.sql` | `brand_status` enum, `brands` table (incl. required `season_id` FK → `seasons.id`), RLS. |
 | `0006_tasks.sql` | `task_gender`/`task_status` enums, `tasks` table (FKs to `seasons`, `brands`, `profiles`), RLS with a non-admin-only write matrix. Also carries an idempotent guard that re-runs `0002`'s `manager` → `standard_user` enum rename if that migration was never applied on this database. |
 | `0007_tasks_tracking_and_timeline.sql` | Adds `created_by`/`last_edited_by`/`deleted_by` (who-did-what tracking), `is_locked`/`locked_by`/`locked_at` (columns only, no enforcement yet), and `start_date`/`end_date` (working timeline) to `tasks`. |
+| `0008_key_stages.sql` | `key_stages` table (name + description only), RLS, and `tasks.key_stage_id` (nullable FK, `on delete set null`). |
 
 ## Not built yet
 
 Templates, holidays, leave, reminder rules, notifications log, sales toolkit links, audit log — see `plan.md` §4 for the original full sketch. Add each here as its migration lands.
-
-**Key stages — skipped for now, build only if necessary.** `tasks.key_stage_id` can ship nullable and Timeline/Gantt grouping can fall back to "no stage" until this is actually needed; revisit once real task data shows whether the client is using Stage in practice.

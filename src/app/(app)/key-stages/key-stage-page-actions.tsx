@@ -10,25 +10,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { FormDialog } from "@/components/shared/form-dialog";
-import { TaskForm } from "@/app/(app)/tasks/task-form";
+import { KeyStageForm } from "@/app/(app)/key-stages/key-stage-form";
 import { cn } from "@/lib/utils";
-import type { DataTableFilterOption } from "@/components/data-table/table-features";
 
-interface TaskPageActionsProps {
-  canCreateTask: boolean;
-  seasonOptions: DataTableFilterOption[];
-  brandOptions: DataTableFilterOption[];
-  keyStageOptions: DataTableFilterOption[];
-  assigneeOptions: DataTableFilterOption[];
-}
-
-export const TaskPageActions = ({
-  canCreateTask,
-  seasonOptions,
-  brandOptions,
-  keyStageOptions,
-  assigneeOptions,
-}: TaskPageActionsProps) => {
+export const KeyStagePageActions = ({ canCreateKeyStage }: { canCreateKeyStage: boolean }) => {
   const [open, setOpen] = useState(false);
 
   return (
@@ -43,26 +28,20 @@ export const TaskPageActions = ({
           <DropdownMenuItem>Export as PDF</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      {canCreateTask ? (
+      {canCreateKeyStage ? (
         <FormDialog
-          title="Add New Task"
-          description="Create a new task to track."
+          title="Add Key Stage"
+          description="Create a new key stage tasks can be grouped under."
           open={open}
           onOpenChange={setOpen}
           trigger={
             <Button>
               <Plus />
-              Add New Task
+              Add Key Stage
             </Button>
           }
         >
-          <TaskForm
-            onSuccess={() => setOpen(false)}
-            seasonOptions={seasonOptions}
-            brandOptions={brandOptions}
-            keyStageOptions={keyStageOptions}
-            assigneeOptions={assigneeOptions}
-          />
+          <KeyStageForm onSuccess={() => setOpen(false)} />
         </FormDialog>
       ) : null}
     </>

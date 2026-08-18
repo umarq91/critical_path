@@ -27,7 +27,7 @@ export async function listTasks({ page = 1, pageSize = 15, sortBy, sortDir, filt
   let query = supabase
     .from("tasks")
     .select(
-      `*, season:seasons(id, season_code, season_name, color), brand:brands(id, brand_name), assignee:profiles!tasks_assignee_id_fkey(id, full_name, email, avatar_url), created_by_profile:profiles!tasks_created_by_fkey(id, full_name, email, avatar_url), last_edited_by_profile:profiles!tasks_last_edited_by_fkey(id, full_name, email, avatar_url)`,
+      `*, season:seasons(id, season_code, season_name, color), brand:brands(id, brand_name), key_stage:key_stages(id, name), assignee:profiles!tasks_assignee_id_fkey(id, full_name, email, avatar_url), created_by_profile:profiles!tasks_created_by_fkey(id, full_name, email, avatar_url), last_edited_by_profile:profiles!tasks_last_edited_by_fkey(id, full_name, email, avatar_url)`,
       { count: "exact" }
     )
     .is("deleted_at", null);
@@ -35,6 +35,7 @@ export async function listTasks({ page = 1, pageSize = 15, sortBy, sortDir, filt
   if (filters.task_name) query = query.ilike("task_name", `%${filters.task_name}%`);
   if (filters.season_id) query = query.eq("season_id", filters.season_id);
   if (filters.brand_id) query = query.eq("brand_id", filters.brand_id);
+  if (filters.key_stage_id) query = query.eq("key_stage_id", filters.key_stage_id);
   if (isTaskGender(filters.gender)) query = query.eq("gender", filters.gender);
   if (isTaskStatus(filters.status)) query = query.eq("status", filters.status);
   if (filters.assignee_id) query = query.eq("assignee_id", filters.assignee_id);

@@ -20,10 +20,11 @@ interface TaskFormProps {
   onSuccess: () => void;
   seasonOptions: DataTableFilterOption[];
   brandOptions: DataTableFilterOption[];
+  keyStageOptions: DataTableFilterOption[];
   assigneeOptions: DataTableFilterOption[];
 }
 
-export const TaskForm = ({ onSuccess, seasonOptions, brandOptions, assigneeOptions }: TaskFormProps) => {
+export const TaskForm = ({ onSuccess, seasonOptions, brandOptions, keyStageOptions, assigneeOptions }: TaskFormProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const form = useForm<TaskInput>({
     resolver: zodResolver(taskSchema),
@@ -31,6 +32,7 @@ export const TaskForm = ({ onSuccess, seasonOptions, brandOptions, assigneeOptio
       task_name: "",
       season_id: seasonOptions[0]?.value ?? "",
       brand_id: brandOptions[0]?.value ?? "",
+      key_stage_id: "none",
       gender: "unisex",
       due_date: "",
       start_date: "",
@@ -62,6 +64,13 @@ export const TaskForm = ({ onSuccess, seasonOptions, brandOptions, assigneeOptio
         <TextField control={form.control} name="task_name" label="Task Name" placeholder="Creative Direction & Range Formation" />
         <SelectField control={form.control} name="season_id" label="Season" options={seasonOptions} />
         <SelectField control={form.control} name="brand_id" label="Brand" options={brandOptions} />
+        <SelectField
+          control={form.control}
+          name="key_stage_id"
+          label="Key Stage"
+          placeholder="No key stage"
+          options={[{ value: "none", label: "No key stage" }, ...keyStageOptions]}
+        />
         <SelectField
           control={form.control}
           name="gender"

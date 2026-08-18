@@ -21,7 +21,17 @@ const columnHelper = createColumnHelper<typeof dataTableFeatures, Task>();
 
 const STATUS_OPTIONS = Object.entries(TASK_STATUS_CONFIG).map(([value, { label }]) => ({ value, label }));
 const GENDER_OPTIONS = Object.entries(TASK_GENDER_CONFIG).map(([value, { label }]) => ({ value, label }));
-const EDITABLE_FIELDS = ["task_name", "season_id", "brand_id", "gender", "due_date", "assignee_id", "status", "notes"] as const;
+const EDITABLE_FIELDS = [
+  "task_name",
+  "season_id",
+  "brand_id",
+  "key_stage_id",
+  "gender",
+  "due_date",
+  "assignee_id",
+  "status",
+  "notes",
+] as const;
 
 export function formatDate(value: string) {
   return new Date(value).toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" });
@@ -35,6 +45,7 @@ interface CreateTaskColumnsOptions {
   onConfirmEdit: (task: Task) => void;
   seasonOptions: DataTableFilterOption[];
   brandOptions: DataTableFilterOption[];
+  keyStageOptions: DataTableFilterOption[];
   assigneeOptions: DataTableFilterOption[];
 }
 
@@ -46,8 +57,16 @@ export function createTaskColumns({
   onConfirmEdit,
   seasonOptions,
   brandOptions,
+  keyStageOptions,
   assigneeOptions,
 }: CreateTaskColumnsOptions) {
+  // The inline-edit select needs an explicit "not set" choice since key_stage_id is
+  // optional — the filter dropdown (passed separately by tasks-board.tsx) doesn't need one.
+  // Sentinel is "none", not "" — EditableCell's Select ignores onValueChange when the new
+  // value is falsy (its guard against Base UI firing a spurious empty value on close), so an
+  // empty-string option would be unselectable; "none" is normalised back to null in _actions.ts.
+  const keyStageEditOptions = [{ value: "none", label: "No key stage" }, ...keyStageOptions];
+
   return [
     columnHelper.accessor("task_name", {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Task Name" />,
@@ -93,6 +112,22 @@ export function createTaskColumns({
           isEditing={rowEditing.isEditing(row.original.id)}
           draftValue={rowEditing.draft.brand_id}
           onDraftChange={(next) => rowEditing.setDraftField("brand_id", next)}
+        />
+      ),
+    }),
+    columnHelper.accessor("key_stage_id", {
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Key Stage" />,
+      meta: { label: "Key Stage" },
+      filterFn: "weakEquals",
+      cell: ({ row }) => (
+        <EditableCell
+          value={row.original.key_stage_id ?? "none"}
+          display={row.original.key_stage?.name ?? <span className="text-muted-foreground">—</span>}
+          variant="select"
+          options={keyStageEditOptions}
+          isEditing={rowEditing.isEditing(row.original.id)}
+          draftValue={rowEditing.draft.key_stage_id}
+          onDraftChange={(next) => rowEditing.setDraftField("key_stage_id", next)}
         />
       ),
     }),
@@ -225,7 +260,12 @@ export function createTaskColumns({
                 isSaving={editing && isSaving}
                 onEdit={() => {
                   const initialDraft = Object.fromEntries(
-                    EDITABLE_FIELDS.map((field) => [field, task[field] ?? ""])
+                    EDITABLE_FIELDS.map((field) => [
+                      field,
+                      // key_stage_id's "not set" sentinel is "none", not "" — see
+                      // keyStageEditOptions above.
+                      field === "key_stage_id" ? (task.key_stage_id ?? "none") : (task[field] ?? ""),
+                    ])
                   );
                   rowEditing.startEditing(task.id, initialDraft);
                 }}

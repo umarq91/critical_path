@@ -7,6 +7,11 @@ export const taskSchema = z.object({
   task_name: z.string().min(1, "Task name is required").max(200),
   season_id: z.string().uuid("Season is required"),
   brand_id: z.string().uuid("Brand is required"),
+  // Optional, unlike season_id/brand_id — a task isn't required to belong to a key stage.
+  // Kept as a loose string (not .uuid()) so the form/inline-edit "No key stage" option can
+  // submit its "none" sentinel value, which _actions.ts then normalises to null before the
+  // DB write (see normaliseKeyStageId).
+  key_stage_id: z.string().optional(),
   gender: z.enum(taskGenderValues),
   due_date: z.string().min(1, "Due date is required"),
   start_date: z.string().optional(),

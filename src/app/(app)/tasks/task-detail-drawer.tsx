@@ -130,7 +130,7 @@ export const TaskDetailDrawer = ({ task, open, onOpenChange }: TaskDetailDrawerP
                 {task.season ? <ColorTag label={task.season.season_name} color={task.season.color} /> : "—"}
               </OverviewField>
               <OverviewField icon={Milestone} label="Key Stage">
-                <span className="text-muted-foreground">Not set</span>
+                {task.key_stage?.name ?? <span className="text-muted-foreground">Not set</span>}
               </OverviewField>
               <OverviewField icon={CircleDot} label="Status">
                 <StatusBadge value={task.status} config={TASK_STATUS_CONFIG} />
