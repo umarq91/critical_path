@@ -3,6 +3,19 @@
 import { revalidatePath } from "next/cache";
 import { requirePermission } from "@/lib/require-permission";
 import { brandSchema, brandUpdateSchema } from "@/app/(app)/brands/schema";
+import { listBrands, listBrandSummary, type ListBrandsParams } from "@/data/brands";
+
+// Power the isolated "Refresh" icons on the brands table and stat-card row respectively
+// (see useRefreshableData) — plain reads, not mutations. router.refresh() can't scope a
+// reload to just one section (it re-fetches every Server Component on the route), so a
+// Server Action is the escape hatch: re-runs the exact same query the page loaded with.
+export async function refreshBrands(params: ListBrandsParams) {
+  return listBrands(params);
+}
+
+export async function refreshBrandSummary() {
+  return listBrandSummary();
+}
 
 export async function createBrand(input: unknown) {
   const auth = await requirePermission("brand.manage");

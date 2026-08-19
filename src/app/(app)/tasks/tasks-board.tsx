@@ -5,8 +5,9 @@ import { toast } from "sonner";
 import { DataTable } from "@/components/data-table/data-table";
 import { useDataTableQueryState } from "@/components/data-table/use-data-table-query-state";
 import { useRowEditing } from "@/components/data-table/use-row-editing";
+import { useRefreshableData } from "@/components/shared/use-refreshable-data";
 import { createTaskColumns } from "@/app/(app)/tasks/columns";
-import { updateTask } from "@/app/(app)/tasks/_actions";
+import { updateTask, refreshTasks } from "@/app/(app)/tasks/_actions";
 import { TaskDetailDrawer } from "@/app/(app)/tasks/task-detail-drawer";
 import { TASK_STATUS_CONFIG } from "@/constants/task-status";
 import { TASK_GENDER_CONFIG } from "@/constants/task-gender";
@@ -38,6 +39,11 @@ export const TasksBoard = ({
   const rowEditing = useRowEditing();
   const [isSaving, setIsSaving] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+
+  // Stable reference unless the server actually sent a new tasks/rowCount pair (real
+  // pagination/sort/filter navigation) — see useRefreshableData's contract.
+  const initialTasks = useMemo(() => ({ data: tasks, rowCount }), [tasks, rowCount]);
+  const { data: taskData, refresh, isRefreshing } = useRefreshableData(initialTasks, () => refreshTasks(queryState.params));
 
   async function handleConfirmEdit(task: Task) {
     setIsSaving(true);
@@ -85,9 +91,11 @@ export const TasksBoard = ({
     <>
       <DataTable
         columns={taskColumns}
-        data={tasks}
+        data={taskData.data}
         queryState={queryState}
-        rowCount={rowCount}
+        rowCount={taskData.rowCount}
+        onRefresh={refresh}
+        isRefreshing={isRefreshing}
         enableRowSelection
         enableColumnFilterRow={false}
         paginationLabel="tasks"

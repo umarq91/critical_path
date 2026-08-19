@@ -15,6 +15,7 @@ import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { EmptyState } from "@/components/shared/empty-state";
+import { RefreshButton } from "@/components/shared/refresh-button";
 import { DataTableToolbar, type DataTableToolbarConfig } from "@/components/data-table/data-table-toolbar";
 import { DataTableFilterRow } from "@/components/data-table/data-table-filter-row";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
@@ -80,6 +81,9 @@ interface DataTableProps<TData extends Record<string, unknown>> {
   pageSizeOptions?: number[];
   queryState?: DataTableQueryState;
   rowCount?: number;
+  /** Isolated "Refresh" icon next to the toolbar — re-fetches just this table's data. */
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
 }
 
 export const DataTable = <TData extends Record<string, unknown>>({
@@ -96,6 +100,8 @@ export const DataTable = <TData extends Record<string, unknown>>({
   pageSizeOptions,
   queryState,
   rowCount,
+  onRefresh,
+  isRefreshing,
 }: DataTableProps<TData>) => {
   const [localSorting, setLocalSorting] = useState<SortingState>([]);
   const [localColumnFilters, setLocalColumnFilters] = useState<ColumnFiltersState>([]);
@@ -154,16 +160,20 @@ export const DataTable = <TData extends Record<string, unknown>>({
   // navigation in a transition, so the old rows stay mounted (no loading.tsx flash); this is
   // the lighter-weight "something's updating" treatment for that window instead of nothing.
   const isPending = queryState?.isPending ?? false;
+  const isBusy = isPending || !!isRefreshing;
 
   return (
     <Card className="gap-5 py-6">
-      {toolbar ? (
-        <div className="px-6">
-          <DataTableToolbar table={table} {...toolbar} />
+      {toolbar || onRefresh ? (
+        <div className="flex items-center justify-between gap-3 px-6">
+          <div className="flex flex-1 flex-wrap items-center gap-3">
+            {toolbar ? <DataTableToolbar table={table} {...toolbar} /> : null}
+          </div>
+          {onRefresh ? <RefreshButton onRefresh={onRefresh} isRefreshing={!!isRefreshing} /> : null}
         </div>
       ) : null}
       <div className="relative">
-        <Table className={cn("transition-opacity", isPending && "pointer-events-none opacity-50")}>
+        <Table className={cn("transition-opacity", isBusy && "pointer-events-none opacity-50")}>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id} className="bg-muted/40 hover:bg-muted/40">
@@ -213,7 +223,7 @@ export const DataTable = <TData extends Record<string, unknown>>({
             )}
           </TableBody>
         </Table>
-        {isPending ? (
+        {isBusy ? (
           <div className="absolute inset-0 flex items-center justify-center">
             <Loader2 className="size-5 animate-spin text-muted-foreground" />
           </div>

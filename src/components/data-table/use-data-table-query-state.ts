@@ -80,6 +80,16 @@ export function useDataTableQueryState(options: DataTableSearchParamsOptions = {
     onColumnFiltersChange,
     onPaginationChange,
     isPending,
+    // Same {page, pageSize, sortBy, sortDir, filters} shape every data/*.ts listX() takes
+    // (see ListTasksParams etc.) — lets a board's "Refresh" button re-run the exact same
+    // query the page loaded with, without reconstructing it from table state by hand.
+    params: {
+      page: urlState.page,
+      pageSize: urlState.pageSize,
+      sortBy: urlState.sortBy || undefined,
+      sortDir: urlState.sortDir || undefined,
+      filters: urlState.filters,
+    },
   };
 }
 

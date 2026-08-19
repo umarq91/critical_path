@@ -49,15 +49,15 @@ policy — see `0006_tasks.sql`.
 | `full_name` | text, nullable | from Google OAuth metadata |
 | `avatar_url` | text, nullable | from Google OAuth metadata |
 | `role` | `user_role`, default `viewer` | admin/service-role only — see below |
-| `department` | text, nullable | admin/service-role only |
+| `department_id` | uuid, nullable, FK → `departments.id` | `on delete set null`; admin/service-role only. Was a free-text `department` column until `0009_departments.sql` promoted it to a proper lookup FK |
 | `google_group_id` | text, nullable | admin/service-role only |
 | `status` | text, default `active` | `active` \| `inactive`; admin/service-role only |
 | `created_at` | timestamptz | |
 | `updated_at` | timestamptz | auto |
 
-**RLS:** any authenticated user can read every profile (needed for owner/assignee pickers). Update allowed for self or admin — but a trigger blocks anyone except admin/service-role from changing `role`, `status`, `department`, or `google_group_id`, even on their own row. No insert/delete policies — rows are only created by the `handle_new_user` trigger on sign-up, never hard-deleted (deactivate via `status` instead).
+**RLS:** any authenticated user can read every profile (needed for owner/assignee pickers). Update allowed for self or admin — but a trigger blocks anyone except admin/service-role from changing `role`, `status`, `department_id`, or `google_group_id`, even on their own row. No insert/delete policies — rows are only created by the `handle_new_user` trigger on sign-up, never hard-deleted (deactivate via `status` instead).
 
-*Migration: `0004_profiles_guard_allow_dashboard.sql`.* The privileged-column guard also exempts direct dashboard/DB connections (`session_user in ('postgres', 'supabase_admin')`) — stopgap so the Supabase project owner can hand-edit `role`/`status`/`department`/`google_group_id` via the SQL Editor / Table Editor before an admin-bootstrap flow exists. Tighten this back up once that flow lands.
+*Migration: `0004_profiles_guard_allow_dashboard.sql`.* The privileged-column guard also exempts direct dashboard/DB connections (`session_user in ('postgres', 'supabase_admin')`) — stopgap so the Supabase project owner can hand-edit `role`/`status`/`department_id`/`google_group_id` via the SQL Editor / Table Editor before an admin-bootstrap flow exists. Tighten this back up once that flow lands.
 
 ### `seasons`
 *Migration: `0003_seasons.sql`. Top-level grouping tasks are organised under (e.g. "RES H2'26" / Winter 2026).*
@@ -111,6 +111,21 @@ policy — see `0006_tasks.sql`.
 
 **RLS:** any authenticated user reads; only admin writes — falls under the general `admin.manage_lookups` bucket in `lib/permissions.ts`, same as `seasons` (no dedicated `key_stage.*` row on the client's Role-Based Access screen).
 
+### `departments`
+*Migration: `0009_departments.sql`. Lightweight lookup entity, same shape as `key_stages` — users can optionally belong to one.*
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid, PK | |
+| `name` | text | |
+| `description` | text, nullable | |
+| `created_at` / `updated_at` | timestamptz | |
+| `deleted_at` | timestamptz, nullable | soft delete |
+
+**RLS:** any authenticated user reads; only admin writes — falls under the general `admin.manage_lookups` bucket in `lib/permissions.ts`, same as `key_stages` (no dedicated `department.*` row on the client's Role-Based Access screen).
+
+Referenced only by `profiles.department_id`, a nullable FK with `on delete set null` — deleting a department clears it from every user who had it instead of blocking the delete or cascading. Deliberately **not** referenced by `tasks` — a task's department is read via its assignee's `profile.department_id`, not stored redundantly on the task itself.
+
 ### `tasks`
 *Migration: `0006_tasks.sql`. The core entity — spreadsheet grid, calendar, Gantt/Timeline, and dashboards all read from this table.*
 
@@ -156,6 +171,7 @@ policy — see `0006_tasks.sql`.
 | `0006_tasks.sql` | `task_gender`/`task_status` enums, `tasks` table (FKs to `seasons`, `brands`, `profiles`), RLS with a non-admin-only write matrix. Also carries an idempotent guard that re-runs `0002`'s `manager` → `standard_user` enum rename if that migration was never applied on this database. |
 | `0007_tasks_tracking_and_timeline.sql` | Adds `created_by`/`last_edited_by`/`deleted_by` (who-did-what tracking), `is_locked`/`locked_by`/`locked_at` (columns only, no enforcement yet), and `start_date`/`end_date` (working timeline) to `tasks`. |
 | `0008_key_stages.sql` | `key_stages` table (name + description only), RLS, and `tasks.key_stage_id` (nullable FK, `on delete set null`). |
+| `0009_departments.sql` | `departments` table (name + description only, same shape as `key_stages`), RLS, and replaces the old free-text `profiles.department` with `profiles.department_id` (nullable FK, `on delete set null`) — re-points the privileged-column guard trigger at the new column name. Not referenced by `tasks`. |
 
 ## Not built yet
 

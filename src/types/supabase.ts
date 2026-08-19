@@ -1,6 +1,6 @@
 // Hand-authored to match `supabase/migrations/0001_profiles_roles.sql`, `0003_seasons.sql`,
-// `0005_brands.sql`, `0006_tasks.sql`, `0007_tasks_tracking_and_timeline.sql`, and
-// `0008_key_stages.sql`.
+// `0005_brands.sql`, `0006_tasks.sql`, `0007_tasks_tracking_and_timeline.sql`,
+// `0008_key_stages.sql`, and `0009_departments.sql`.
 // Regenerate after every migration: `supabase gen types typescript --linked > src/types/supabase.ts`
 
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
@@ -15,7 +15,7 @@ export type Database = {
           full_name: string | null;
           avatar_url: string | null;
           role: Database["public"]["Enums"]["user_role"];
-          department: string | null;
+          department_id: string | null;
           google_group_id: string | null;
           status: string;
           created_at: string;
@@ -27,7 +27,7 @@ export type Database = {
           full_name?: string | null;
           avatar_url?: string | null;
           role?: Database["public"]["Enums"]["user_role"];
-          department?: string | null;
+          department_id?: string | null;
           google_group_id?: string | null;
           status?: string;
           created_at?: string;
@@ -39,13 +39,21 @@ export type Database = {
           full_name?: string | null;
           avatar_url?: string | null;
           role?: Database["public"]["Enums"]["user_role"];
-          department?: string | null;
+          department_id?: string | null;
           google_group_id?: string | null;
           status?: string;
           created_at?: string;
           updated_at?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "profiles_department_id_fkey";
+            columns: ["department_id"];
+            isOneToOne: false;
+            referencedRelation: "departments";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       seasons: {
         Row: {
@@ -145,6 +153,33 @@ export type Database = {
         ];
       };
       key_stages: {
+        Row: {
+          id: string;
+          name: string;
+          description: string | null;
+          created_at: string;
+          updated_at: string;
+          deleted_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          description?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          deleted_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          description?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          deleted_at?: string | null;
+        };
+        Relationships: [];
+      };
+      departments: {
         Row: {
           id: string;
           name: string;
