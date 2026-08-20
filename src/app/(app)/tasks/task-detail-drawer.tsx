@@ -15,6 +15,7 @@ import {
   Milestone,
   MoreVertical,
   Tag,
+  UserCheck,
   UserRound,
   Users,
   X,
@@ -26,6 +27,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { ColorTag } from "@/components/shared/color-tag";
+import { TaskPeopleSection } from "@/app/(app)/tasks/task-people-section";
 import { TASK_STATUS_CONFIG } from "@/constants/task-status";
 import { TASK_GENDER_CONFIG } from "@/constants/task-gender";
 import { getVizColorForId } from "@/constants/chart-colors";
@@ -38,9 +40,8 @@ interface TaskDetailDrawerProps {
   task: Task | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  canAssignPeople: boolean;
 }
-
-type Profile = { id: string; full_name: string | null; email: string; avatar_url: string | null };
 
 function SectionHeading({ icon: Icon, title }: { icon: LucideIcon; title: string }) {
   return (
@@ -67,27 +68,12 @@ function EmptyNote({ children }: { children: ReactNode }) {
   return <p className="text-sm text-muted-foreground italic">{children}</p>;
 }
 
-function PersonRow({ profile, role }: { profile: Profile; role: string }) {
-  return (
-    <div className="flex items-center gap-3">
-      <Avatar size="sm">
-        <AvatarImage src={profile.avatar_url ?? undefined} alt="" />
-        <AvatarFallback className="text-white" style={{ backgroundColor: getVizColorForId(profile.id) }}>
-          {initials(profile.full_name, profile.email)}
-        </AvatarFallback>
-      </Avatar>
-      <div className="flex flex-col">
-        <span className="text-sm font-medium text-foreground">{profile.full_name ?? profile.email}</span>
-        <span className="text-xs text-muted-foreground">{role}</span>
-      </div>
-    </div>
-  );
-}
-
-export const TaskDetailDrawer = ({ task, open, onOpenChange }: TaskDetailDrawerProps) => {
+export const TaskDetailDrawer = ({ task, open, onOpenChange, canAssignPeople }: TaskDetailDrawerProps) => {
   if (!task) return null;
 
-  const peopleInvolved = task.assignee ? [{ profile: task.assignee, role: "Owner / Assignee" }] : [];
+  const initialPeople = task.people
+    .map((entry) => entry.profile)
+    .filter((profile): profile is NonNullable<typeof profile> => profile !== null);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -132,6 +118,24 @@ export const TaskDetailDrawer = ({ task, open, onOpenChange }: TaskDetailDrawerP
               <OverviewField icon={Milestone} label="Key Stage">
                 {task.key_stage?.name ?? <span className="text-muted-foreground">Not set</span>}
               </OverviewField>
+              <OverviewField icon={UserCheck} label="Owner / Assignee">
+                {task.assignee ? (
+                  <span className="flex items-center gap-2">
+                    <Avatar size="sm">
+                      <AvatarImage src={task.assignee.avatar_url ?? undefined} alt="" />
+                      <AvatarFallback
+                        className="text-white"
+                        style={{ backgroundColor: getVizColorForId(task.assignee.id) }}
+                      >
+                        {initials(task.assignee.full_name, task.assignee.email)}
+                      </AvatarFallback>
+                    </Avatar>
+                    {task.assignee.full_name ?? task.assignee.email}
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground">Not set</span>
+                )}
+              </OverviewField>
               <OverviewField icon={CircleDot} label="Status">
                 <StatusBadge value={task.status} config={TASK_STATUS_CONFIG} />
               </OverviewField>
@@ -165,15 +169,12 @@ export const TaskDetailDrawer = ({ task, open, onOpenChange }: TaskDetailDrawerP
 
           <div className="flex flex-col gap-3">
             <SectionHeading icon={Users} title="People Involved" />
-            {peopleInvolved.length === 0 ? (
-              <EmptyNote>No one assigned yet.</EmptyNote>
-            ) : (
-              <div className="flex flex-col gap-3">
-                {peopleInvolved.map(({ profile, role }) => (
-                  <PersonRow key={profile.id} profile={profile} role={role} />
-                ))}
-              </div>
-            )}
+            <TaskPeopleSection
+              key={task.id}
+              taskId={task.id}
+              initialPeople={initialPeople}
+              canManage={canAssignPeople}
+            />
           </div>
 
           <Separator />

@@ -6,12 +6,15 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Form } from "@/components/ui/form";
+import { Label } from "@/components/ui/label";
 import { TextField } from "@/components/form-fields/text-field";
 import { TextareaField } from "@/components/form-fields/textarea-field";
 import { SelectField } from "@/components/form-fields/select-field";
 import { DateField } from "@/components/form-fields/date-field";
+import { PeopleInvolvedField } from "@/app/(app)/tasks/people-involved-field";
+import type { PersonSummary } from "@/app/(app)/tasks/person-row";
 import { taskSchema, taskGenderValues, taskStatusValues, type TaskInput } from "@/app/(app)/tasks/schema";
-import { createTask } from "@/app/(app)/tasks/_actions";
+import { createTask, addTaskPeople } from "@/app/(app)/tasks/_actions";
 import { TASK_GENDER_CONFIG } from "@/constants/task-gender";
 import { TASK_STATUS_CONFIG } from "@/constants/task-status";
 import type { DataTableFilterOption } from "@/components/data-table/table-features";
@@ -26,6 +29,9 @@ interface TaskFormProps {
 
 export const TaskForm = ({ onSuccess, seasonOptions, brandOptions, keyStageOptions, assigneeOptions }: TaskFormProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // People Involved is buffered locally, not through react-hook-form — the task doesn't
+  // exist yet, so there's nothing to associate people with until createTask returns an id.
+  const [people, setPeople] = useState<PersonSummary[]>([]);
   const form = useForm<TaskInput>({
     resolver: zodResolver(taskSchema),
     defaultValues: {
@@ -46,15 +52,27 @@ export const TaskForm = ({ onSuccess, seasonOptions, brandOptions, keyStageOptio
   async function onSubmit(input: TaskInput) {
     setIsSubmitting(true);
     const result = await createTask(input);
-    setIsSubmitting(false);
 
     if (!result.ok) {
+      setIsSubmitting(false);
       toast.error(result.error);
       return;
     }
 
+    if (people.length > 0) {
+      const peopleResult = await addTaskPeople(
+        result.data.id,
+        people.map((person) => person.id)
+      );
+      // The task itself was created successfully either way — a failure here is worth
+      // surfacing but shouldn't read as "task creation failed".
+      if (!peopleResult.ok) toast.error(`Task created, but people involved couldn't be saved: ${peopleResult.error}`);
+    }
+
+    setIsSubmitting(false);
     toast.success(`${input.task_name} created`);
     form.reset();
+    setPeople([]);
     onSuccess();
   }
 
@@ -81,6 +99,14 @@ export const TaskForm = ({ onSuccess, seasonOptions, brandOptions, keyStageOptio
         <DateField control={form.control} name="start_date" label="Start Date" />
         <DateField control={form.control} name="end_date" label="Expected Finish Date" />
         <SelectField control={form.control} name="assignee_id" label="Owner / Assignee" options={assigneeOptions} />
+        <div className="grid gap-1.5">
+          <Label>People Involved</Label>
+          <PeopleInvolvedField
+            people={people}
+            onAdd={(person) => setPeople((prev) => [...prev, person])}
+            onRemove={(person) => setPeople((prev) => prev.filter((existing) => existing.id !== person.id))}
+          />
+        </div>
         <SelectField
           control={form.control}
           name="status"

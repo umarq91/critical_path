@@ -34,6 +34,7 @@ policy — see `0006_tasks.sql`.
 | `set_updated_at()` | Trigger fn — stamps `updated_at = now()` on every table that has the column. Attach via `create trigger ..._set_updated_at before update ... execute function public.set_updated_at();` |
 | `current_user_role()` | Returns the caller's role. `security definer`, bypasses RLS on `profiles` internally so it can be called *from inside* other RLS policies without recursion. |
 | `is_admin()` | `current_user_role() = 'admin'`. What every write policy checks. |
+| `search_profiles(search, exclude_ids, limit_count, offset_count)` | Word-by-word + `pg_trgm` fuzzy-matched, relevance-ranked profile search, added by `0011_profiles_smart_search.sql`. **No longer called from app code** — its correlated-subquery matching couldn't use the trigram indexes and was taking minutes on real data; `data/profiles.ts`'s `searchProfiles()` went back to a plain `.ilike()` query, which already covers the actual requirement (exact match, and a fragment like "um" finding "Umar"). Left deployed rather than dropped — harmless if unused, revisit only if fuzzier matching becomes a real requirement again. |
 
 ---
 
@@ -157,6 +158,20 @@ Referenced only by `profiles.department_id`, a nullable FK with `on delete set n
 
 **RLS — the one table that isn't the simple admin-only-write pattern:** any authenticated user reads (`task.view` is granted to every role). Insert/update require `standard_user` or `admin` (`current_user_role() in ('standard_user', 'admin')`), matching `task.create`/`task.update` in `lib/permissions.ts`. Delete stays admin-only (`task.delete` isn't in `STANDARD_USER_ALLOWED`).
 
+### `task_people`
+*Migration: `0010_task_people.sql`. "People Involved" — many-to-many between `tasks` and `profiles`, distinct from the single `tasks.assignee_id` ("Owner / Assignee"). Join table, not an array column, so it reads as an embedded resource like every other relationship here.*
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid, PK | |
+| `task_id` | uuid, FK → `tasks.id`, not null, `on delete cascade` | |
+| `profile_id` | uuid, FK → `profiles.id`, not null, `on delete cascade` | |
+| `created_at` | timestamptz | |
+
+`unique (task_id, profile_id)` — no duplicate associations.
+
+**RLS:** same matrix as `tasks` itself — any authenticated user reads; add/remove requires `standard_user` or `admin` (`current_user_role() in ('standard_user', 'admin')`), matching `task.assign` in `lib/permissions.ts`.
+
 ---
 
 ## Migration log
@@ -172,6 +187,8 @@ Referenced only by `profiles.department_id`, a nullable FK with `on delete set n
 | `0007_tasks_tracking_and_timeline.sql` | Adds `created_by`/`last_edited_by`/`deleted_by` (who-did-what tracking), `is_locked`/`locked_by`/`locked_at` (columns only, no enforcement yet), and `start_date`/`end_date` (working timeline) to `tasks`. |
 | `0008_key_stages.sql` | `key_stages` table (name + description only), RLS, and `tasks.key_stage_id` (nullable FK, `on delete set null`). |
 | `0009_departments.sql` | `departments` table (name + description only, same shape as `key_stages`), RLS, and replaces the old free-text `profiles.department` with `profiles.department_id` (nullable FK, `on delete set null`) — re-points the privileged-column guard trigger at the new column name. Not referenced by `tasks`. |
+| `0010_task_people.sql` | `task_people` join table (`task_id`, `profile_id`, unique pair, both `on delete cascade`) — "People Involved," a many-to-many distinct from `tasks.assignee_id`. RLS matches `tasks`' own read-all/`standard_user`-or-`admin`-write pattern. |
+| `0011_profiles_smart_search.sql` | Enables `pg_trgm`, adds trigram GIN indexes on `profiles.full_name`/`profiles.email`, and adds `search_profiles()` — word-by-word + fuzzy-matched, relevance-ranked profile search for the People Involved picker. Deployed but no longer called — see the function's note above. |
 
 ## Not built yet
 

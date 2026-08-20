@@ -19,6 +19,7 @@ interface TasksBoardProps {
   rowCount: number;
   canManage: boolean;
   canDelete: boolean;
+  canAssignPeople: boolean;
   seasonOptions: DataTableFilterOption[];
   brandOptions: DataTableFilterOption[];
   keyStageOptions: DataTableFilterOption[];
@@ -30,6 +31,7 @@ export const TasksBoard = ({
   rowCount,
   canManage,
   canDelete,
+  canAssignPeople,
   seasonOptions,
   brandOptions,
   keyStageOptions,
@@ -136,6 +138,7 @@ export const TasksBoard = ({
         task={selectedTask}
         open={!!selectedTask}
         onOpenChange={(open) => !open && setSelectedTask(null)}
+        canAssignPeople={canAssignPeople}
       />
     </>
   );

@@ -1,6 +1,13 @@
 // Hand-authored to match `supabase/migrations/0001_profiles_roles.sql`, `0003_seasons.sql`,
 // `0005_brands.sql`, `0006_tasks.sql`, `0007_tasks_tracking_and_timeline.sql`,
-// `0008_key_stages.sql`, and `0009_departments.sql`.
+// `0008_key_stages.sql`, `0009_departments.sql`, `0010_task_people.sql`, and
+// `0011_profiles_smart_search.sql`.
+//
+// The search_profiles() Postgres function added by 0011 is no longer called from app code —
+// data/profiles.ts's searchProfiles() went back to a plain .ilike() query (simpler, faster,
+// sufficient for "substring/prefix" search). Its Functions.search_profiles type entry below
+// is kept in case something calls it directly again; it's still deployed and harmless to
+// leave as-is.
 // Regenerate after every migration: `supabase gen types typescript --linked > src/types/supabase.ts`
 
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
@@ -335,6 +342,42 @@ export type Database = {
           },
         ];
       };
+      task_people: {
+        Row: {
+          id: string;
+          task_id: string;
+          profile_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          task_id: string;
+          profile_id: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          task_id?: string;
+          profile_id?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "task_people_task_id_fkey";
+            columns: ["task_id"];
+            isOneToOne: false;
+            referencedRelation: "tasks";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "task_people_profile_id_fkey";
+            columns: ["profile_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -345,6 +388,21 @@ export type Database = {
       is_admin: {
         Args: Record<string, never>;
         Returns: boolean;
+      };
+      search_profiles: {
+        Args: {
+          search?: string | null;
+          exclude_ids?: string[] | null;
+          limit_count?: number;
+          offset_count?: number;
+        };
+        Returns: {
+          id: string;
+          full_name: string | null;
+          email: string;
+          avatar_url: string | null;
+          department_name: string | null;
+        }[];
       };
     };
     Enums: {
