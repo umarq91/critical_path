@@ -21,6 +21,14 @@ function normaliseKeyStageId(value: string | undefined): string | null {
   return value && value !== "none" ? value : null;
 }
 
+// start_date/end_date are optional `date` columns, but DateField submits an unset date as ""
+// rather than omitting the key — "" fails Postgres's date parsing outright ("invalid input
+// syntax for type date: \"\""), so it's normalised to null before the DB write, same
+// reasoning as normaliseKeyStageId above.
+function normaliseDate(value: string | undefined): string | null {
+  return value ? value : null;
+}
+
 export async function createTask(input: unknown) {
   const auth = await requirePermission("task.create");
   if (!auth.ok) return auth;
@@ -33,6 +41,8 @@ export async function createTask(input: unknown) {
     .insert({
       ...parsed.data,
       key_stage_id: normaliseKeyStageId(parsed.data.key_stage_id),
+      start_date: normaliseDate(parsed.data.start_date),
+      end_date: normaliseDate(parsed.data.end_date),
       created_by: auth.userId,
       last_edited_by: auth.userId,
     })
@@ -51,12 +61,17 @@ export async function updateTask(id: string, patch: unknown) {
   const parsed = taskUpdateSchema.safeParse(patch);
   if (!parsed.success) return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid input" };
 
-  // Only normalise key_stage_id when this patch actually touches it — it's optional, so an
-  // unrelated field edit (e.g. inline-editing task_name) mustn't clear an existing selection.
-  const updateData =
-    "key_stage_id" in parsed.data
-      ? { ...parsed.data, key_stage_id: normaliseKeyStageId(parsed.data.key_stage_id) }
-      : parsed.data;
+  // Only normalise a field when this patch actually touches it — each is optional, so an
+  // unrelated field edit (e.g. inline-editing task_name) mustn't clear an existing value.
+  // Built via additive spreads (not property assignment) so a deliberate null - clearing an
+  // existing key stage / start / end date - actually reaches the DB instead of being widened
+  // away by updateData's inferred (string | undefined) shape.
+  const updateData = {
+    ...parsed.data,
+    ...("key_stage_id" in parsed.data ? { key_stage_id: normaliseKeyStageId(parsed.data.key_stage_id) } : {}),
+    ...("start_date" in parsed.data ? { start_date: normaliseDate(parsed.data.start_date) } : {}),
+    ...("end_date" in parsed.data ? { end_date: normaliseDate(parsed.data.end_date) } : {}),
+  };
 
   const { error } = await auth.supabase
     .from("tasks")

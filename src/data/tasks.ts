@@ -12,6 +12,10 @@ export interface ListTasksParams {
 
 const SORTABLE_COLUMNS = new Set(["task_name", "due_date", "status", "created_at"]);
 
+// Shared by every task query below — the grid, and the calendar's bounded range query —
+// so a relation gets added once, not once per query.
+const TASK_SELECT = `*, season:seasons(id, season_code, season_name, color), brand:brands(id, brand_name, color), key_stage:key_stages(id, name), assignee:profiles!tasks_assignee_id_fkey(id, full_name, email, avatar_url), created_by_profile:profiles!tasks_created_by_fkey(id, full_name, email, avatar_url), last_edited_by_profile:profiles!tasks_last_edited_by_fkey(id, full_name, email, avatar_url), people:task_people(profile:profiles(id, full_name, email, avatar_url, department:departments(name)))`;
+
 function isTaskGender(value: string | undefined): value is TaskInput["gender"] {
   return !!value && (taskGenderValues as readonly string[]).includes(value);
 }
@@ -24,13 +28,7 @@ function isTaskStatus(value: string | undefined): value is TaskInput["status"] {
 // range, calendar range, dashboard aggregates, CSV export) — those extend this, not fork it.
 export async function listTasks({ page = 1, pageSize = 15, sortBy, sortDir, filters = {} }: ListTasksParams = {}) {
   const supabase = await createClient();
-  let query = supabase
-    .from("tasks")
-    .select(
-      `*, season:seasons(id, season_code, season_name, color), brand:brands(id, brand_name), key_stage:key_stages(id, name), assignee:profiles!tasks_assignee_id_fkey(id, full_name, email, avatar_url), created_by_profile:profiles!tasks_created_by_fkey(id, full_name, email, avatar_url), last_edited_by_profile:profiles!tasks_last_edited_by_fkey(id, full_name, email, avatar_url), people:task_people(profile:profiles(id, full_name, email, avatar_url, department:departments(name)))`,
-      { count: "exact" }
-    )
-    .is("deleted_at", null);
+  let query = supabase.from("tasks").select(TASK_SELECT, { count: "exact" }).is("deleted_at", null);
 
   if (filters.task_name) query = query.ilike("task_name", `%${filters.task_name}%`);
   if (filters.season_id) query = query.eq("season_id", filters.season_id);
@@ -51,3 +49,59 @@ export async function listTasks({ page = 1, pageSize = 15, sortBy, sortDir, filt
 }
 
 export type Task = Awaited<ReturnType<typeof listTasks>>["data"][number];
+
+export interface ListTasksByDueDateRangeParams {
+  /** Inclusive, `yyyy-MM-dd`. */
+  from: string;
+  /** Inclusive, `yyyy-MM-dd`. */
+  to: string;
+  filters?: Record<string, string>;
+  /** Scopes results to tasks the profile is assignee/creator/people-involved on. */
+  involvesProfileId?: string;
+}
+
+// Powers the Calendar view — bounded by the visible date range (a week or a month at most),
+// so it deliberately skips listTasks()'s page/pageSize/count shape and returns every matching
+// row for that range at once, the same way listUpcomingSeasons is a separate bounded query
+// rather than a page of the main list.
+export async function listTasksByDueDateRange({
+  from,
+  to,
+  filters = {},
+  involvesProfileId,
+}: ListTasksByDueDateRangeParams) {
+  const supabase = await createClient();
+
+  // task_people is a join table — Postgrest can't express "id in (select task_id from
+  // task_people where profile_id = x)" inside a single .or() filter, so that half of the
+  // "involves this person" condition is resolved as its own lookup first.
+  let involvedTaskIds: string[] = [];
+  if (involvesProfileId) {
+    const { data, error } = await supabase.from("task_people").select("task_id").eq("profile_id", involvesProfileId);
+    if (error) throw error;
+    involvedTaskIds = (data ?? []).map((row) => row.task_id);
+  }
+
+  let query = supabase
+    .from("tasks")
+    .select(TASK_SELECT)
+    .is("deleted_at", null)
+    .gte("due_date", from)
+    .lte("due_date", to);
+
+  if (filters.season_id) query = query.eq("season_id", filters.season_id);
+  if (filters.brand_id) query = query.eq("brand_id", filters.brand_id);
+  if (isTaskStatus(filters.status)) query = query.eq("status", filters.status);
+
+  if (involvesProfileId) {
+    const orConditions = [`assignee_id.eq.${involvesProfileId}`, `created_by.eq.${involvesProfileId}`];
+    if (involvedTaskIds.length > 0) orConditions.push(`id.in.(${involvedTaskIds.join(",")})`);
+    query = query.or(orConditions.join(","));
+  }
+
+  query = query.order("due_date", { ascending: true });
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data ?? []) as Task[];
+}
