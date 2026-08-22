@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { CalendarToolbar } from "@/app/(app)/calendar/calendar-toolbar";
 import { CalendarBoard } from "@/app/(app)/calendar/calendar-board";
@@ -8,12 +9,14 @@ import { toQueryDate, type CalendarRange } from "@/app/(app)/calendar/calendar-u
 import type { CalendarView } from "@/app/(app)/calendar/calendar-search-params";
 import type { DataTableFilterOption } from "@/components/data-table/table-features";
 import type { Task } from "@/data/tasks";
+import type { ExternalCalendarEvent } from "@/data/external-calendar-events";
 
 interface CalendarWorkspaceProps {
   view: CalendarView;
   anchorDate: Date;
   range: CalendarRange;
   tasks: Task[];
+  externalEvents: ExternalCalendarEvent[];
   canAssignPeople: boolean;
   seasonOptions: DataTableFilterOption[];
   brandOptions: DataTableFilterOption[];
@@ -29,6 +32,7 @@ export const CalendarWorkspace = ({
   anchorDate,
   range,
   tasks,
+  externalEvents,
   canAssignPeople,
   seasonOptions,
   brandOptions,
@@ -37,6 +41,7 @@ export const CalendarWorkspace = ({
   const queryState = useCalendarQueryState();
   const { state, setState } = queryState;
   const hasActiveFilters = !!(state.seasonId || state.brandId || state.status);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   // Clicking a date number or a day's "+N more" overflow both land here — jumping to Day
   // view for that date is the one mechanism that answers "show me everything on this day",
@@ -54,14 +59,17 @@ export const CalendarWorkspace = ({
           brandOptions={brandOptions}
           statusOptions={statusOptions}
           taskCount={tasks.length}
+          isSyncing={isSyncing}
+          onSyncingChange={setIsSyncing}
         />
         <CalendarBoard
           view={view}
           anchorDate={anchorDate}
           range={range}
           tasks={tasks}
+          externalEvents={externalEvents}
           canAssignPeople={canAssignPeople}
-          isPending={queryState.isPending}
+          isPending={queryState.isPending || isSyncing}
           hasActiveFilters={hasActiveFilters}
           onNavigateToDate={navigateToDate}
         />

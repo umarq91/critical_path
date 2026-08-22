@@ -1,11 +1,13 @@
 "use client";
 
 import { format } from "date-fns";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { toast } from "sonner";
+import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { calendarViewValues, type CalendarView } from "@/app/(app)/calendar/calendar-search-params";
 import { resolveAnchorDate, shiftAnchorDate, toQueryDate } from "@/app/(app)/calendar/calendar-utils";
+import { syncGoogleCalendar } from "@/app/(app)/calendar/_actions";
 import type { CalendarQueryState } from "@/app/(app)/calendar/calendar-query-state";
 import type { DataTableFilterOption } from "@/components/data-table/table-features";
 import { cn } from "@/lib/utils";
@@ -25,9 +27,19 @@ interface CalendarToolbarProps {
   brandOptions: DataTableFilterOption[];
   statusOptions: DataTableFilterOption[];
   taskCount: number;
+  isSyncing: boolean;
+  onSyncingChange: (isSyncing: boolean) => void;
 }
 
-export const CalendarToolbar = ({ queryState, seasonOptions, brandOptions, statusOptions, taskCount }: CalendarToolbarProps) => {
+export const CalendarToolbar = ({
+  queryState,
+  seasonOptions,
+  brandOptions,
+  statusOptions,
+  taskCount,
+  isSyncing,
+  onSyncingChange,
+}: CalendarToolbarProps) => {
   const { state, setState, isPending } = queryState;
   const anchorDate = resolveAnchorDate(state.date);
 
@@ -37,6 +49,23 @@ export const CalendarToolbar = ({ queryState, seasonOptions, brandOptions, statu
 
   function shift(direction: 1 | -1) {
     void setState({ date: toQueryDate(shiftAnchorDate(state.view, anchorDate, direction)) });
+  }
+
+  async function handleSync() {
+    onSyncingChange(true);
+    const result = await syncGoogleCalendar();
+    onSyncingChange(false);
+
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
+    }
+    const parts = [
+      result.pushedCount > 0 ? `${result.pushedCount} pushed` : null,
+      result.pulledCount > 0 ? `${result.pulledCount} pulled` : null,
+      result.importedCount > 0 ? `${result.importedCount} imported` : null,
+    ].filter(Boolean);
+    toast.success(parts.length > 0 ? `Synced with Google Calendar — ${parts.join(", ")}` : "Already up to date with Google Calendar");
   }
 
   return (
@@ -90,6 +119,10 @@ export const CalendarToolbar = ({ queryState, seasonOptions, brandOptions, statu
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-3">
+        <Button type="button" size="sm" variant="outline" className="transition-colors duration-150" onClick={handleSync} disabled={isSyncing}>
+          <RefreshCw className={cn("size-4", isSyncing && "animate-spin")} />
+          {isSyncing ? "Syncing…" : "Sync"}
+        </Button>
         <CalendarFilterSelect
           label="Season"
           value={state.seasonId}

@@ -36,3 +36,24 @@ export function getGoogleServiceAccountEnv(): GoogleServiceAccountEnv | null {
   });
   return result.success ? result.data : null;
 }
+
+const googleOAuthSchema = z.object({
+  GOOGLE_OAUTH_CLIENT_ID: z.string().min(1),
+  GOOGLE_OAUTH_CLIENT_SECRET: z.string().min(1),
+});
+
+export type GoogleOAuthEnv = z.infer<typeof googleOAuthSchema>;
+
+// The same Client ID/Secret already configured as Supabase's Google Auth provider (Supabase
+// Dashboard → Authentication → Providers → Google) — needed here too so lib/google/
+// calendar.ts can refresh a user's expired access_token itself, without round-tripping
+// through Supabase. Distinct from the service account above: this is per-user OAuth consent
+// (works with any Google account, including personal @gmail.com test accounts), not
+// domain-wide delegation (Workspace-only — see calendar-sync notes in schema.md).
+export function getGoogleOAuthEnv(): GoogleOAuthEnv | null {
+  const result = googleOAuthSchema.safeParse({
+    GOOGLE_OAUTH_CLIENT_ID: process.env.GOOGLE_OAUTH_CLIENT_ID,
+    GOOGLE_OAUTH_CLIENT_SECRET: process.env.GOOGLE_OAUTH_CLIENT_SECRET,
+  });
+  return result.success ? result.data : null;
+}

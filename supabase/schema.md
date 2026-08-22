@@ -149,10 +149,17 @@ Referenced only by `profiles.department_id`, a nullable FK with `on delete set n
 | `deleted_by` | uuid, FK → `profiles.id`, nullable, `on delete set null` | stamped by `deleteTask` alongside `deleted_at` |
 | `is_locked` | boolean, default `false` | column only — no enforcement yet, see below |
 | `locked_by` / `locked_at` | uuid FK → `profiles.id` / timestamptz, nullable | columns only — no enforcement yet, see below |
+| `google_event_id` | text, nullable | Google Calendar event id this task is pushed to — set by `syncGoogleCalendar()`, see below |
+| `google_calendar_owner_id` | uuid, FK → `profiles.id`, nullable, `on delete set null` | whose Google Calendar `google_event_id` actually lives on (the assignee who last ran Sync) — needed so `deleteTask` cleans up the event on the right account |
+| `google_synced_at` | timestamptz, nullable | last time this task's Google Calendar event was pushed to or pulled from — drives the "which side changed more recently" conflict check |
 | `created_at` / `updated_at` | timestamptz | |
 | `deleted_at` | timestamptz, nullable | soft delete |
 
 **Deliberately not columns (this pass):** attachments (explicitly deferred).
+
+**Google Calendar sync — manual, per-user, assignee-scoped.** `lib/google/calendar.ts` + `calendar/_actions.ts`'s `syncGoogleCalendar()` (triggered by the Calendar page's Sync button, not a cron) pushes a signed-in user's own assigned tasks (`assignee_id = current user`, due date within roughly the surrounding year) to their primary Google Calendar as all-day events, and pulls back any edit to that event's title/date if it changed more recently than `google_synced_at`. Only the assignee's tasks are pushed — one task maps to exactly one `google_event_id`, so it can only live on one person's calendar. Every other event already on that user's calendar (meetings, personal events — anything not created from a task) is cached read-only in `external_calendar_events` below purely for display; it never becomes a task since tasks require `season_id`/`brand_id`/`gender`/`assignee_id` a Google Calendar event doesn't have. `deleteTask` best-effort deletes the linked Google event (via `google_calendar_owner_id`'s account) when a synced task is deleted; failures there don't block the task delete itself.
+
+**Auth for the Calendar API call itself is per-user OAuth (`google_oauth_tokens` below), NOT the domain-wide-delegated service account** used for role sync — see that table's note for why, and why this is meant to be temporary.
 
 **Locking — columns exist, behavior doesn't yet.** `is_locked`/`locked_by`/`locked_at` were added in `0007_tasks_tracking_and_timeline.sql` alongside the other tracking columns, but nothing sets or enforces them yet (no toggle action, no RLS restriction, no disabled-field UI). `lib/permissions.ts` already has `task.lock`/`task.edit_due_date_when_locked` actions reserved for when that follow-up lands.
 
@@ -172,6 +179,42 @@ Referenced only by `profiles.department_id`, a nullable FK with `on delete set n
 
 **RLS:** same matrix as `tasks` itself — any authenticated user reads; add/remove requires `standard_user` or `admin` (`current_user_role() in ('standard_user', 'admin')`), matching `task.assign` in `lib/permissions.ts`.
 
+### `external_calendar_events`
+*Migration: `0012_google_calendar_sync.sql`. Read-only cache of a user's Google Calendar events that are NOT linked to one of their tasks (see `tasks.google_event_id` above) — personal data, not shared org data like every other table here.*
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid, PK | |
+| `profile_id` | uuid, FK → `profiles.id`, not null, `on delete cascade` | whose calendar this event was read from |
+| `google_event_id` | text, not null | |
+| `title` | text, not null | |
+| `starts_at` | timestamptz, not null | for an all-day event, midnight UTC on that date |
+| `ends_at` | timestamptz, nullable | null for all-day events |
+| `all_day` | boolean, default `false` | |
+| `last_synced_at` | timestamptz, default `now()` | |
+| `created_at` / `updated_at` | timestamptz | |
+
+`unique (profile_id, google_event_id)` — upserted on every sync run; rows in the synced window no longer returned by Google are deleted (see `syncGoogleCalendar()`).
+
+**RLS:** unlike every other table here, not the shared admin-only-write pattern — a single `for all using (profile_id = auth.uid())` policy, since this is one user's own cached calendar data, not organization-wide.
+
+### `google_oauth_tokens`
+*Migration: `0013_google_oauth_tokens.sql`. Per-user Google OAuth access/refresh tokens, used only to call the Calendar API as that specific user.*
+
+**⚠️ TEMPORARY — read before touching Google Calendar sync.** Domain-wide delegation (the `GOOGLE_SERVICE_ACCOUNT_*` service account already used for role sync above) can only impersonate accounts inside a real Google Workspace domain — there's no admin console for a personal `@gmail.com` address to grant it from. While dev/test sign-ins use personal Gmail accounts (`NEXT_PUBLIC_GOOGLE_WORKSPACE_DOMAIN=gmail.com`), Calendar sync instead uses standard per-user OAuth consent: `google-button.tsx` requests the `calendar.events` scope at sign-in, `auth/callback/route.ts` stores the resulting token here, and `lib/google/calendar.ts` reads/refreshes it. **Once real Workspace accounts are in use, revisit switching Calendar sync to domain-wide delegation instead** (consistent with role sync, and avoids every user re-consenting to a Calendar permission at every sign-in) — at that point this table, `lib/google/oauth-tokens.ts`, the `scopes`/`access_type`/`prompt` additions in `google-button.tsx`, and the `GOOGLE_OAUTH_CLIENT_ID`/`GOOGLE_OAUTH_CLIENT_SECRET` env vars can all be retired.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid, PK | |
+| `profile_id` | uuid, FK → `profiles.id`, not null, unique, `on delete cascade` | one token set per user |
+| `access_token` | text, not null | |
+| `refresh_token` | text, nullable | Google only returns one on first consent (or a forced re-consent); preserved across routine access-token refreshes, see `saveGoogleTokens()` |
+| `expires_at` | timestamptz, not null | when `access_token` expires — `lib/google/calendar.ts` lets `googleapis` auto-refresh once this passes |
+| `scope` | text, nullable | the scope string granted, for reference |
+| `created_at` / `updated_at` | timestamptz | |
+
+**RLS: zero policies.** RLS is enabled but nothing grants access — not even a `profile_id = auth.uid()` self-read like `external_calendar_events`, since these are live API credentials, not display data. The only access path is `lib/google/oauth-tokens.ts`, which always goes through the service-role client (`lib/supabase/admin.ts`) and scopes every query to a specific `profile_id` in application code.
+
 ---
 
 ## Migration log
@@ -189,6 +232,8 @@ Referenced only by `profiles.department_id`, a nullable FK with `on delete set n
 | `0009_departments.sql` | `departments` table (name + description only, same shape as `key_stages`), RLS, and replaces the old free-text `profiles.department` with `profiles.department_id` (nullable FK, `on delete set null`) — re-points the privileged-column guard trigger at the new column name. Not referenced by `tasks`. |
 | `0010_task_people.sql` | `task_people` join table (`task_id`, `profile_id`, unique pair, both `on delete cascade`) — "People Involved," a many-to-many distinct from `tasks.assignee_id`. RLS matches `tasks`' own read-all/`standard_user`-or-`admin`-write pattern. |
 | `0011_profiles_smart_search.sql` | Enables `pg_trgm`, adds trigram GIN indexes on `profiles.full_name`/`profiles.email`, and adds `search_profiles()` — word-by-word + fuzzy-matched, relevance-ranked profile search for the People Involved picker. Deployed but no longer called — see the function's note above. |
+| `0012_google_calendar_sync.sql` | Adds `google_event_id`/`google_calendar_owner_id`/`google_synced_at` to `tasks` for two-way sync, and creates `external_calendar_events` (self-scoped RLS) to cache the rest of a user's Google Calendar read-only. |
+| `0013_google_oauth_tokens.sql` | Creates `google_oauth_tokens` (zero RLS policies — service-role-only access) to hold per-user Calendar OAuth tokens. **Temporary** — see that table's note above. |
 
 ## Not built yet
 

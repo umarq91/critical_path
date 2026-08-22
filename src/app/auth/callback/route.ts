@@ -1,9 +1,17 @@
 import { NextResponse } from "next/server";
+import { addSeconds } from "date-fns";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveUserRole } from "@/lib/google/admin-directory";
+import { saveGoogleTokens } from "@/lib/google/oauth-tokens";
 import { publicEnv } from "@/lib/env";
 import { ROUTES } from "@/constants/routes";
+
+// Google's own access tokens last ~3600s; Supabase doesn't surface the provider's exact
+// expiry, so this is a deliberately conservative estimate — a little short is harmless
+// (lib/google/calendar.ts just refreshes a bit earlier than strictly necessary), a little
+// long risks using a token Google's already rejected.
+const ASSUMED_PROVIDER_TOKEN_TTL_SECONDS = 3500;
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -15,7 +23,7 @@ export async function GET(request: Request) {
   }
 
   const supabase = await createClient();
-  const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+  const { data: exchangeData, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
   if (exchangeError) {
     return NextResponse.redirect(new URL(`${ROUTES.signIn}?error=auth`, url.origin));
   }
@@ -49,6 +57,22 @@ export async function GET(request: Request) {
   if (resolvedRole) {
     const admin = createAdminClient();
     await admin.from("profiles").update({ role: resolvedRole }).eq("id", user.id);
+  }
+
+  // TEMPORARY — per-user OAuth token capture for Calendar sync, the dev-friendly stopgap
+  // for domain-wide delegation not reaching personal @gmail.com test accounts (see
+  // google-button.tsx's scopes comment and lib/google/calendar.ts). provider_token is only
+  // present when the sign-in actually requested the calendar.events scope; older sessions
+  // re-authenticating without a fresh consent may come back without one, which is fine —
+  // saveGoogleTokens is simply skipped that run.
+  const providerToken = exchangeData.session?.provider_token;
+  if (providerToken) {
+    await saveGoogleTokens(user.id, {
+      accessToken: providerToken,
+      refreshToken: exchangeData.session?.provider_refresh_token,
+      expiresAt: addSeconds(new Date(), ASSUMED_PROVIDER_TOKEN_TTL_SECONDS).toISOString(),
+      scope: "https://www.googleapis.com/auth/calendar.events",
+    });
   }
 
   return NextResponse.redirect(new URL(next, url.origin));

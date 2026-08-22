@@ -1,417 +1,636 @@
-// Hand-authored to match `supabase/migrations/0001_profiles_roles.sql`, `0003_seasons.sql`,
-// `0005_brands.sql`, `0006_tasks.sql`, `0007_tasks_tracking_and_timeline.sql`,
-// `0008_key_stages.sql`, `0009_departments.sql`, `0010_task_people.sql`, and
-// `0011_profiles_smart_search.sql`.
-//
-// The search_profiles() Postgres function added by 0011 is no longer called from app code —
-// data/profiles.ts's searchProfiles() went back to a plain .ilike() query (simpler, faster,
-// sufficient for "substring/prefix" search). Its Functions.search_profiles type entry below
-// is kept in case something calls it directly again; it's still deployed and harmless to
-// leave as-is.
-// Regenerate after every migration: `supabase gen types typescript --linked > src/types/supabase.ts`
-
-export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
+// Generated via `supabase gen types typescript --linked > src/types/supabase.ts`. Do not hand-edit.
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.15"
+  }
   public: {
     Tables: {
-      profiles: {
-        Row: {
-          id: string;
-          email: string;
-          full_name: string | null;
-          avatar_url: string | null;
-          role: Database["public"]["Enums"]["user_role"];
-          department_id: string | null;
-          google_group_id: string | null;
-          status: string;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id: string;
-          email: string;
-          full_name?: string | null;
-          avatar_url?: string | null;
-          role?: Database["public"]["Enums"]["user_role"];
-          department_id?: string | null;
-          google_group_id?: string | null;
-          status?: string;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          id?: string;
-          email?: string;
-          full_name?: string | null;
-          avatar_url?: string | null;
-          role?: Database["public"]["Enums"]["user_role"];
-          department_id?: string | null;
-          google_group_id?: string | null;
-          status?: string;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "profiles_department_id_fkey";
-            columns: ["department_id"];
-            isOneToOne: false;
-            referencedRelation: "departments";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      seasons: {
-        Row: {
-          id: string;
-          season_code: string;
-          season_name: string;
-          status: Database["public"]["Enums"]["season_status"];
-          start_date: string;
-          end_date: string;
-          color: string;
-          owner_id: string | null;
-          created_at: string;
-          updated_at: string;
-          deleted_at: string | null;
-        };
-        Insert: {
-          id?: string;
-          season_code: string;
-          season_name: string;
-          status?: Database["public"]["Enums"]["season_status"];
-          start_date: string;
-          end_date: string;
-          color?: string;
-          owner_id?: string | null;
-          created_at?: string;
-          updated_at?: string;
-          deleted_at?: string | null;
-        };
-        Update: {
-          id?: string;
-          season_code?: string;
-          season_name?: string;
-          status?: Database["public"]["Enums"]["season_status"];
-          start_date?: string;
-          end_date?: string;
-          color?: string;
-          owner_id?: string | null;
-          created_at?: string;
-          updated_at?: string;
-          deleted_at?: string | null;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "seasons_owner_id_fkey";
-            columns: ["owner_id"];
-            isOneToOne: false;
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
       brands: {
         Row: {
-          id: string;
-          brand_code: string;
-          brand_name: string;
-          description: string | null;
-          status: Database["public"]["Enums"]["brand_status"];
-          color: string;
-          season_id: string;
-          created_at: string;
-          updated_at: string;
-          deleted_at: string | null;
-        };
+          brand_code: string
+          brand_name: string
+          color: string
+          created_at: string
+          deleted_at: string | null
+          description: string | null
+          id: string
+          season_id: string
+          status: Database["public"]["Enums"]["brand_status"]
+          updated_at: string
+        }
         Insert: {
-          id?: string;
-          brand_code: string;
-          brand_name: string;
-          description?: string | null;
-          status?: Database["public"]["Enums"]["brand_status"];
-          color?: string;
-          season_id: string;
-          created_at?: string;
-          updated_at?: string;
-          deleted_at?: string | null;
-        };
+          brand_code: string
+          brand_name: string
+          color?: string
+          created_at?: string
+          deleted_at?: string | null
+          description?: string | null
+          id?: string
+          season_id: string
+          status?: Database["public"]["Enums"]["brand_status"]
+          updated_at?: string
+        }
         Update: {
-          id?: string;
-          brand_code?: string;
-          brand_name?: string;
-          description?: string | null;
-          status?: Database["public"]["Enums"]["brand_status"];
-          color?: string;
-          season_id?: string;
-          created_at?: string;
-          updated_at?: string;
-          deleted_at?: string | null;
-        };
+          brand_code?: string
+          brand_name?: string
+          color?: string
+          created_at?: string
+          deleted_at?: string | null
+          description?: string | null
+          id?: string
+          season_id?: string
+          status?: Database["public"]["Enums"]["brand_status"]
+          updated_at?: string
+        }
         Relationships: [
           {
-            foreignKeyName: "brands_season_id_fkey";
-            columns: ["season_id"];
-            isOneToOne: false;
-            referencedRelation: "seasons";
-            referencedColumns: ["id"];
+            foreignKeyName: "brands_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "seasons"
+            referencedColumns: ["id"]
           },
-        ];
-      };
-      key_stages: {
-        Row: {
-          id: string;
-          name: string;
-          description: string | null;
-          created_at: string;
-          updated_at: string;
-          deleted_at: string | null;
-        };
-        Insert: {
-          id?: string;
-          name: string;
-          description?: string | null;
-          created_at?: string;
-          updated_at?: string;
-          deleted_at?: string | null;
-        };
-        Update: {
-          id?: string;
-          name?: string;
-          description?: string | null;
-          created_at?: string;
-          updated_at?: string;
-          deleted_at?: string | null;
-        };
-        Relationships: [];
-      };
+        ]
+      }
       departments: {
         Row: {
-          id: string;
-          name: string;
-          description: string | null;
-          created_at: string;
-          updated_at: string;
-          deleted_at: string | null;
-        };
+          created_at: string
+          deleted_at: string | null
+          description: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
         Insert: {
-          id?: string;
-          name: string;
-          description?: string | null;
-          created_at?: string;
-          updated_at?: string;
-          deleted_at?: string | null;
-        };
+          created_at?: string
+          deleted_at?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
         Update: {
-          id?: string;
-          name?: string;
-          description?: string | null;
-          created_at?: string;
-          updated_at?: string;
-          deleted_at?: string | null;
-        };
-        Relationships: [];
-      };
-      tasks: {
+          created_at?: string
+          deleted_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      external_calendar_events: {
         Row: {
-          id: string;
-          task_name: string;
-          season_id: string;
-          brand_id: string;
-          key_stage_id: string | null;
-          gender: Database["public"]["Enums"]["task_gender"];
-          due_date: string;
-          start_date: string | null;
-          end_date: string | null;
-          assignee_id: string | null;
-          status: Database["public"]["Enums"]["task_status"];
-          notes: string | null;
-          created_by: string | null;
-          last_edited_by: string | null;
-          deleted_by: string | null;
-          is_locked: boolean;
-          locked_by: string | null;
-          locked_at: string | null;
-          created_at: string;
-          updated_at: string;
-          deleted_at: string | null;
-        };
+          all_day: boolean
+          created_at: string
+          ends_at: string | null
+          google_event_id: string
+          id: string
+          last_synced_at: string
+          profile_id: string
+          starts_at: string
+          title: string
+          updated_at: string
+        }
         Insert: {
-          id?: string;
-          task_name: string;
-          season_id: string;
-          brand_id: string;
-          key_stage_id?: string | null;
-          gender: Database["public"]["Enums"]["task_gender"];
-          due_date: string;
-          start_date?: string | null;
-          end_date?: string | null;
-          assignee_id?: string | null;
-          status?: Database["public"]["Enums"]["task_status"];
-          notes?: string | null;
-          created_by?: string | null;
-          last_edited_by?: string | null;
-          deleted_by?: string | null;
-          is_locked?: boolean;
-          locked_by?: string | null;
-          locked_at?: string | null;
-          created_at?: string;
-          updated_at?: string;
-          deleted_at?: string | null;
-        };
+          all_day?: boolean
+          created_at?: string
+          ends_at?: string | null
+          google_event_id: string
+          id?: string
+          last_synced_at?: string
+          profile_id: string
+          starts_at: string
+          title: string
+          updated_at?: string
+        }
         Update: {
-          id?: string;
-          task_name?: string;
-          season_id?: string;
-          brand_id?: string;
-          key_stage_id?: string | null;
-          gender?: Database["public"]["Enums"]["task_gender"];
-          due_date?: string;
-          start_date?: string | null;
-          end_date?: string | null;
-          assignee_id?: string | null;
-          status?: Database["public"]["Enums"]["task_status"];
-          notes?: string | null;
-          created_by?: string | null;
-          last_edited_by?: string | null;
-          deleted_by?: string | null;
-          is_locked?: boolean;
-          locked_by?: string | null;
-          locked_at?: string | null;
-          created_at?: string;
-          updated_at?: string;
-          deleted_at?: string | null;
-        };
+          all_day?: boolean
+          created_at?: string
+          ends_at?: string | null
+          google_event_id?: string
+          id?: string
+          last_synced_at?: string
+          profile_id?: string
+          starts_at?: string
+          title?: string
+          updated_at?: string
+        }
         Relationships: [
           {
-            foreignKeyName: "tasks_season_id_fkey";
-            columns: ["season_id"];
-            isOneToOne: false;
-            referencedRelation: "seasons";
-            referencedColumns: ["id"];
+            foreignKeyName: "external_calendar_events_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
           },
+        ]
+      }
+      google_oauth_tokens: {
+        Row: {
+          access_token: string
+          created_at: string
+          expires_at: string
+          id: string
+          profile_id: string
+          refresh_token: string | null
+          scope: string | null
+          updated_at: string
+        }
+        Insert: {
+          access_token: string
+          created_at?: string
+          expires_at: string
+          id?: string
+          profile_id: string
+          refresh_token?: string | null
+          scope?: string | null
+          updated_at?: string
+        }
+        Update: {
+          access_token?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          profile_id?: string
+          refresh_token?: string | null
+          scope?: string | null
+          updated_at?: string
+        }
+        Relationships: [
           {
-            foreignKeyName: "tasks_brand_id_fkey";
-            columns: ["brand_id"];
-            isOneToOne: false;
-            referencedRelation: "brands";
-            referencedColumns: ["id"];
+            foreignKeyName: "google_oauth_tokens_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
           },
+        ]
+      }
+      key_stages: {
+        Row: {
+          created_at: string
+          deleted_at: string | null
+          description: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          deleted_at?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          deleted_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          department_id: string | null
+          email: string
+          full_name: string | null
+          google_group_id: string | null
+          id: string
+          role: Database["public"]["Enums"]["user_role"]
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          department_id?: string | null
+          email: string
+          full_name?: string | null
+          google_group_id?: string | null
+          id: string
+          role?: Database["public"]["Enums"]["user_role"]
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          department_id?: string | null
+          email?: string
+          full_name?: string | null
+          google_group_id?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["user_role"]
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
           {
-            foreignKeyName: "tasks_key_stage_id_fkey";
-            columns: ["key_stage_id"];
-            isOneToOne: false;
-            referencedRelation: "key_stages";
-            referencedColumns: ["id"];
+            foreignKeyName: "profiles_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
           },
+        ]
+      }
+      seasons: {
+        Row: {
+          color: string
+          created_at: string
+          deleted_at: string | null
+          end_date: string
+          id: string
+          owner_id: string | null
+          season_code: string
+          season_name: string
+          start_date: string
+          status: Database["public"]["Enums"]["season_status"]
+          updated_at: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          deleted_at?: string | null
+          end_date: string
+          id?: string
+          owner_id?: string | null
+          season_code: string
+          season_name: string
+          start_date: string
+          status?: Database["public"]["Enums"]["season_status"]
+          updated_at?: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          deleted_at?: string | null
+          end_date?: string
+          id?: string
+          owner_id?: string | null
+          season_code?: string
+          season_name?: string
+          start_date?: string
+          status?: Database["public"]["Enums"]["season_status"]
+          updated_at?: string
+        }
+        Relationships: [
           {
-            foreignKeyName: "tasks_assignee_id_fkey";
-            columns: ["assignee_id"];
-            isOneToOne: false;
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
+            foreignKeyName: "seasons_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "tasks_created_by_fkey";
-            columns: ["created_by"];
-            isOneToOne: false;
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "tasks_last_edited_by_fkey";
-            columns: ["last_edited_by"];
-            isOneToOne: false;
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "tasks_deleted_by_fkey";
-            columns: ["deleted_by"];
-            isOneToOne: false;
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "tasks_locked_by_fkey";
-            columns: ["locked_by"];
-            isOneToOne: false;
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
+        ]
+      }
       task_people: {
         Row: {
-          id: string;
-          task_id: string;
-          profile_id: string;
-          created_at: string;
-        };
+          created_at: string
+          id: string
+          profile_id: string
+          task_id: string
+        }
         Insert: {
-          id?: string;
-          task_id: string;
-          profile_id: string;
-          created_at?: string;
-        };
+          created_at?: string
+          id?: string
+          profile_id: string
+          task_id: string
+        }
         Update: {
-          id?: string;
-          task_id?: string;
-          profile_id?: string;
-          created_at?: string;
-        };
+          created_at?: string
+          id?: string
+          profile_id?: string
+          task_id?: string
+        }
         Relationships: [
           {
-            foreignKeyName: "task_people_task_id_fkey";
-            columns: ["task_id"];
-            isOneToOne: false;
-            referencedRelation: "tasks";
-            referencedColumns: ["id"];
+            foreignKeyName: "task_people_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "task_people_profile_id_fkey";
-            columns: ["profile_id"];
-            isOneToOne: false;
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
+            foreignKeyName: "task_people_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
           },
-        ];
-      };
-    };
-    Views: Record<string, never>;
+        ]
+      }
+      tasks: {
+        Row: {
+          assignee_id: string | null
+          brand_id: string
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          deleted_by: string | null
+          due_date: string
+          end_date: string | null
+          gender: Database["public"]["Enums"]["task_gender"]
+          google_calendar_owner_id: string | null
+          google_event_id: string | null
+          google_synced_at: string | null
+          id: string
+          is_locked: boolean
+          key_stage_id: string | null
+          last_edited_by: string | null
+          locked_at: string | null
+          locked_by: string | null
+          notes: string | null
+          season_id: string
+          start_date: string | null
+          status: Database["public"]["Enums"]["task_status"]
+          task_name: string
+          updated_at: string
+        }
+        Insert: {
+          assignee_id?: string | null
+          brand_id: string
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          due_date: string
+          end_date?: string | null
+          gender: Database["public"]["Enums"]["task_gender"]
+          google_calendar_owner_id?: string | null
+          google_event_id?: string | null
+          google_synced_at?: string | null
+          id?: string
+          is_locked?: boolean
+          key_stage_id?: string | null
+          last_edited_by?: string | null
+          locked_at?: string | null
+          locked_by?: string | null
+          notes?: string | null
+          season_id: string
+          start_date?: string | null
+          status?: Database["public"]["Enums"]["task_status"]
+          task_name: string
+          updated_at?: string
+        }
+        Update: {
+          assignee_id?: string | null
+          brand_id?: string
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          due_date?: string
+          end_date?: string | null
+          gender?: Database["public"]["Enums"]["task_gender"]
+          google_calendar_owner_id?: string | null
+          google_event_id?: string | null
+          google_synced_at?: string | null
+          id?: string
+          is_locked?: boolean
+          key_stage_id?: string | null
+          last_edited_by?: string | null
+          locked_at?: string | null
+          locked_by?: string | null
+          notes?: string | null
+          season_id?: string
+          start_date?: string | null
+          status?: Database["public"]["Enums"]["task_status"]
+          task_name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_assignee_id_fkey"
+            columns: ["assignee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_google_calendar_owner_id_fkey"
+            columns: ["google_calendar_owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_key_stage_id_fkey"
+            columns: ["key_stage_id"]
+            isOneToOne: false
+            referencedRelation: "key_stages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_last_edited_by_fkey"
+            columns: ["last_edited_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_locked_by_fkey"
+            columns: ["locked_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "seasons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+    }
+    Views: {
+      [_ in never]: never
+    }
     Functions: {
       current_user_role: {
-        Args: Record<string, never>;
-        Returns: Database["public"]["Enums"]["user_role"];
-      };
-      is_admin: {
-        Args: Record<string, never>;
-        Returns: boolean;
-      };
-      search_profiles: {
-        Args: {
-          search?: string | null;
-          exclude_ids?: string[] | null;
-          limit_count?: number;
-          offset_count?: number;
-        };
-        Returns: {
-          id: string;
-          full_name: string | null;
-          email: string;
-          avatar_url: string | null;
-          department_name: string | null;
-        }[];
-      };
-    };
+        Args: never
+        Returns: Database["public"]["Enums"]["user_role"]
+      }
+      is_admin: { Args: never; Returns: boolean }
+    }
     Enums: {
-      user_role: "admin" | "standard_user" | "viewer";
-      season_status: "planning" | "upcoming" | "active" | "completed";
-      brand_status: "active" | "inactive";
-      task_gender: "men" | "women" | "unisex";
-      task_status: "not_started" | "in_progress" | "completed" | "overdue";
-    };
-    CompositeTypes: Record<string, never>;
-  };
-};
+      brand_status: "active" | "inactive"
+      season_status: "planning" | "upcoming" | "active" | "completed"
+      task_gender: "men" | "women" | "unisex"
+      task_status: "not_started" | "in_progress" | "completed" | "overdue"
+      user_role: "admin" | "standard_user" | "viewer"
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
+}
+
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+
+export type Tables<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      Row: infer R
+    }
+    ? R
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
+
+export type TablesInsert<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Insert: infer I
+    }
+    ? I
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
+
+export type TablesUpdate<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Update: infer U
+    }
+    ? U
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
+    : never
+
+export type Enums<
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
+
+export const Constants = {
+  public: {
+    Enums: {
+      brand_status: ["active", "inactive"],
+      season_status: ["planning", "upcoming", "active", "completed"],
+      task_gender: ["men", "women", "unisex"],
+      task_status: ["not_started", "in_progress", "completed", "overdue"],
+      user_role: ["admin", "standard_user", "viewer"],
+    },
+  },
+} as const

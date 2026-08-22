@@ -5,6 +5,7 @@ import { requirePermission } from "@/lib/require-permission";
 import { taskSchema, taskUpdateSchema } from "@/app/(app)/tasks/schema";
 import { listTasks, type ListTasksParams } from "@/data/tasks";
 import { searchProfiles, type SearchProfilesParams } from "@/data/profiles";
+import { deleteTaskCalendarEvent } from "@/lib/google/calendar";
 
 // Powers the isolated "Refresh" icon on the tasks table (see useRefreshableData). A plain
 // read, not a mutation — router.refresh() can't scope a reload to just this table (it
@@ -87,13 +88,29 @@ export async function deleteTask(id: string) {
   const auth = await requirePermission("task.delete");
   if (!auth.ok) return auth;
 
+  // Fetched before the delete so the linked Google Calendar event (if any) can be cleaned
+  // up on whichever profile's calendar it actually lives on — not necessarily the person
+  // deleting the task (see tasks.google_calendar_owner_id).
+  const { data: task } = await auth.supabase
+    .from("tasks")
+    .select("google_event_id, google_calendar_owner_id")
+    .eq("id", id)
+    .single();
+
   const { error } = await auth.supabase
     .from("tasks")
     .update({ deleted_at: new Date().toISOString(), deleted_by: auth.userId })
     .eq("id", id);
   if (error) return { ok: false as const, error: error.message };
 
+  if (task?.google_event_id && task.google_calendar_owner_id) {
+    // Best-effort — a failed calendar cleanup shouldn't undo an already-successful task
+    // delete, so this is deliberately not awaited into the error path above.
+    await deleteTaskCalendarEvent(task.google_calendar_owner_id, task.google_event_id).catch(() => undefined);
+  }
+
   revalidatePath("/tasks");
+  revalidatePath("/calendar");
   return { ok: true as const };
 }
 

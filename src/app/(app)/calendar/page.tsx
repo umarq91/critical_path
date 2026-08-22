@@ -5,6 +5,7 @@ import { getCalendarRange, resolveAnchorDate, toQueryDate } from "@/app/(app)/ca
 import { listTasksByDueDateRange } from "@/data/tasks";
 import { listSeasonOptions } from "@/data/seasons";
 import { listBrandOptions } from "@/data/brands";
+import { listExternalCalendarEvents } from "@/data/external-calendar-events";
 import { getCurrentProfile } from "@/data/profiles";
 import { can } from "@/lib/permissions";
 import { taskStatusValues } from "@/app/(app)/tasks/schema";
@@ -27,7 +28,7 @@ export default async function CalendarPage({
   const profile = await getCurrentProfile();
   const canAssignPeople = !!profile && can(profile.role, "task.assign");
 
-  const [tasks, seasons, brands] = await Promise.all([
+  const [tasks, seasons, brands, externalEvents] = await Promise.all([
     listTasksByDueDateRange({
       from: toQueryDate(range.start),
       to: toQueryDate(range.end),
@@ -36,6 +37,7 @@ export default async function CalendarPage({
     }),
     listSeasonOptions(),
     listBrandOptions(),
+    profile ? listExternalCalendarEvents({ profileId: profile.id, from: toQueryDate(range.start), to: toQueryDate(range.end) }) : [],
   ]);
 
   const seasonOptions = seasons.map((season) => ({ value: season.id, label: season.season_name }));
@@ -50,6 +52,7 @@ export default async function CalendarPage({
           anchorDate={anchorDate}
           range={range}
           tasks={tasks}
+          externalEvents={externalEvents}
           canAssignPeople={canAssignPeople}
           seasonOptions={seasonOptions}
           brandOptions={brandOptions}

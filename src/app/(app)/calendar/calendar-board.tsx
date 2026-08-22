@@ -6,17 +6,31 @@ import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TaskDetailDrawer } from "@/app/(app)/tasks/task-detail-drawer";
 import { CalendarTaskChip } from "@/app/(app)/calendar/calendar-task-chip";
+import { CalendarExternalEventChip } from "@/app/(app)/calendar/calendar-external-event-chip";
 import { toDateKey, toQueryDate, type CalendarRange } from "@/app/(app)/calendar/calendar-utils";
 import type { CalendarView } from "@/app/(app)/calendar/calendar-search-params";
 import type { Task } from "@/data/tasks";
+import type { ExternalCalendarEvent } from "@/data/external-calendar-events";
 
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function groupByDate<T>(items: T[], dateKeyOf: (item: T) => string): Map<string, T[]> {
+  const map = new Map<string, T[]>();
+  for (const item of items) {
+    const key = dateKeyOf(item);
+    const bucket = map.get(key);
+    if (bucket) bucket.push(item);
+    else map.set(key, [item]);
+  }
+  return map;
+}
 
 interface CalendarBoardProps {
   view: CalendarView;
   anchorDate: Date;
   range: CalendarRange;
   tasks: Task[];
+  externalEvents: ExternalCalendarEvent[];
   canAssignPeople: boolean;
   isPending: boolean;
   hasActiveFilters: boolean;
@@ -28,6 +42,7 @@ export const CalendarBoard = ({
   anchorDate,
   range,
   tasks,
+  externalEvents,
   canAssignPeople,
   isPending,
   hasActiveFilters,
@@ -35,22 +50,17 @@ export const CalendarBoard = ({
 }: CalendarBoardProps) => {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
-  const tasksByDate = useMemo(() => {
-    const map = new Map<string, Task[]>();
-    for (const task of tasks) {
-      const key = toDateKey(task.due_date);
-      const bucket = map.get(key);
-      if (bucket) bucket.push(task);
-      else map.set(key, [task]);
-    }
-    return map;
-  }, [tasks]);
+  const tasksByDate = useMemo(() => groupByDate(tasks, (task) => toDateKey(task.due_date)), [tasks]);
+  const externalEventsByDate = useMemo(
+    () => groupByDate(externalEvents, (event) => toDateKey(event.starts_at)),
+    [externalEvents]
+  );
 
   // Keying the active grid by its range forces a remount on every Prev/Next/Today/view
   // change, so the fade-in animation on each grid replays instead of only firing once on
   // first mount (a re-render with new props alone wouldn't retrigger a CSS-entry animation).
   const gridKey = `${view}-${toQueryDate(range.start)}`;
-  const showEmptyState = tasks.length === 0 && hasActiveFilters;
+  const showEmptyState = tasks.length === 0 && externalEvents.length === 0 && hasActiveFilters;
 
   return (
     <div className="flex flex-col gap-4">
@@ -68,6 +78,7 @@ export const CalendarBoard = ({
               range={range}
               anchorDate={anchorDate}
               tasksByDate={tasksByDate}
+              externalEventsByDate={externalEventsByDate}
               onSelectTask={setSelectedTask}
               onNavigateToDate={onNavigateToDate}
             />
@@ -77,12 +88,19 @@ export const CalendarBoard = ({
               key={gridKey}
               range={range}
               tasksByDate={tasksByDate}
+              externalEventsByDate={externalEventsByDate}
               onSelectTask={setSelectedTask}
               onNavigateToDate={onNavigateToDate}
             />
           ) : null}
           {view === "day" ? (
-            <DayAgenda key={gridKey} anchorDate={anchorDate} tasksByDate={tasksByDate} onSelectTask={setSelectedTask} />
+            <DayAgenda
+              key={gridKey}
+              anchorDate={anchorDate}
+              tasksByDate={tasksByDate}
+              externalEventsByDate={externalEventsByDate}
+              onSelectTask={setSelectedTask}
+            />
           ) : null}
         </div>
         {isPending ? (
@@ -133,12 +151,14 @@ function MonthGrid({
   range,
   anchorDate,
   tasksByDate,
+  externalEventsByDate,
   onSelectTask,
   onNavigateToDate,
 }: {
   range: CalendarRange;
   anchorDate: Date;
   tasksByDate: Map<string, Task[]>;
+  externalEventsByDate: Map<string, ExternalCalendarEvent[]>;
   onSelectTask: (task: Task) => void;
   onNavigateToDate: (date: Date) => void;
 }) {
@@ -156,12 +176,17 @@ function MonthGrid({
         </div>
         <div className="grid grid-cols-7">
           {days.map((day) => {
-            const dayTasks = tasksByDate.get(toDateKey(day)) ?? [];
+            const dateKey = toDateKey(day);
+            const dayTasks = tasksByDate.get(dateKey) ?? [];
+            const dayExternalEvents = externalEventsByDate.get(dateKey) ?? [];
             const inCurrentMonth = isSameMonth(day, anchorDate);
             const today = isToday(day);
             const weekend = isWeekend(day);
             const visibleTasks = dayTasks.slice(0, 3);
-            const overflowCount = dayTasks.length - visibleTasks.length;
+            const taskOverflowCount = dayTasks.length - visibleTasks.length;
+            const visibleExternalEvents = dayExternalEvents.slice(0, taskOverflowCount > 0 ? 0 : 2);
+            const externalOverflowCount = dayExternalEvents.length - visibleExternalEvents.length;
+            const totalOverflowCount = taskOverflowCount + externalOverflowCount;
 
             return (
               <div
@@ -178,14 +203,17 @@ function MonthGrid({
                   {visibleTasks.map((task) => (
                     <CalendarTaskChip key={task.id} task={task} onSelect={onSelectTask} variant="compact" />
                   ))}
-                  {overflowCount > 0 ? (
+                  {visibleExternalEvents.map((event) => (
+                    <CalendarExternalEventChip key={event.id} event={event} variant="compact" />
+                  ))}
+                  {totalOverflowCount > 0 ? (
                     <button
                       type="button"
                       onClick={() => onNavigateToDate(day)}
-                      aria-label={`View all ${dayTasks.length} tasks on ${format(day, "MMMM d")}`}
+                      aria-label={`View all ${dayTasks.length + dayExternalEvents.length} items on ${format(day, "MMMM d")}`}
                       className="rounded px-2 text-left text-sm text-muted-foreground underline-offset-2 transition-colors hover:text-foreground hover:underline"
                     >
-                      +{overflowCount} more
+                      +{totalOverflowCount} more
                     </button>
                   ) : null}
                 </div>
@@ -201,11 +229,13 @@ function MonthGrid({
 function WeekAgenda({
   range,
   tasksByDate,
+  externalEventsByDate,
   onSelectTask,
   onNavigateToDate,
 }: {
   range: CalendarRange;
   tasksByDate: Map<string, Task[]>;
+  externalEventsByDate: Map<string, ExternalCalendarEvent[]>;
   onSelectTask: (task: Task) => void;
   onNavigateToDate: (date: Date) => void;
 }) {
@@ -214,7 +244,9 @@ function WeekAgenda({
   return (
     <div className="animate-in fade-in-0 slide-in-from-bottom-1 grid grid-cols-1 gap-3 duration-300 md:grid-cols-7">
       {days.map((day) => {
-        const dayTasks = tasksByDate.get(toDateKey(day)) ?? [];
+        const dateKey = toDateKey(day);
+        const dayTasks = tasksByDate.get(dateKey) ?? [];
+        const dayExternalEvents = externalEventsByDate.get(dateKey) ?? [];
         const today = isToday(day);
         const weekend = isWeekend(day);
 
@@ -232,10 +264,17 @@ function WeekAgenda({
               <DayNumberButton day={day} today={today} onNavigateToDate={onNavigateToDate} />
             </div>
             <div className="flex flex-col gap-2">
-              {dayTasks.length === 0 ? (
+              {dayTasks.length === 0 && dayExternalEvents.length === 0 ? (
                 <span className="text-sm text-muted-foreground">No tasks</span>
               ) : (
-                dayTasks.map((task) => <CalendarTaskChip key={task.id} task={task} onSelect={onSelectTask} variant="full" />)
+                <>
+                  {dayTasks.map((task) => (
+                    <CalendarTaskChip key={task.id} task={task} onSelect={onSelectTask} variant="full" />
+                  ))}
+                  {dayExternalEvents.map((event) => (
+                    <CalendarExternalEventChip key={event.id} event={event} variant="full" />
+                  ))}
+                </>
               )}
             </div>
           </div>
@@ -248,26 +287,38 @@ function WeekAgenda({
 function DayAgenda({
   anchorDate,
   tasksByDate,
+  externalEventsByDate,
   onSelectTask,
 }: {
   anchorDate: Date;
   tasksByDate: Map<string, Task[]>;
+  externalEventsByDate: Map<string, ExternalCalendarEvent[]>;
   onSelectTask: (task: Task) => void;
 }) {
-  const dayTasks = tasksByDate.get(toDateKey(anchorDate)) ?? [];
+  const dateKey = toDateKey(anchorDate);
+  const dayTasks = tasksByDate.get(dateKey) ?? [];
+  const dayExternalEvents = externalEventsByDate.get(dateKey) ?? [];
 
   return (
     <div className="animate-in fade-in-0 slide-in-from-bottom-1 flex flex-col gap-3 rounded-lg border border-border p-4 duration-300">
       <span className="text-h3 text-foreground">
         {isSameDay(anchorDate, new Date()) ? "Today" : format(anchorDate, "EEEE")}
       </span>
-      {dayTasks.length === 0 ? (
+      {dayTasks.length === 0 && dayExternalEvents.length === 0 ? (
         <p className="text-body text-muted-foreground">No tasks due on this day.</p>
       ) : (
         <div className="flex flex-col gap-2">
           {dayTasks.map((task) => (
             <CalendarTaskChip key={task.id} task={task} onSelect={onSelectTask} variant="full" />
           ))}
+          {dayExternalEvents.length > 0 ? (
+            <>
+              {dayTasks.length > 0 ? <span className="pt-1 text-sm font-medium text-text-secondary">Also on your calendar</span> : null}
+              {dayExternalEvents.map((event) => (
+                <CalendarExternalEventChip key={event.id} event={event} variant="full" />
+              ))}
+            </>
+          ) : null}
         </div>
       )}
     </div>
@@ -279,6 +330,7 @@ const LEGEND_ITEMS = [
   { status: "in_progress", label: "In Progress", dotClass: "bg-status-progress-base" },
   { status: "completed", label: "Complete", dotClass: "bg-status-complete-base" },
   { status: "overdue", label: "Overdue", dotClass: "bg-status-overdue-base" },
+  { status: "google_calendar", label: "Google Calendar", dotClass: "bg-primary" },
 ] as const;
 
 function CalendarLegend() {
