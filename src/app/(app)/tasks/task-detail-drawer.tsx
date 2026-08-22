@@ -30,6 +30,7 @@ import { ColorTag } from "@/components/shared/color-tag";
 import { TaskPeopleSection } from "@/app/(app)/tasks/task-people-section";
 import { TASK_STATUS_CONFIG } from "@/constants/task-status";
 import { TASK_GENDER_CONFIG } from "@/constants/task-gender";
+import { TASK_PRIORITY_CONFIG } from "@/constants/task-priority";
 import { getVizColorForId } from "@/constants/chart-colors";
 import { initials } from "@/lib/utils";
 import { formatDate } from "@/app/(app)/tasks/columns";
@@ -143,7 +144,7 @@ export const TaskDetailDrawer = ({ task, open, onOpenChange, canAssignPeople }: 
                 {formatDate(task.due_date)}
               </OverviewField>
               <OverviewField icon={Flag} label="Priority">
-                <span className="text-muted-foreground">Not set</span>
+                <StatusBadge value={task.priority} config={TASK_PRIORITY_CONFIG} />
               </OverviewField>
               <OverviewField icon={CalendarPlus} label="Created">
                 {formatDate(task.created_at)}

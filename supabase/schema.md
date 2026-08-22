@@ -26,6 +26,7 @@ policy — see `0006_tasks.sql`.
 | `brand_status` | `active`, `inactive` | `brands.status` |
 | `task_gender` | `men`, `women`, `unisex` | `tasks.gender` |
 | `task_status` | `not_started`, `in_progress`, `completed`, `overdue` | `tasks.status` |
+| `task_priority` | `high`, `med`, `low` | `tasks.priority` |
 
 ## Helper functions
 
@@ -34,7 +35,6 @@ policy — see `0006_tasks.sql`.
 | `set_updated_at()` | Trigger fn — stamps `updated_at = now()` on every table that has the column. Attach via `create trigger ..._set_updated_at before update ... execute function public.set_updated_at();` |
 | `current_user_role()` | Returns the caller's role. `security definer`, bypasses RLS on `profiles` internally so it can be called *from inside* other RLS policies without recursion. |
 | `is_admin()` | `current_user_role() = 'admin'`. What every write policy checks. |
-| `search_profiles(search, exclude_ids, limit_count, offset_count)` | Word-by-word + `pg_trgm` fuzzy-matched, relevance-ranked profile search, added by `0011_profiles_smart_search.sql`. **No longer called from app code** — its correlated-subquery matching couldn't use the trigram indexes and was taking minutes on real data; `data/profiles.ts`'s `searchProfiles()` went back to a plain `.ilike()` query, which already covers the actual requirement (exact match, and a fragment like "um" finding "Umar"). Left deployed rather than dropped — harmless if unused, revisit only if fuzzier matching becomes a real requirement again. |
 
 ---
 
@@ -81,7 +81,7 @@ policy — see `0006_tasks.sql`.
 **Deliberately not columns:** task count, brand count, completion %, owner count — all shown on the Seasons admin page but computed from `tasks` once that table exists, not stored here.
 
 ### `brands`
-*Migration: `0005_brands.sql`, `season_id` replaced by `brand_seasons` in `0014_brand_seasons.sql`. Stable brand identity referenced by `tasks.brand_id`.*
+*Migration: `0005_brands.sql`, `season_id` replaced by `brand_seasons` in `0013_brand_seasons.sql`. Stable brand identity referenced by `tasks.brand_id`.*
 
 | Column | Type | Notes |
 |---|---|---|
@@ -99,7 +99,7 @@ policy — see `0006_tasks.sql`.
 **Deliberately not a column:** brand's task count — shown on the admin Brands page but computed from `tasks` once that table exists, same reasoning as `seasons`.
 
 ### `brand_seasons`
-*Migration: `0014_brand_seasons.sql`. "Seasons" on the Brands admin page — many-to-many between `brands` and `seasons`, same join-table shape as `task_people`. Replaces the original `brands.season_id` (not-null FK, one season per brand) once that stopped matching the confirmed requirement.*
+*Migration: `0013_brand_seasons.sql`. "Seasons" on the Brands admin page — many-to-many between `brands` and `seasons`, same join-table shape as `task_people`. Replaces the original `brands.season_id` (not-null FK, one season per brand) once that stopped matching the confirmed requirement.*
 
 | Column | Type | Notes |
 |---|---|---|
@@ -141,7 +141,7 @@ policy — see `0006_tasks.sql`.
 Referenced only by `profiles.department_id`, a nullable FK with `on delete set null` — deleting a department clears it from every user who had it instead of blocking the delete or cascading. Deliberately **not** referenced by `tasks` — a task's department is read via its assignee's `profile.department_id`, not stored redundantly on the task itself.
 
 ### `tasks`
-*Migration: `0006_tasks.sql`. The core entity — spreadsheet grid, calendar, Gantt/Timeline, and dashboards all read from this table.*
+*Migration: `0006_tasks.sql`, `priority` added in `0014_tasks_priority.sql`. The core entity — spreadsheet grid, calendar, Gantt/Timeline, and dashboards all read from this table.*
 
 | Column | Type | Notes |
 |---|---|---|
@@ -154,6 +154,7 @@ Referenced only by `profiles.department_id`, a nullable FK with `on delete set n
 | `due_date` | date, not null | |
 | `assignee_id` | uuid, FK → `profiles.id`, nullable, `on delete set null` | "Owner / Assignee" — one combined field, not the two separate `owner`/`assignee` columns `plan.md`'s original sketch had; collapsed to match the confirmed UI (one column) and current scope |
 | `status` | `task_status`, default `not_started` | `not_started` \| `in_progress` \| `completed` \| `overdue` |
+| `priority` | `task_priority`, default `med` | `high` \| `med` \| `low` — was stubbed as a hardcoded "Not set" placeholder in the task detail drawer until this migration landed |
 | `notes` | text, nullable | the UI's "Comments" column — a single free-text field on the task, not a separate `task_comments` table |
 | `start_date` | date, nullable | working-timeline start, for the future Gantt/Timeline view |
 | `end_date` | date, nullable | expected finish date; `check (end_date >= start_date)` |
@@ -193,7 +194,7 @@ Referenced only by `profiles.department_id`, a nullable FK with `on delete set n
 **RLS:** same matrix as `tasks` itself — any authenticated user reads; add/remove requires `standard_user` or `admin` (`current_user_role() in ('standard_user', 'admin')`), matching `task.assign` in `lib/permissions.ts`.
 
 ### `external_calendar_events`
-*Migration: `0012_google_calendar_sync.sql`. Read-only cache of a user's Google Calendar events that are NOT linked to one of their tasks (see `tasks.google_event_id` above) — personal data, not shared org data like every other table here.*
+*Migration: `0011_google_calendar_sync.sql`. Read-only cache of a user's Google Calendar events that are NOT linked to one of their tasks (see `tasks.google_event_id` above) — personal data, not shared org data like every other table here.*
 
 | Column | Type | Notes |
 |---|---|---|
@@ -212,7 +213,7 @@ Referenced only by `profiles.department_id`, a nullable FK with `on delete set n
 **RLS:** unlike every other table here, not the shared admin-only-write pattern — a single `for all using (profile_id = auth.uid())` policy, since this is one user's own cached calendar data, not organization-wide.
 
 ### `google_oauth_tokens`
-*Migration: `0013_google_oauth_tokens.sql`. Per-user Google OAuth access/refresh tokens, used only to call the Calendar API as that specific user.*
+*Migration: `0012_google_oauth_tokens.sql`. Per-user Google OAuth access/refresh tokens, used only to call the Calendar API as that specific user.*
 
 **⚠️ TEMPORARY — read before touching Google Calendar sync.** Domain-wide delegation (the `GOOGLE_SERVICE_ACCOUNT_*` service account already used for role sync above) can only impersonate accounts inside a real Google Workspace domain — there's no admin console for a personal `@gmail.com` address to grant it from. While dev/test sign-ins use personal Gmail accounts (`NEXT_PUBLIC_GOOGLE_WORKSPACE_DOMAIN=gmail.com`), Calendar sync instead uses standard per-user OAuth consent: `google-button.tsx` requests the `calendar.events` scope at sign-in, `auth/callback/route.ts` stores the resulting token here, and `lib/google/calendar.ts` reads/refreshes it. **Once real Workspace accounts are in use, revisit switching Calendar sync to domain-wide delegation instead** (consistent with role sync, and avoids every user re-consenting to a Calendar permission at every sign-in) — at that point this table, `lib/google/oauth-tokens.ts`, the `scopes`/`access_type`/`prompt` additions in `google-button.tsx`, and the `GOOGLE_OAUTH_CLIENT_ID`/`GOOGLE_OAUTH_CLIENT_SECRET` env vars can all be retired.
 
@@ -244,10 +245,10 @@ Referenced only by `profiles.department_id`, a nullable FK with `on delete set n
 | `0008_key_stages.sql` | `key_stages` table (name + description only), RLS, and `tasks.key_stage_id` (nullable FK, `on delete set null`). |
 | `0009_departments.sql` | `departments` table (name + description only, same shape as `key_stages`), RLS, and replaces the old free-text `profiles.department` with `profiles.department_id` (nullable FK, `on delete set null`) — re-points the privileged-column guard trigger at the new column name. Not referenced by `tasks`. |
 | `0010_task_people.sql` | `task_people` join table (`task_id`, `profile_id`, unique pair, both `on delete cascade`) — "People Involved," a many-to-many distinct from `tasks.assignee_id`. RLS matches `tasks`' own read-all/`standard_user`-or-`admin`-write pattern. |
-| `0011_profiles_smart_search.sql` | Enables `pg_trgm`, adds trigram GIN indexes on `profiles.full_name`/`profiles.email`, and adds `search_profiles()` — word-by-word + fuzzy-matched, relevance-ranked profile search for the People Involved picker. Deployed but no longer called — see the function's note above. |
-| `0012_google_calendar_sync.sql` | Adds `google_event_id`/`google_calendar_owner_id`/`google_synced_at` to `tasks` for two-way sync, and creates `external_calendar_events` (self-scoped RLS) to cache the rest of a user's Google Calendar read-only. |
-| `0013_google_oauth_tokens.sql` | Creates `google_oauth_tokens` (zero RLS policies — service-role-only access) to hold per-user Calendar OAuth tokens. **Temporary** — see that table's note above. |
-| `0014_brand_seasons.sql` | Drops `brands.season_id`, creates `brand_seasons` join table (same shape as `task_people`) so a brand can belong to multiple seasons. Migrates existing 1:1 links into the new table before dropping the column. |
+| `0011_google_calendar_sync.sql` | Adds `google_event_id`/`google_calendar_owner_id`/`google_synced_at` to `tasks` for two-way sync, and creates `external_calendar_events` (self-scoped RLS) to cache the rest of a user's Google Calendar read-only. |
+| `0012_google_oauth_tokens.sql` | Creates `google_oauth_tokens` (zero RLS policies — service-role-only access) to hold per-user Calendar OAuth tokens. **Temporary** — see that table's note above. |
+| `0013_brand_seasons.sql` | Drops `brands.season_id`, creates `brand_seasons` join table (same shape as `task_people`) so a brand can belong to multiple seasons. Migrates existing 1:1 links into the new table before dropping the column. |
+| `0014_tasks_priority.sql` | Adds `task_priority` enum (`high`/`med`/`low`) and `tasks.priority` (default `med`), plus an index. |
 
 ## Not built yet
 

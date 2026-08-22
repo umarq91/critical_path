@@ -6,7 +6,7 @@
 -- `select id, season_code, season_name, status from public.seasons order by season_name;`),
 -- not subqueries — swap them out if you re-seed seasons and get new ids. Each brand gets one
 -- brand_seasons row per season listed in its comment; a couple of brands are seeded with more
--- than one season to exercise the many-to-many relationship (0014_brand_seasons.sql).
+-- than one season to exercise the many-to-many relationship (0013_brand_seasons.sql).
 --
 -- Colors cycle through the same VIZ_COLORS palette the app's <ColorField> offers
 -- (src/constants/chart-colors.ts), so these look like real choices, not placeholders.

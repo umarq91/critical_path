@@ -2,6 +2,7 @@ import { z } from "zod";
 
 export const taskGenderValues = ["men", "women", "unisex"] as const;
 export const taskStatusValues = ["not_started", "in_progress", "completed", "overdue"] as const;
+export const taskPriorityValues = ["high", "med", "low"] as const;
 
 export const taskSchema = z.object({
   task_name: z.string().min(1, "Task name is required").max(200),
@@ -18,6 +19,7 @@ export const taskSchema = z.object({
   end_date: z.string().optional(),
   assignee_id: z.string().uuid("Owner / assignee is required"),
   status: z.enum(taskStatusValues),
+  priority: z.enum(taskPriorityValues),
   notes: z.string().max(2000).optional(),
 });
 

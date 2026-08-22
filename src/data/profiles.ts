@@ -57,11 +57,10 @@ function sanitiseOrSearchTerm(value: string) {
 // member list can run into the thousands, so this is deliberately paginated and searched
 // server-side rather than reusing listAssignableProfiles' load-everything shape.
 //
-// Plain substring matching, not the search_profiles() RPC from 0011/0012 — that word-split +
-// pg_trgm approach was more than what's actually needed here (a straight `%term%` on the
-// indexed columns already covers "an exact full name" and "a fragment of it, like 'um' for
-// 'Umar'") and, without careful indexing, was slow. Keep this simple unless a real need for
-// fuzzier matching (typo tolerance, reordered words) comes back.
+// Plain substring matching — a straight `%term%` on the indexed columns already covers "an
+// exact full name" and "a fragment of it, like 'um' for 'Umar'". Keep this simple unless a
+// real need for fuzzier matching (typo tolerance, reordered words) comes back; that would
+// call for a word-split + pg_trgm approach, which needs careful indexing to stay fast.
 export async function searchProfiles({
   query,
   excludeIds = [],

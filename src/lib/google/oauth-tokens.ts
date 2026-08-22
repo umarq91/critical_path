@@ -1,7 +1,7 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-// google_oauth_tokens has zero RLS policies (see 0013_google_oauth_tokens.sql) — these are
+// google_oauth_tokens has zero RLS policies (see 0012_google_oauth_tokens.sql) — these are
 // live API credentials, not display data, so even the owning user can't read their own row
 // through the normal per-request client. This module is the one place allowed to touch the
 // table, always via the service-role client, always scoped to a specific profileId by hand.

@@ -14,10 +14,11 @@ import { SelectField } from "@/components/form-fields/select-field";
 import { DateField } from "@/components/form-fields/date-field";
 import { PeopleInvolvedField } from "@/app/(app)/tasks/people-involved-field";
 import type { PersonSummary } from "@/app/(app)/tasks/person-row";
-import { taskSchema, taskGenderValues, taskStatusValues, type TaskInput } from "@/app/(app)/tasks/schema";
+import { taskSchema, taskGenderValues, taskStatusValues, taskPriorityValues, type TaskInput } from "@/app/(app)/tasks/schema";
 import { createTask, addTaskPeople } from "@/app/(app)/tasks/_actions";
 import { TASK_GENDER_CONFIG } from "@/constants/task-gender";
 import { TASK_STATUS_CONFIG } from "@/constants/task-status";
+import { TASK_PRIORITY_CONFIG } from "@/constants/task-priority";
 import type { DataTableFilterOption } from "@/components/data-table/table-features";
 
 interface TaskFormProps {
@@ -46,6 +47,7 @@ export const TaskForm = ({ onSuccess, seasonOptions, brandOptions, keyStageOptio
       end_date: "",
       assignee_id: assigneeOptions[0]?.value ?? "",
       status: "not_started",
+      priority: "med",
       notes: "",
     },
   });
@@ -115,13 +117,19 @@ export const TaskForm = ({ onSuccess, seasonOptions, brandOptions, keyStageOptio
           <Separator />
 
           <FormSection title="Assignment">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <SelectField control={form.control} name="assignee_id" label="Owner / Assignee" options={assigneeOptions} />
               <SelectField
                 control={form.control}
                 name="status"
                 label="Status"
                 options={taskStatusValues.map((value) => ({ value, label: TASK_STATUS_CONFIG[value].label }))}
+              />
+              <SelectField
+                control={form.control}
+                name="priority"
+                label="Priority"
+                options={taskPriorityValues.map((value) => ({ value, label: TASK_PRIORITY_CONFIG[value].label }))}
               />
             </div>
             <div className="grid gap-1.5">

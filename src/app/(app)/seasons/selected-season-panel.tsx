@@ -48,10 +48,12 @@ export const SelectedSeasonPanel = ({ season }: { season: Season }) => {
       {/* Brands/Tasks/Completed/In Progress/Not Started/Overdue/Owners rows from the mockup
           are dropped here — no real source until tasks (and a brand<->season link) exist. */}
       <div className="flex flex-col gap-2 pt-1">
-        <Button variant="outline" render={<Link href={tasksHref} />}>
+        <Button variant="outline" nativeButton={false} render={<Link href={tasksHref} />}>
           View Tasks
         </Button>
-        <Button render={<Link href={calendarHref} />}>View Calendar</Button>
+        <Button nativeButton={false} render={<Link href={calendarHref} />}>
+          View Calendar
+        </Button>
       </div>
     </Card>
   );

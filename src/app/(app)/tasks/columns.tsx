@@ -12,6 +12,7 @@ import type { RowEditingState } from "@/components/data-table/use-row-editing";
 import { dataTableFeatures, type DataTableFilterOption } from "@/components/data-table/table-features";
 import { TASK_STATUS_CONFIG } from "@/constants/task-status";
 import { TASK_GENDER_CONFIG } from "@/constants/task-gender";
+import { TASK_PRIORITY_CONFIG } from "@/constants/task-priority";
 import { getVizColorForId } from "@/constants/chart-colors";
 import { initials, cn } from "@/lib/utils";
 import { TaskRowActions } from "@/app/(app)/tasks/task-row-actions";
@@ -21,6 +22,7 @@ const columnHelper = createColumnHelper<typeof dataTableFeatures, Task>();
 
 const STATUS_OPTIONS = Object.entries(TASK_STATUS_CONFIG).map(([value, { label }]) => ({ value, label }));
 const GENDER_OPTIONS = Object.entries(TASK_GENDER_CONFIG).map(([value, { label }]) => ({ value, label }));
+const PRIORITY_OPTIONS = Object.entries(TASK_PRIORITY_CONFIG).map(([value, { label }]) => ({ value, label }));
 const EDITABLE_FIELDS = [
   "task_name",
   "season_id",
@@ -30,6 +32,7 @@ const EDITABLE_FIELDS = [
   "due_date",
   "assignee_id",
   "status",
+  "priority",
   "notes",
 ] as const;
 
@@ -215,6 +218,22 @@ export function createTaskColumns({
           isEditing={rowEditing.isEditing(row.original.id)}
           draftValue={rowEditing.draft.status}
           onDraftChange={(next) => rowEditing.setDraftField("status", next)}
+        />
+      ),
+    }),
+    columnHelper.accessor("priority", {
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Priority" />,
+      meta: { label: "Priority" },
+      filterFn: "weakEquals",
+      cell: ({ row, getValue }) => (
+        <EditableCell
+          value={getValue()}
+          display={<StatusBadge value={getValue()} config={TASK_PRIORITY_CONFIG} />}
+          variant="select"
+          options={PRIORITY_OPTIONS}
+          isEditing={rowEditing.isEditing(row.original.id)}
+          draftValue={rowEditing.draft.priority}
+          onDraftChange={(next) => rowEditing.setDraftField("priority", next)}
         />
       ),
     }),

@@ -383,6 +383,7 @@ export type Database = {
           locked_at: string | null
           locked_by: string | null
           notes: string | null
+          priority: Database["public"]["Enums"]["task_priority"]
           season_id: string
           start_date: string | null
           status: Database["public"]["Enums"]["task_status"]
@@ -409,6 +410,7 @@ export type Database = {
           locked_at?: string | null
           locked_by?: string | null
           notes?: string | null
+          priority?: Database["public"]["Enums"]["task_priority"]
           season_id: string
           start_date?: string | null
           status?: Database["public"]["Enums"]["task_status"]
@@ -435,6 +437,7 @@ export type Database = {
           locked_at?: string | null
           locked_by?: string | null
           notes?: string | null
+          priority?: Database["public"]["Enums"]["task_priority"]
           season_id?: string
           start_date?: string | null
           status?: Database["public"]["Enums"]["task_status"]
@@ -522,6 +525,7 @@ export type Database = {
       brand_status: "active" | "inactive"
       season_status: "planning" | "upcoming" | "active" | "completed"
       task_gender: "men" | "women" | "unisex"
+      task_priority: "high" | "med" | "low"
       task_status: "not_started" | "in_progress" | "completed" | "overdue"
       user_role: "admin" | "standard_user" | "viewer"
     }
@@ -654,6 +658,7 @@ export const Constants = {
       brand_status: ["active", "inactive"],
       season_status: ["planning", "upcoming", "active", "completed"],
       task_gender: ["men", "women", "unisex"],
+      task_priority: ["high", "med", "low"],
       task_status: ["not_started", "in_progress", "completed", "overdue"],
       user_role: ["admin", "standard_user", "viewer"],
     },

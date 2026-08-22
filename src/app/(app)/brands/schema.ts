@@ -8,7 +8,7 @@ export const brandSchema = z.object({
   description: z.string().max(500).optional(),
   status: z.enum(brandStatusValues),
   color: z.string().min(1, "Color is required"),
-  // A brand can belong to more than one season (brand_seasons join table, 0014) — at least
+  // A brand can belong to more than one season (brand_seasons join table, 0013) — at least
   // one is still required, same as the old single-season_id requirement.
   season_ids: z.array(z.string().uuid()).min(1, "At least one season is required"),
 });

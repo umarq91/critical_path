@@ -11,6 +11,7 @@ import { updateTask, refreshTasks } from "@/app/(app)/tasks/_actions";
 import { TaskDetailDrawer } from "@/app/(app)/tasks/task-detail-drawer";
 import { TASK_STATUS_CONFIG } from "@/constants/task-status";
 import { TASK_GENDER_CONFIG } from "@/constants/task-gender";
+import { TASK_PRIORITY_CONFIG } from "@/constants/task-priority";
 import type { Task } from "@/data/tasks";
 import type { DataTableFilterOption } from "@/components/data-table/table-features";
 
@@ -121,6 +122,12 @@ export const TasksBoard = ({
               title: "Status",
               placeholder: "All Status",
               options: Object.entries(TASK_STATUS_CONFIG).map(([value, { label }]) => ({ value, label })),
+            },
+            {
+              columnId: "priority",
+              title: "Priority",
+              placeholder: "All Priorities",
+              options: Object.entries(TASK_PRIORITY_CONFIG).map(([value, { label }]) => ({ value, label })),
             },
             { columnId: "assignee_id", title: "Owner", placeholder: "All Owners", options: assigneeOptions },
           ],

@@ -1,6 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
-import { taskGenderValues, taskStatusValues, type TaskInput } from "@/app/(app)/tasks/schema";
+import { taskGenderValues, taskStatusValues, taskPriorityValues, type TaskInput } from "@/app/(app)/tasks/schema";
 
 export interface ListTasksParams {
   page?: number;
@@ -10,7 +10,7 @@ export interface ListTasksParams {
   filters?: Record<string, string>;
 }
 
-const SORTABLE_COLUMNS = new Set(["task_name", "due_date", "status", "created_at"]);
+const SORTABLE_COLUMNS = new Set(["task_name", "due_date", "status", "priority", "created_at"]);
 
 // Shared by every task query below — the grid, and the calendar's bounded range query —
 // so a relation gets added once, not once per query.
@@ -22,6 +22,10 @@ function isTaskGender(value: string | undefined): value is TaskInput["gender"] {
 
 function isTaskStatus(value: string | undefined): value is TaskInput["status"] {
   return !!value && (taskStatusValues as readonly string[]).includes(value);
+}
+
+function isTaskPriority(value: string | undefined): value is TaskInput["priority"] {
+  return !!value && (taskPriorityValues as readonly string[]).includes(value);
 }
 
 // The ONE query function behind the task grid, and every future view-specific list (Gantt
@@ -36,6 +40,7 @@ export async function listTasks({ page = 1, pageSize = 15, sortBy, sortDir, filt
   if (filters.key_stage_id) query = query.eq("key_stage_id", filters.key_stage_id);
   if (isTaskGender(filters.gender)) query = query.eq("gender", filters.gender);
   if (isTaskStatus(filters.status)) query = query.eq("status", filters.status);
+  if (isTaskPriority(filters.priority)) query = query.eq("priority", filters.priority);
   if (filters.assignee_id) query = query.eq("assignee_id", filters.assignee_id);
 
   const orderColumn = sortBy && SORTABLE_COLUMNS.has(sortBy) ? sortBy : "due_date";
