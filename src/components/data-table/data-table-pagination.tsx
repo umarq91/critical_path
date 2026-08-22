@@ -54,7 +54,10 @@ export const DataTablePagination = <TData extends Record<string, unknown>>({
       <div className="flex items-center gap-3">
         <Select value={String(pageSize)} onValueChange={(value) => table.setPageSize(Number(value))}>
           <SelectTrigger>
-            <SelectValue />
+            {/* children render-fn resolves the label ourselves instead of relying on
+                SelectItem registration timing — see select-field.tsx for the same fix;
+                without it this briefly prints the raw value ("10") instead of "10 / page". */}
+            <SelectValue>{(value: string) => `${value} / page`}</SelectValue>
           </SelectTrigger>
           <SelectContent>
             {pageSizeOptions.map((size) => (

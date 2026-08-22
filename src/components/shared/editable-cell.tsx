@@ -75,7 +75,11 @@ export const EditableCell = ({
     return (
       <Select value={current} onValueChange={(next) => next && onDraftChange?.(next)}>
         <SelectTrigger className="h-8 w-full" onClick={(event) => event.stopPropagation()}>
-          <SelectValue />
+          {/* children render-fn resolves the label ourselves instead of relying on SelectItem
+              registration timing — see select-field.tsx/data-table-toolbar.tsx for the same
+              fix; without it, an option whose SelectItem hasn't mounted yet prints its raw
+              value (e.g. a season's uuid) instead of its label. */}
+          <SelectValue>{(value: string) => options?.find((option) => option.value === value)?.label ?? value}</SelectValue>
         </SelectTrigger>
         <SelectContent>
           {options?.map((option) => (

@@ -1,4 +1,5 @@
 import "server-only";
+import { addDays, format } from "date-fns";
 import { createClient } from "@/lib/supabase/server";
 import { taskGenderValues, taskStatusValues, taskPriorityValues, type TaskInput } from "@/app/(app)/tasks/schema";
 
@@ -8,6 +9,15 @@ export interface ListTasksParams {
   sortBy?: string;
   sortDir?: string;
   filters?: Record<string, string>;
+  /** Scopes results to tasks this profile owns (assignee_id) OR is a People Involved member
+   *  of (task_people) — the Upcoming Tasks page's "relevant to me" scope. Deliberately
+   *  narrower than listTasksByDueDateRange's `involvesProfileId` (which also matches
+   *  created_by, the calendar's broader "involves" concept). A dedicated param rather than a
+   *  `filters` key since it's an OR across two relations, not a plain equality match. */
+  ownerOrInvolvedProfileId?: string;
+  /** Hard floor of `due_date >= today` — not exposed via `filters` since callers shouldn't
+   *  be able to relax it; it's the Upcoming Tasks page's core "upcoming" definition. */
+  onlyUpcoming?: boolean;
 }
 
 const SORTABLE_COLUMNS = new Set(["task_name", "due_date", "status", "priority", "created_at"]);
@@ -30,7 +40,15 @@ function isTaskPriority(value: string | undefined): value is TaskInput["priority
 
 // The ONE query function behind the task grid, and every future view-specific list (Gantt
 // range, calendar range, dashboard aggregates, CSV export) — those extend this, not fork it.
-export async function listTasks({ page = 1, pageSize = 15, sortBy, sortDir, filters = {} }: ListTasksParams = {}) {
+export async function listTasks({
+  page = 1,
+  pageSize = 15,
+  sortBy,
+  sortDir,
+  filters = {},
+  ownerOrInvolvedProfileId,
+  onlyUpcoming,
+}: ListTasksParams = {}) {
   const supabase = await createClient();
   let query = supabase.from("tasks").select(TASK_SELECT, { count: "exact" }).is("deleted_at", null);
 
@@ -42,6 +60,36 @@ export async function listTasks({ page = 1, pageSize = 15, sortBy, sortDir, filt
   if (isTaskStatus(filters.status)) query = query.eq("status", filters.status);
   if (isTaskPriority(filters.priority)) query = query.eq("priority", filters.priority);
   if (filters.assignee_id) query = query.eq("assignee_id", filters.assignee_id);
+  // "Due" toolbar filter (Upcoming Tasks) — a day-count preset ("7"/"30"/"90"), not a literal
+  // date; caps due_date at today + N days. Composes with onlyUpcoming's >= today floor below
+  // to express "due within the next N days" as a whole.
+  if (filters.due_date) {
+    const days = Number(filters.due_date);
+    if (Number.isInteger(days) && days > 0) {
+      query = query.lte("due_date", format(addDays(new Date(), days), "yyyy-MM-dd"));
+    }
+  }
+
+  if (onlyUpcoming) query = query.gte("due_date", format(new Date(), "yyyy-MM-dd"));
+
+  if (ownerOrInvolvedProfileId) {
+    // task_people is a join table — Postgrest can't express "id in (select task_id from
+    // task_people where profile_id = x)" inside a single .or() filter, so that half of the
+    // condition is resolved as its own lookup first (same technique as
+    // listTasksByDueDateRange's involvesProfileId, just without the created_by leg — Upcoming
+    // Tasks scopes strictly to "I own it or I'm involved in it", not "I created it").
+    const { data: involved, error: involvedError } = await supabase
+      .from("task_people")
+      .select("task_id")
+      .eq("profile_id", ownerOrInvolvedProfileId);
+    if (involvedError) throw involvedError;
+
+    const orConditions = [`assignee_id.eq.${ownerOrInvolvedProfileId}`];
+    if (involved && involved.length > 0) {
+      orConditions.push(`id.in.(${involved.map((row) => row.task_id).join(",")})`);
+    }
+    query = query.or(orConditions.join(","));
+  }
 
   const orderColumn = sortBy && SORTABLE_COLUMNS.has(sortBy) ? sortBy : "due_date";
   query = query.order(orderColumn, { ascending: sortDir !== "desc" });
@@ -54,6 +102,15 @@ export async function listTasks({ page = 1, pageSize = 15, sortBy, sortDir, filt
 }
 
 export type Task = Awaited<ReturnType<typeof listTasks>>["data"][number];
+
+// The Upcoming Tasks page's one query — a thin preset over listTasks(), same shape as
+// listUpcomingSeasons/listUpcomingBrands elsewhere: still fully paginated/sorted/filterable
+// (search, season/brand/status/priority/due-range all layer on top via `params.filters`),
+// just with two fixed constraints the caller can't relax: scoped to this profile's own
+// tasks (owner or People Involved), and due_date >= today.
+export function listUpcomingTasksForProfile(profileId: string, params: ListTasksParams = {}) {
+  return listTasks({ ...params, ownerOrInvolvedProfileId: profileId, onlyUpcoming: true });
+}
 
 export interface ListTasksByDueDateRangeParams {
   /** Inclusive, `yyyy-MM-dd`. */

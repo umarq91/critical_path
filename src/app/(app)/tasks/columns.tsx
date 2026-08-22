@@ -50,6 +50,11 @@ interface CreateTaskColumnsOptions {
   brandOptions: DataTableFilterOption[];
   keyStageOptions: DataTableFilterOption[];
   assigneeOptions: DataTableFilterOption[];
+  /** Adds a read-only "People Involved" avatar-stack column after Owner/Assignee — off by
+   *  default so the main Tasks grid (already dense at 11 columns) doesn't grow a 12th; the
+   *  Upcoming Tasks page opts in since "who else is on this" matters more on a page scoped
+   *  to tasks the current user owns or is merely involved in. */
+  includePeopleColumn?: boolean;
 }
 
 export function createTaskColumns({
@@ -62,6 +67,7 @@ export function createTaskColumns({
   brandOptions,
   keyStageOptions,
   assigneeOptions,
+  includePeopleColumn,
 }: CreateTaskColumnsOptions) {
   // The inline-edit select needs an explicit "not set" choice since key_stage_id is
   // optional — the filter dropdown (passed separately by tasks-board.tsx) doesn't need one.
@@ -205,6 +211,38 @@ export function createTaskColumns({
         );
       },
     }),
+    ...(includePeopleColumn
+      ? [
+          columnHelper.display({
+            id: "people",
+            header: "People Involved",
+            meta: { label: "People Involved" },
+            cell: ({ row }) => {
+              const people = row.original.people.map((link) => link.profile).filter((profile) => profile !== null);
+              if (people.length === 0) return <span className="text-muted-foreground">—</span>;
+              const visible = people.slice(0, 3);
+              const overflow = people.length - visible.length;
+              return (
+                <div className="flex items-center -space-x-2">
+                  {visible.map((person) => (
+                    <Avatar key={person.id} size="sm" className="ring-2 ring-card">
+                      <AvatarImage src={person.avatar_url ?? undefined} alt="" />
+                      <AvatarFallback className="text-white" style={{ backgroundColor: getVizColorForId(person.id) }}>
+                        {initials(person.full_name, person.email)}
+                      </AvatarFallback>
+                    </Avatar>
+                  ))}
+                  {overflow > 0 ? (
+                    <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground ring-2 ring-card">
+                      +{overflow}
+                    </span>
+                  ) : null}
+                </div>
+              );
+            },
+          }),
+        ]
+      : []),
     columnHelper.accessor("status", {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
       meta: { label: "Status" },
