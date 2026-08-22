@@ -47,6 +47,7 @@ export const TaskPageActions = ({
         <FormDialog
           title="Add New Task"
           description="Create a new task to track."
+          size="xl"
           open={open}
           onOpenChange={setOpen}
           trigger={

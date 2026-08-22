@@ -44,10 +44,10 @@ export const MultiSelectField = <TFieldValues extends FieldValues>({
             <FormLabel>{label}</FormLabel>
             <DropdownMenu>
               <DropdownMenuTrigger
-                className={cn(buttonVariants({ variant: "outline" }), "w-full justify-start font-normal")}
+                className={cn(buttonVariants({ variant: "outline" }), "w-full min-w-0 justify-start font-normal")}
                 aria-invalid={!!fieldState.error}
               >
-                <span className="truncate">
+                <span className="min-w-0 truncate">
                   {selectedLabels.length > 0 ? selectedLabels.join(", ") : (placeholder ?? `Select ${label.toLowerCase()}`)}
                 </span>
               </DropdownMenuTrigger>

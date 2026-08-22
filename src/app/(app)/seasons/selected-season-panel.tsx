@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Calendar } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,11 @@ const DetailRow = ({ label, value, icon: Icon }: { label: string; value: string;
 
 export const SelectedSeasonPanel = ({ season }: { season: Season }) => {
   const ownerName = season.owner?.full_name ?? season.owner?.email ?? "Unassigned";
+  // Tasks filters live in the DataTable's single JSON `filters` param (keyed by column id,
+  // see data-table-search-params.ts); Calendar's season filter is its own flat `seasonId`
+  // param (calendar-search-params.ts) — the two pages don't share a filter shape.
+  const tasksHref = `/tasks?filters=${encodeURIComponent(JSON.stringify({ season_id: season.id }))}`;
+  const calendarHref = `/calendar?seasonId=${season.id}`;
 
   return (
     <Card className="gap-3 px-4">
@@ -42,8 +48,10 @@ export const SelectedSeasonPanel = ({ season }: { season: Season }) => {
       {/* Brands/Tasks/Completed/In Progress/Not Started/Overdue/Owners rows from the mockup
           are dropped here — no real source until tasks (and a brand<->season link) exist. */}
       <div className="flex flex-col gap-2 pt-1">
-        <Button variant="outline">View Tasks</Button>
-        <Button>View Calendar</Button>
+        <Button variant="outline" render={<Link href={tasksHref} />}>
+          View Tasks
+        </Button>
+        <Button render={<Link href={calendarHref} />}>View Calendar</Button>
       </div>
     </Card>
   );

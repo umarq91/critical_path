@@ -25,7 +25,7 @@ export function AppSidebar() {
       <SidebarHeader className="px-2 pt-4 pb-2">
         <div className="flex h-10 items-center gap-2 px-2">
           <CriticalPathLogo className="size-6 shrink-0" />
-          <span className="text-h3 truncate group-data-[collapsible=icon]:hidden">
+          <span className="text-h3 lg:text-h2 truncate group-data-[collapsible=icon]:hidden">
             Critical Path
           </span>
         </div>
@@ -51,7 +51,7 @@ export function AppSidebar() {
                         className="gap-3 px-3"
                       >
                         <item.icon />
-                        <span>{item.title}</span>
+                        <span className="font-semibold">{item.title}</span>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                   );
