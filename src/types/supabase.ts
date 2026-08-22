@@ -15,6 +15,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      brand_seasons: {
+        Row: {
+          brand_id: string
+          created_at: string
+          id: string
+          season_id: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          id?: string
+          season_id: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          id?: string
+          season_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_seasons_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_seasons_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "seasons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brands: {
         Row: {
           brand_code: string
@@ -24,7 +60,6 @@ export type Database = {
           deleted_at: string | null
           description: string | null
           id: string
-          season_id: string
           status: Database["public"]["Enums"]["brand_status"]
           updated_at: string
         }
@@ -36,7 +71,6 @@ export type Database = {
           deleted_at?: string | null
           description?: string | null
           id?: string
-          season_id: string
           status?: Database["public"]["Enums"]["brand_status"]
           updated_at?: string
         }
@@ -48,19 +82,10 @@ export type Database = {
           deleted_at?: string | null
           description?: string | null
           id?: string
-          season_id?: string
           status?: Database["public"]["Enums"]["brand_status"]
           updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "brands_season_id_fkey"
-            columns: ["season_id"]
-            isOneToOne: false
-            referencedRelation: "seasons"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       departments: {
         Row: {

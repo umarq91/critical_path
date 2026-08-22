@@ -38,11 +38,11 @@ export const BrandsBoard = ({ brands, rowCount, canManage, canDelete, seasonOpti
   }
 
   const brandColumns = useMemo(
-    () => createBrandColumns({ canManage, canDelete, rowEditing, isSaving, onConfirmEdit: handleConfirmEdit }),
+    () => createBrandColumns({ canManage, canDelete, rowEditing, isSaving, onConfirmEdit: handleConfirmEdit, seasonOptions }),
     // rowEditing's methods are stable across renders (from useState setters); only its
     // values (editingId/draft) actually need to trigger a column rebuild.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [canManage, canDelete, rowEditing.editingId, rowEditing.draft, isSaving]
+    [canManage, canDelete, rowEditing.editingId, rowEditing.draft, isSaving, seasonOptions]
   );
 
   return (
@@ -61,7 +61,7 @@ export const BrandsBoard = ({ brands, rowCount, canManage, canDelete, seasonOpti
             placeholder: "Status",
             options: Object.entries(BRAND_STATUS_CONFIG).map(([value, { label }]) => ({ value, label })),
           },
-          { columnId: "season_id", title: "Season", placeholder: "Season", options: seasonOptions },
+          { columnId: "season_id", title: "Seasons", placeholder: "Season", options: seasonOptions },
         ],
         sortOptions: [
           { columnId: "brand_name", desc: false, label: "Brand Name (A-Z)" },

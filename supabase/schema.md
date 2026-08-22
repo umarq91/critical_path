@@ -81,7 +81,7 @@ policy — see `0006_tasks.sql`.
 **Deliberately not columns:** task count, brand count, completion %, owner count — all shown on the Seasons admin page but computed from `tasks` once that table exists, not stored here.
 
 ### `brands`
-*Migration: `0005_brands.sql`. Stable brand identity referenced by `tasks.brand_id`.*
+*Migration: `0005_brands.sql`, `season_id` replaced by `brand_seasons` in `0014_brand_seasons.sql`. Stable brand identity referenced by `tasks.brand_id`.*
 
 | Column | Type | Notes |
 |---|---|---|
@@ -91,13 +91,26 @@ policy — see `0006_tasks.sql`.
 | `description` | text, nullable | |
 | `status` | `brand_status`, default `active` | |
 | `color` | text, default `#2b6ef6` | brand colour-coding, same pattern as `seasons.color` |
-| `season_id` | uuid, FK → `seasons.id`, not null | every brand belongs to exactly one season (confirmed requirement) |
 | `created_at` / `updated_at` | timestamptz | |
 | `deleted_at` | timestamptz, nullable | soft delete |
 
 **RLS:** any authenticated user reads; only admin writes — matches `brand.view` being granted to every role in `lib/permissions.ts`, while `brand.manage`/`brand.delete` stay admin-only (Brands has its own granular row on the client's Role-Based Access screen, unlike most other lookups which still fall under `admin.manage_lookups`).
 
 **Deliberately not a column:** brand's task count — shown on the admin Brands page but computed from `tasks` once that table exists, same reasoning as `seasons`.
+
+### `brand_seasons`
+*Migration: `0014_brand_seasons.sql`. "Seasons" on the Brands admin page — many-to-many between `brands` and `seasons`, same join-table shape as `task_people`. Replaces the original `brands.season_id` (not-null FK, one season per brand) once that stopped matching the confirmed requirement.*
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid, PK | |
+| `brand_id` | uuid, FK → `brands.id`, not null, `on delete cascade` | |
+| `season_id` | uuid, FK → `seasons.id`, not null, `on delete restrict` | restrict, not cascade/set null — seasons are soft-deleted, not hard-deleted, matching `brands.season_id`'s original reasoning |
+| `created_at` | timestamptz | |
+
+`unique (brand_id, season_id)` — no duplicate associations. `createBrand`/`updateBrand` (`brands/_actions.ts`) write the full set here in the same request as the `brands` row itself; an edit replaces the whole set rather than diffing add/remove.
+
+**RLS:** same matrix as `brands` and `task_people` — any authenticated user reads; only admin writes (`brand.manage`/`brand.delete`).
 
 ### `key_stages`
 *Migration: `0008_key_stages.sql`. Lightweight lookup entity tasks can optionally be grouped under (e.g. for Timeline/Gantt row grouping). Deliberately minimal: no status/color/season link like brands/seasons.*
@@ -234,6 +247,7 @@ Referenced only by `profiles.department_id`, a nullable FK with `on delete set n
 | `0011_profiles_smart_search.sql` | Enables `pg_trgm`, adds trigram GIN indexes on `profiles.full_name`/`profiles.email`, and adds `search_profiles()` — word-by-word + fuzzy-matched, relevance-ranked profile search for the People Involved picker. Deployed but no longer called — see the function's note above. |
 | `0012_google_calendar_sync.sql` | Adds `google_event_id`/`google_calendar_owner_id`/`google_synced_at` to `tasks` for two-way sync, and creates `external_calendar_events` (self-scoped RLS) to cache the rest of a user's Google Calendar read-only. |
 | `0013_google_oauth_tokens.sql` | Creates `google_oauth_tokens` (zero RLS policies — service-role-only access) to hold per-user Calendar OAuth tokens. **Temporary** — see that table's note above. |
+| `0014_brand_seasons.sql` | Drops `brands.season_id`, creates `brand_seasons` join table (same shape as `task_people`) so a brand can belong to multiple seasons. Migrates existing 1:1 links into the new table before dropping the column. |
 
 ## Not built yet
 

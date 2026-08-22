@@ -7,14 +7,16 @@ import { useState } from "react";
 // draft (via startEditing) and what "confirm" does (typically a Server Action call).
 export function useRowEditing() {
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [draft, setDraft] = useState<Record<string, string>>({});
+  // string[] accommodates multi-select fields (e.g. a brand's seasons) alongside every
+  // other field's plain string value.
+  const [draft, setDraft] = useState<Record<string, string | string[]>>({});
 
-  function startEditing(id: string, initialDraft: Record<string, string>) {
+  function startEditing(id: string, initialDraft: Record<string, string | string[]>) {
     setEditingId(id);
     setDraft(initialDraft);
   }
 
-  function setDraftField(field: string, value: string) {
+  function setDraftField(field: string, value: string | string[]) {
     setDraft((prev) => ({ ...prev, [field]: value }));
   }
 

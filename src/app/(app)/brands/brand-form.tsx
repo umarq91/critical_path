@@ -9,6 +9,7 @@ import { Form } from "@/components/ui/form";
 import { TextField } from "@/components/form-fields/text-field";
 import { TextareaField } from "@/components/form-fields/textarea-field";
 import { SelectField } from "@/components/form-fields/select-field";
+import { MultiSelectField } from "@/components/form-fields/multi-select-field";
 import { ColorField } from "@/components/form-fields/color-field";
 import { brandSchema, brandStatusValues, type BrandInput } from "@/app/(app)/brands/schema";
 import { createBrand } from "@/app/(app)/brands/_actions";
@@ -31,7 +32,7 @@ export const BrandForm = ({ onSuccess, seasonOptions }: BrandFormProps) => {
       description: "",
       status: "active",
       color: VIZ_COLORS[0],
-      season_id: seasonOptions[0]?.id ?? "",
+      season_ids: seasonOptions[0] ? [seasonOptions[0].id] : [],
     },
   });
 
@@ -68,10 +69,10 @@ export const BrandForm = ({ onSuccess, seasonOptions }: BrandFormProps) => {
           options={brandStatusValues.map((value) => ({ value, label: BRAND_STATUS_CONFIG[value].label }))}
         />
         <ColorField control={form.control} name="color" label="Colour" />
-        <SelectField
+        <MultiSelectField
           control={form.control}
-          name="season_id"
-          label="Season"
+          name="season_ids"
+          label="Seasons"
           options={seasonOptions.map((season) => ({ value: season.id, label: season.season_name }))}
         />
         <Button type="submit" disabled={isSubmitting} className="mt-2">

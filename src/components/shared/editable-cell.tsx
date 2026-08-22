@@ -3,6 +3,9 @@
 import type { ReactNode } from "react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { buttonVariants } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 
 interface EditableCellOption {
   label: string;
@@ -12,12 +15,13 @@ interface EditableCellOption {
 interface EditableCellProps {
   /** Currently-committed value, used for read-mode display and as the input's fallback. */
   value: string;
-  /** Draft value while the row is being edited — controlled by the row's edit state. */
-  draftValue?: string;
-  onDraftChange?: (next: string) => void;
+  /** Draft value while the row is being edited — controlled by the row's edit state. A
+   *  "multi-select" variant's draft is string[]; every other variant's is string. */
+  draftValue?: string | string[];
+  onDraftChange?: (next: string | string[]) => void;
   /** Custom read-mode rendering (e.g. a StatusBadge) — falls back to the raw value. */
   display?: ReactNode;
-  variant?: "text" | "select" | "date";
+  variant?: "text" | "select" | "date" | "multi-select";
   options?: EditableCellOption[];
   /** Whether this row is currently in edit mode — toggled by the row's pencil/tick button. */
   isEditing: boolean;
@@ -36,7 +40,36 @@ export const EditableCell = ({
     return <>{display ?? value}</>;
   }
 
-  const current = draftValue ?? value;
+  if (variant === "multi-select") {
+    const current = Array.isArray(draftValue) ? draftValue : [];
+    const toggle = (optionValue: string) => {
+      const next = current.includes(optionValue) ? current.filter((v) => v !== optionValue) : [...current, optionValue];
+      onDraftChange?.(next);
+    };
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          className={cn(buttonVariants({ variant: "outline" }), "h-8 w-full justify-start font-normal")}
+          onClick={(event) => event.stopPropagation()}
+        >
+          {current.length > 0 ? `${current.length} selected` : "Select…"}
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" onClick={(event) => event.stopPropagation()}>
+          {options?.map((option) => (
+            <DropdownMenuCheckboxItem
+              key={option.value}
+              checked={current.includes(option.value)}
+              onCheckedChange={() => toggle(option.value)}
+            >
+              {option.label}
+            </DropdownMenuCheckboxItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  }
+
+  const current = typeof draftValue === "string" ? draftValue : value;
 
   if (variant === "select") {
     return (

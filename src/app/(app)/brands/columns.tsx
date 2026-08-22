@@ -11,6 +11,7 @@ import { dataTableFeatures } from "@/components/data-table/table-features";
 import { BRAND_STATUS_CONFIG } from "@/constants/brand-status";
 import { BrandRowActions } from "@/app/(app)/brands/brand-row-actions";
 import type { Brand } from "@/data/brands";
+import type { DataTableFilterOption } from "@/components/data-table/table-features";
 
 const columnHelper = createColumnHelper<typeof dataTableFeatures, Brand>();
 
@@ -27,12 +28,20 @@ interface CreateBrandColumnsOptions {
   rowEditing: RowEditingState;
   isSaving: boolean;
   onConfirmEdit: (brand: Brand) => void;
+  seasonOptions: DataTableFilterOption[];
 }
 
 // canManage/canDelete come from can(role, "brand.manage"/"brand.delete") — Brands has its
 // own granular row on the client's Role-Based Access screen, distinct from the general
 // admin.manage_lookups bucket most other lookup entities still use.
-export function createBrandColumns({ canManage, canDelete, rowEditing, isSaving, onConfirmEdit }: CreateBrandColumnsOptions) {
+export function createBrandColumns({
+  canManage,
+  canDelete,
+  rowEditing,
+  isSaving,
+  onConfirmEdit,
+  seasonOptions,
+}: CreateBrandColumnsOptions) {
   return [
     columnHelper.accessor("brand_name", {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Brand Name" />,
@@ -92,13 +101,34 @@ export function createBrandColumns({ canManage, canDelete, rowEditing, isSaving,
         />
       ),
     }),
-    columnHelper.accessor("season_id", {
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Season" />,
-      meta: { label: "Season" },
-      filterFn: "weakEquals",
+    columnHelper.accessor((row) => row.seasons.map((season) => season.id), {
+      id: "season_id",
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Seasons" />,
+      meta: { label: "Seasons" },
+      filterFn: "arrIncludesSome",
       cell: ({ row }) => {
-        const season = row.original.season;
-        return season ? <ColorTag label={season.season_name} color={season.color} /> : "—";
+        const seasons = row.original.seasons;
+        return (
+          <EditableCell
+            value=""
+            display={
+              seasons.length > 0 ? (
+                <div className="flex flex-wrap gap-1">
+                  {seasons.map((season) => (
+                    <ColorTag key={season.id} label={season.season_name} color={season.color} />
+                  ))}
+                </div>
+              ) : (
+                "—"
+              )
+            }
+            variant="multi-select"
+            options={seasonOptions}
+            isEditing={rowEditing.isEditing(row.original.id)}
+            draftValue={rowEditing.draft.season_ids}
+            onDraftChange={(next) => rowEditing.setDraftField("season_ids", next)}
+          />
+        );
       },
     }),
     // Tasks has no real source yet — comes from `tasks` (brand<->task association) once that
@@ -131,9 +161,10 @@ export function createBrandColumns({ canManage, canDelete, rowEditing, isSaving,
                 isEditing={editing}
                 isSaving={editing && isSaving}
                 onEdit={() => {
-                  const initialDraft = Object.fromEntries(
+                  const initialDraft: Record<string, string | string[]> = Object.fromEntries(
                     EDITABLE_FIELDS.map((field) => [field, brand[field] ?? ""])
                   );
+                  initialDraft.season_ids = brand.seasons.map((season) => season.id);
                   rowEditing.startEditing(brand.id, initialDraft);
                 }}
                 onConfirm={() => onConfirmEdit(brand)}

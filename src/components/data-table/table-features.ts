@@ -4,6 +4,7 @@ import {
   createFilteredRowModel,
   createPaginatedRowModel,
   createSortedRowModel,
+  filterFn_arrIncludesSome,
   filterFn_includesString,
   filterFn_weakEquals,
   metaHelper,
@@ -46,6 +47,7 @@ export const dataTableFeatures = tableFeatures({
   filterFns: {
     includesString: filterFn_includesString,
     weakEquals: filterFn_weakEquals,
+    arrIncludesSome: filterFn_arrIncludesSome,
   },
   rowPaginationFeature,
   paginatedRowModel: createPaginatedRowModel(),

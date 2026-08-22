@@ -20,12 +20,26 @@ export async function listBrands({ page = 1, pageSize = 15, sortBy, sortDir, fil
   const supabase = await createClient();
   let query = supabase
     .from("brands")
-    .select("*, season:seasons(id, season_name, color)", { count: "exact" })
+    .select("*, brand_seasons(season:seasons(id, season_name, color))", { count: "exact" })
     .is("deleted_at", null);
 
   if (filters.brand_name) query = query.ilike("brand_name", `%${filters.brand_name}%`);
   if (isBrandStatus(filters.status)) query = query.eq("status", filters.status);
-  if (filters.season_id) query = query.eq("season_id", filters.season_id);
+  if (filters.season_id) {
+    // brand_seasons is many-to-many now, so "filter to this season" means "brands that have
+    // a link row for it" — resolved as a separate lookup rather than filtering the embedded
+    // relation directly, so the brands query below still returns each brand's FULL season
+    // list (not just the matched one) for display.
+    const { data: matches, error: matchError } = await supabase
+      .from("brand_seasons")
+      .select("brand_id")
+      .eq("season_id", filters.season_id);
+    if (matchError) throw matchError;
+
+    const brandIds = (matches ?? []).map((match) => match.brand_id);
+    if (brandIds.length === 0) return { data: [], rowCount: 0 };
+    query = query.in("id", brandIds);
+  }
 
   const orderColumn = sortBy && SORTABLE_COLUMNS.has(sortBy) ? sortBy : "brand_name";
   query = query.order(orderColumn, { ascending: sortDir !== "desc" });
@@ -34,7 +48,12 @@ export async function listBrands({ page = 1, pageSize = 15, sortBy, sortDir, fil
   const { data, error, count } = await query.range(from, from + pageSize - 1);
   if (error) throw error;
 
-  return { data: data ?? [], rowCount: count ?? 0 };
+  const brands = (data ?? []).map(({ brand_seasons, ...brand }) => ({
+    ...brand,
+    seasons: brand_seasons.map((link) => link.season).filter((season) => season !== null),
+  }));
+
+  return { data: brands, rowCount: count ?? 0 };
 }
 
 export type Brand = Awaited<ReturnType<typeof listBrands>>["data"][number];
