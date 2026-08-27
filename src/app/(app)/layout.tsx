@@ -17,7 +17,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <SidebarProvider>
       <AppSidebar />
-      <SidebarInset>
+      {/* min-w-0 + overflow-x-hidden: without them this flex child sizes to its widest
+          descendant (min-width defaults to auto), so a wide table drags the whole shell —
+          header and page chrome included — into a horizontal scroll. Constrained here,
+          overflow stays inside whichever child owns its own scroll container. */}
+      <SidebarInset className="min-w-0 overflow-x-hidden">
         <header className="flex h-16 shrink-0 items-center gap-4 border-b bg-card px-4">
           <SidebarTrigger />
           <div className="flex flex-1 items-center">
@@ -25,7 +29,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </div>
           <UserMenu profile={profile} />
         </header>
-        <main className="flex-1">{children}</main>
+        <main className="min-w-0 flex-1">{children}</main>
       </SidebarInset>
     </SidebarProvider>
   );

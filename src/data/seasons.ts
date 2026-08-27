@@ -100,6 +100,43 @@ export async function listUpcomingSeasons(limit = 4) {
   return data ?? [];
 }
 
+export interface SeasonTaskStats {
+  brandsCount: number;
+  tasksCount: number;
+  completedCount: number;
+}
+
+// Brands/Tasks/Completion % for the seasons table — scoped to just the season ids on the
+// current page (never the whole table), same "narrow, page-scoped query" shape as the rest
+// of this file. brand_seasons rows are already unique per (brand_id, season_id), so counting
+// rows per season_id directly gives the distinct brand count without a second dedupe step.
+export async function listSeasonTaskStats(seasonIds: string[]): Promise<Record<string, SeasonTaskStats>> {
+  const stats: Record<string, SeasonTaskStats> = Object.fromEntries(
+    seasonIds.map((id) => [id, { brandsCount: 0, tasksCount: 0, completedCount: 0 }])
+  );
+  if (seasonIds.length === 0) return stats;
+
+  const supabase = await createClient();
+  const [{ data: brandSeasonRows, error: brandSeasonError }, { data: taskRows, error: taskError }] = await Promise.all(
+    [
+      supabase.from("brand_seasons").select("season_id").in("season_id", seasonIds),
+      supabase.from("tasks").select("season_id, status").is("deleted_at", null).in("season_id", seasonIds),
+    ]
+  );
+  if (brandSeasonError) throw brandSeasonError;
+  if (taskError) throw taskError;
+
+  for (const row of brandSeasonRows ?? []) {
+    stats[row.season_id].brandsCount++;
+  }
+  for (const row of taskRows ?? []) {
+    stats[row.season_id].tasksCount++;
+    if (row.status === "completed") stats[row.season_id].completedCount++;
+  }
+
+  return stats;
+}
+
 // Options for pickers that link another entity to a season (e.g. the brand form's Season
 // select) — id/name/color only, every non-deleted season regardless of status.
 export async function listSeasonOptions() {

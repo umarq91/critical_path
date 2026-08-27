@@ -5,12 +5,14 @@ import { DataTableColumnHeader } from "@/components/data-table/data-table-column
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EditableCell } from "@/components/shared/editable-cell";
 import { RowEditToggle } from "@/components/shared/row-edit-toggle";
+import { Progress as ProgressPrimitive } from "@base-ui/react/progress";
+import { ProgressTrack, ProgressIndicator } from "@/components/ui/progress";
 import type { RowEditingState } from "@/components/data-table/use-row-editing";
 import { dataTableFeatures } from "@/components/data-table/table-features";
 import { SEASON_STATUS_CONFIG } from "@/constants/season-status";
 import { SeasonRowActions } from "@/app/(app)/seasons/season-row-actions";
 import { cn } from "@/lib/utils";
-import type { Season } from "@/data/seasons";
+import type { Season, SeasonTaskStats } from "@/data/seasons";
 
 const columnHelper = createColumnHelper<typeof dataTableFeatures, Season>();
 
@@ -31,11 +33,18 @@ interface CreateSeasonColumnsOptions {
   rowEditing: RowEditingState;
   isSaving: boolean;
   onConfirmEdit: (season: Season) => void;
+  seasonStats: Record<string, SeasonTaskStats>;
 }
 
 // canManage gates inline editing + the row actions — computed once per page render from
 // can(role, "admin.manage_lookups"), same permission the Server Actions enforce.
-export function createSeasonColumns({ canManage, rowEditing, isSaving, onConfirmEdit }: CreateSeasonColumnsOptions) {
+export function createSeasonColumns({
+  canManage,
+  rowEditing,
+  isSaving,
+  onConfirmEdit,
+  seasonStats,
+}: CreateSeasonColumnsOptions) {
   return [
     // Not inline-editable, unlike the columns below: it's the stable code other systems
     // key off (Databricks spec, filters), so changing it is deliberately a bit more
@@ -107,26 +116,36 @@ export function createSeasonColumns({ canManage, rowEditing, isSaving, onConfirm
         />
       ),
     }),
-    // Brands/Tasks/Completion % are shown on the mockup but have no real source yet —
-    // both come from `tasks` (and brands<->season association) once those exist. Rendered
-    // as "—" rather than fabricated numbers; wire these up when data/tasks.ts lands.
     columnHelper.display({
       id: "brands",
       header: "Brands",
       meta: { label: "Brands" },
-      cell: () => <span className="text-muted-foreground">—</span>,
+      cell: ({ row }) => seasonStats[row.original.id]?.brandsCount ?? 0,
     }),
     columnHelper.display({
       id: "tasks",
       header: "Tasks",
       meta: { label: "Tasks" },
-      cell: () => <span className="text-muted-foreground">—</span>,
+      cell: ({ row }) => seasonStats[row.original.id]?.tasksCount ?? 0,
     }),
     columnHelper.display({
       id: "completion",
       header: "Completion %",
       meta: { label: "Completion %" },
-      cell: () => <span className="text-muted-foreground">—</span>,
+      cell: ({ row }) => {
+        const stats = seasonStats[row.original.id];
+        const pct = stats && stats.tasksCount > 0 ? Math.round((stats.completedCount / stats.tasksCount) * 100) : 0;
+        return (
+          <div className="flex items-center gap-2">
+            <ProgressPrimitive.Root value={pct} className="w-24">
+              <ProgressTrack className="h-2">
+                <ProgressIndicator style={{ backgroundColor: row.original.color }} />
+              </ProgressTrack>
+            </ProgressPrimitive.Root>
+            <span className="text-sm text-muted-foreground">{pct}%</span>
+          </div>
+        );
+      },
     }),
     // Filters on owner_id (a stable id the server can query directly), not the derived
     // display name — filtering is server-side now, so it needs a real column to match on.

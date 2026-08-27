@@ -4,7 +4,7 @@ import { StatCard } from "@/components/shared/stat-card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { SeasonPageActions } from "@/app/(app)/seasons/season-page-actions";
 import { SeasonsBoard } from "@/app/(app)/seasons/seasons-board";
-import { listSeasons, listSeasonSummary, listUpcomingSeasons } from "@/data/seasons";
+import { listSeasons, listSeasonSummary, listSeasonTaskStats, listUpcomingSeasons } from "@/data/seasons";
 import { getCurrentProfile } from "@/data/profiles";
 import { can } from "@/lib/permissions";
 import { loadDataTableSearchParams } from "@/components/data-table/data-table-search-params";
@@ -25,6 +25,7 @@ export default async function SeasonsPage({
     getCurrentProfile(),
   ]);
   const canManage = !!profile && can(profile.role, "admin.manage_lookups");
+  const seasonStats = await listSeasonTaskStats(seasons.map((season) => season.id));
 
   return (
     <div className="flex flex-col">
@@ -72,6 +73,7 @@ export default async function SeasonsPage({
           ownerOptions={summary.owners}
           yearOptions={summary.years}
           upcomingSeasons={upcomingSeasons}
+          seasonStats={seasonStats}
         />
 
         {/* Season Performance charts land here — reserved, not built yet. */}

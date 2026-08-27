@@ -12,7 +12,7 @@ import { SelectedSeasonPanel } from "@/app/(app)/seasons/selected-season-panel";
 import { UpcomingSeasonsPanel } from "@/app/(app)/seasons/upcoming-seasons-panel";
 import { SEASON_STATUS_CONFIG } from "@/constants/season-status";
 import type { DataTableFilterOption } from "@/components/data-table/table-features";
-import type { Season, listUpcomingSeasons } from "@/data/seasons";
+import type { Season, SeasonTaskStats, listUpcomingSeasons } from "@/data/seasons";
 
 interface SeasonsBoardProps {
   seasons: Season[];
@@ -21,6 +21,7 @@ interface SeasonsBoardProps {
   ownerOptions: DataTableFilterOption[];
   yearOptions: string[];
   upcomingSeasons: Awaited<ReturnType<typeof listUpcomingSeasons>>;
+  seasonStats: Record<string, SeasonTaskStats>;
 }
 
 export const SeasonsBoard = ({
@@ -30,6 +31,7 @@ export const SeasonsBoard = ({
   ownerOptions,
   yearOptions,
   upcomingSeasons,
+  seasonStats,
 }: SeasonsBoardProps) => {
   const queryState = useDataTableQueryState({ defaultPageSize: 10, defaultSort: { id: "start_date", desc: false } });
   const rowEditing = useRowEditing();
@@ -49,11 +51,11 @@ export const SeasonsBoard = ({
   }
 
   const seasonColumns = useMemo(
-    () => createSeasonColumns({ canManage, rowEditing, isSaving, onConfirmEdit: handleConfirmEdit }),
+    () => createSeasonColumns({ canManage, rowEditing, isSaving, onConfirmEdit: handleConfirmEdit, seasonStats }),
     // rowEditing's methods are stable across renders (from useState setters); only its
     // values (editingId/draft) actually need to trigger a column rebuild.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [canManage, rowEditing.editingId, rowEditing.draft, isSaving]
+    [canManage, rowEditing.editingId, rowEditing.draft, isSaving, seasonStats]
   );
   const [selectedId, setSelectedId] = useState(seasons[0]?.id);
   const selectedSeason = seasons.find((season) => season.id === selectedId) ?? seasons[0];
