@@ -13,6 +13,7 @@ import { SEASON_STATUS_CONFIG } from "@/constants/season-status";
 import { SeasonRowActions } from "@/app/(app)/seasons/season-row-actions";
 import { cn } from "@/lib/utils";
 import type { Season, SeasonTaskStats } from "@/data/seasons";
+import { formatDate } from "@/lib/dates";
 
 const columnHelper = createColumnHelper<typeof dataTableFeatures, Season>();
 
@@ -22,10 +23,6 @@ const EDITABLE_FIELDS = ["season_name", "status", "start_date", "end_date"] as c
 
 function ownerColor(name: string) {
   return OWNER_COLORS[name.charCodeAt(0) % OWNER_COLORS.length];
-}
-
-function formatDate(value: string) {
-  return new Date(value).toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" });
 }
 
 interface CreateSeasonColumnsOptions {

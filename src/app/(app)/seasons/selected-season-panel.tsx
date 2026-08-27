@@ -6,10 +6,7 @@ import { Card } from "@/components/ui/card";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { SEASON_STATUS_CONFIG } from "@/constants/season-status";
 import type { Season } from "@/data/seasons";
-
-function formatDate(value: string) {
-  return new Date(value).toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" });
-}
+import { formatDate } from "@/lib/dates";
 
 const DetailRow = ({ label, value, icon: Icon }: { label: string; value: string; icon?: LucideIcon }) => (
   <div className="flex items-center justify-between py-2 text-sm">

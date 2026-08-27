@@ -12,15 +12,12 @@ import { BRAND_STATUS_CONFIG } from "@/constants/brand-status";
 import { BrandRowActions } from "@/app/(app)/brands/brand-row-actions";
 import type { Brand } from "@/data/brands";
 import type { DataTableFilterOption } from "@/components/data-table/table-features";
+import { formatDate } from "@/lib/dates";
 
 const columnHelper = createColumnHelper<typeof dataTableFeatures, Brand>();
 
 const STATUS_OPTIONS = Object.entries(BRAND_STATUS_CONFIG).map(([value, { label }]) => ({ value, label }));
 const EDITABLE_FIELDS = ["brand_name", "description", "status"] as const;
-
-function formatDate(value: string) {
-  return new Date(value).toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" });
-}
 
 interface CreateBrandColumnsOptions {
   canManage: boolean;

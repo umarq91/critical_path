@@ -33,7 +33,7 @@ import { TASK_GENDER_CONFIG } from "@/constants/task-gender";
 import { TASK_PRIORITY_CONFIG } from "@/constants/task-priority";
 import { getVizColorForId } from "@/constants/chart-colors";
 import { initials } from "@/lib/utils";
-import { formatDate } from "@/app/(app)/tasks/columns";
+import { formatDate } from "@/lib/dates";
 import type { Task } from "@/data/tasks";
 import type { LucideIcon } from "lucide-react";
 

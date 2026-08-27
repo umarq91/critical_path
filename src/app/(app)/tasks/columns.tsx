@@ -17,6 +17,7 @@ import { getVizColorForId } from "@/constants/chart-colors";
 import { initials, cn } from "@/lib/utils";
 import { TaskRowActions } from "@/app/(app)/tasks/task-row-actions";
 import type { Task } from "@/data/tasks";
+import { formatDate } from "@/lib/dates";
 
 const columnHelper = createColumnHelper<typeof dataTableFeatures, Task>();
 
@@ -35,10 +36,6 @@ const EDITABLE_FIELDS = [
   "priority",
   "notes",
 ] as const;
-
-export function formatDate(value: string) {
-  return new Date(value).toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" });
-}
 
 interface CreateTaskColumnsOptions {
   canManage: boolean;

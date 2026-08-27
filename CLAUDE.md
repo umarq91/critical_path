@@ -4,6 +4,24 @@
 
 Internal task/critical-path tracker for Threebyone (TBO): spreadsheet-style task management, calendar + Gantt views, dashboards, holiday/leave-aware scheduling, and automated email reminders. Full product requirements live in `plan.md` — read it before touching a feature you don't recognize.
 
+## Read before changing a module: `things-to-know.md`
+
+**Mandatory, not advisory.** `things-to-know.md` holds one section per module recording the
+decisions and constraints that are *invisible from the code* — why a window is sized the way it
+is, which numbers are deliberately scoped differently from each other, what a column's absence
+forces the UI to do, what a query costs. Reading the code alone will not tell you these, and
+changing them "looks like a cleanup" right up until it silently breaks a number on screen.
+
+- **Before** editing a module, read its section. If it has none, the file is still worth
+  skimming — constraints cross module boundaries.
+- **After** changing behaviour a section describes, update that section in the same PR. A stale
+  entry is worse than a missing one.
+- When you discover a non-obvious constraint that cost you real time to work out, add it. Keep
+  entries terse and factual; this is not a changelog and not a design doc.
+
+Precedence when sources disagree: `supabase/schema.md` (as-built DB) > `things-to-know.md`
+(as-built behaviour) > `plan.md` (original scope sketch).
+
 ---
 
 ## Commands
@@ -246,6 +264,9 @@ npx tsc --noEmit # Type check
 ├── components.json
 ├── tsconfig.json                         # paths: "@/*": ["./src/*"]
 ├── plan.md                               # Product requirements — source of truth for scope
+├── things-to-know.md                     # Per-module as-built constraints — READ the relevant
+│                                         #   section before changing a module, update it in the
+│                                         #   same PR when behaviour it describes changes
 ├── AGENTS.md
 └── CLAUDE.md
 ```

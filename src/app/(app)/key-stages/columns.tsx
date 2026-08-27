@@ -8,14 +8,11 @@ import type { RowEditingState } from "@/components/data-table/use-row-editing";
 import { dataTableFeatures } from "@/components/data-table/table-features";
 import { KeyStageRowActions } from "@/app/(app)/key-stages/key-stage-row-actions";
 import type { KeyStage } from "@/data/key-stages";
+import { formatDate } from "@/lib/dates";
 
 const columnHelper = createColumnHelper<typeof dataTableFeatures, KeyStage>();
 
 const EDITABLE_FIELDS = ["name", "description"] as const;
-
-function formatDate(value: string) {
-  return new Date(value).toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" });
-}
 
 interface CreateKeyStageColumnsOptions {
   canManage: boolean;

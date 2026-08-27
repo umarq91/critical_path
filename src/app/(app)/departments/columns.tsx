@@ -8,14 +8,11 @@ import type { RowEditingState } from "@/components/data-table/use-row-editing";
 import { dataTableFeatures } from "@/components/data-table/table-features";
 import { DepartmentRowActions } from "@/app/(app)/departments/department-row-actions";
 import type { Department } from "@/data/departments";
+import { formatDate } from "@/lib/dates";
 
 const columnHelper = createColumnHelper<typeof dataTableFeatures, Department>();
 
 const EDITABLE_FIELDS = ["name", "description"] as const;
-
-function formatDate(value: string) {
-  return new Date(value).toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" });
-}
 
 interface CreateDepartmentColumnsOptions {
   canManage: boolean;
