@@ -167,3 +167,62 @@ export async function listTasksByDueDateRange({
   if (error) throw error;
   return (data ?? []) as Task[];
 }
+
+export interface ListTasksForTimelineParams {
+  /** Inclusive, `yyyy-MM-dd`. */
+  from: string;
+  /** Inclusive, `yyyy-MM-dd`. */
+  to: string;
+  filters?: Record<string, string>;
+}
+
+// A task's bar spans [start_date, end_date], but both are nullable while due_date is not (see
+// supabase/schema.md). So the Timeline treats due_date as the fallback for whichever end is
+// missing — an unscheduled task is a single-day milestone on its due date rather than being
+// absent from the chart entirely. `timelineBarRange()` applies the same coalescing client-side;
+// these three clauses are its SQL mirror, and the two must stay in step.
+function timelineOverlapFilter(from: string, to: string) {
+  return [
+    // Fully scheduled: [start, end] intersects the window.
+    `and(start_date.not.is.null,end_date.not.is.null,start_date.lte.${to},end_date.gte.${from})`,
+    // Start but no end: due_date closes the bar.
+    `and(start_date.not.is.null,end_date.is.null,start_date.lte.${to},due_date.gte.${from})`,
+    // No start: a milestone sitting on due_date.
+    `and(start_date.is.null,due_date.gte.${from},due_date.lte.${to})`,
+  ].join(",");
+}
+
+// Powers the Timeline/Gantt view. Bounded by the visible window like listTasksByDueDateRange,
+// and returns the full TASK_SELECT shape so a clicked bar can open the shared task detail
+// drawer without a second fetch.
+export async function listTasksForTimeline({ from, to, filters = {} }: ListTasksForTimelineParams) {
+  const supabase = await createClient();
+  let query = supabase.from("tasks").select(TASK_SELECT).is("deleted_at", null);
+
+  if (filters.season_id) query = query.eq("season_id", filters.season_id);
+  if (filters.brand_id) query = query.eq("brand_id", filters.brand_id);
+  if (isTaskStatus(filters.status)) query = query.eq("status", filters.status);
+
+  query = query.or(timelineOverlapFilter(from, to));
+  // Earliest bar first, so rows read top-left to bottom-right like a schedule.
+  query = query.order("start_date", { ascending: true, nullsFirst: false }).order("due_date", { ascending: true });
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data ?? []) as Task[];
+}
+
+// The Timeline's Overdue panel. Deliberately NOT bounded by the visible window — overdue work
+// from an earlier month is exactly what shouldn't scroll out of sight — but it does respect the
+// page's season/brand filters so the panel agrees with the chart beside it.
+export async function listOverdueTasks({ filters = {}, limit = 50 }: { filters?: Record<string, string>; limit?: number } = {}) {
+  const supabase = await createClient();
+  let query = supabase.from("tasks").select(TASK_SELECT).is("deleted_at", null).eq("status", "overdue");
+
+  if (filters.season_id) query = query.eq("season_id", filters.season_id);
+  if (filters.brand_id) query = query.eq("brand_id", filters.brand_id);
+
+  const { data, error } = await query.order("due_date", { ascending: true }).limit(limit);
+  if (error) throw error;
+  return (data ?? []) as Task[];
+}

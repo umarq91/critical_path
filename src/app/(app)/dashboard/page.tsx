@@ -6,14 +6,20 @@ import { CompletionRateCard } from "@/app/(app)/dashboard/completion-rate-card";
 import { DashboardExportButton } from "@/app/(app)/dashboard/dashboard-export-button";
 import { TaskCompletionCard } from "@/app/(app)/dashboard/task-completion-card";
 import { TasksByBrandCard } from "@/app/(app)/dashboard/tasks-by-brand-card";
+import { TimelineGanttCard } from "@/app/(app)/dashboard/timeline-gantt-card";
+import { getTimelinePreviewBand } from "@/app/(app)/dashboard/timeline-preview-range";
 import {
   formatPercent,
   percentOf,
+  toFilterOptions,
   toGenderGroups,
   toStatusGroups,
 } from "@/app/(app)/dashboard/metrics-projection";
+import { toQueryDate } from "@/app/(app)/timeline/timeline-utils";
 import { getDashboardMetrics } from "@/data/dashboard";
+import { listOverdueTasks, listTasksForTimeline } from "@/data/tasks";
 import { getCurrentProfile } from "@/data/profiles";
+import { can } from "@/lib/permissions";
 
 function firstName(fullName: string | null | undefined, email: string | undefined) {
   const name = fullName?.trim().split(/\s+/)[0];
@@ -21,13 +27,24 @@ function firstName(fullName: string | null | undefined, email: string | undefine
 }
 
 export default async function DashboardPage() {
-  // One query for the whole page: a single aggregate pass over every task. Every tile and
-  // chart below is a projection of it, so the numbers can't disagree with each other, and the
-  // per-card filters narrow data already in the browser — nothing here costs a round trip per
-  // chart or per filter click. getCurrentProfile() is React-cached and already resolved by
-  // (app)/layout.tsx, so the name in the greeting adds nothing.
+  // One aggregate pass over every task drives every tile and chart below, so the numbers can't
+  // disagree with each other, and the per-card filters narrow data already in the browser —
+  // nothing here costs a round trip per chart or per filter click. getCurrentProfile() is
+  // React-cached and already resolved by (app)/layout.tsx, so the greeting's name adds nothing.
+  //
+  // The Gantt card is the one exception, and only because it has to be: getDashboardMetrics()
+  // reads counts, not task rows, and a bar needs an id, a name and three dates. It gets its own
+  // two queries — bounded to the preview band, and to overdue work — and then filters those in
+  // the browser like everything else. Its season/brand dropdowns still come free off the
+  // metrics, so there is no third query for lookup options.
+  const band = getTimelinePreviewBand();
+
   const profile = await getCurrentProfile();
-  const metrics = await getDashboardMetrics();
+  const [metrics, timelineTasks, overdueTasks] = await Promise.all([
+    getDashboardMetrics(),
+    listTasksForTimeline({ from: toQueryDate(band.start), to: toQueryDate(band.end) }),
+    listOverdueTasks(),
+  ]);
 
   const completionRate = percentOf(metrics.statusCounts.completed, metrics.total);
   const shareOfTotal = (count: number) => `${formatPercent(percentOf(count, metrics.total))} of total`;
@@ -100,6 +117,14 @@ export default async function DashboardPage() {
         </div>
 
         <TaskCompletionCard monthly={metrics.monthly} weekly={metrics.weekly} />
+
+        <TimelineGanttCard
+          tasks={timelineTasks}
+          overdueTasks={overdueTasks}
+          seasonOptions={toFilterOptions(metrics.bySeason)}
+          brandOptions={toFilterOptions(metrics.byBrand)}
+          canAssignPeople={!!profile && can(profile.role, "task.assign")}
+        />
       </div>
     </div>
   );

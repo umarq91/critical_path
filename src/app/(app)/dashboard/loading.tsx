@@ -1,8 +1,13 @@
+import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatCardSkeleton } from "@/components/shared/stat-card-skeleton";
 import { ChartCardSkeleton } from "@/components/charts/chart-card-skeleton";
 
 const DONUT_BODY_CLASS = "mx-auto size-[200px] rounded-full";
+
+// TimelineGanttCard's grid at its row cap: a two-band header plus TIMELINE_PREVIEW_ROW_COUNT
+// rows, all ROW_HEIGHT (44px) tall. Spelled out because Tailwind can't see a computed class.
+const GANTT_BODY_CLASS = "h-[616px] w-full";
 
 export default function DashboardLoading() {
   return (
@@ -34,6 +39,20 @@ export default function DashboardLoading() {
         </div>
 
         <ChartCardSkeleton bodyClassName="h-[280px] w-full" legendCount={0} />
+
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
+          <ChartCardSkeleton bodyClassName={GANTT_BODY_CLASS} legendCount={4} />
+          <Card className="gap-3">
+            <div className="px-4">
+              <Skeleton className="h-6 w-36" />
+            </div>
+            <div className="flex flex-col gap-3 px-4">
+              {Array.from({ length: 8 }).map((_, index) => (
+                <Skeleton key={index} className="h-10 w-full" />
+              ))}
+            </div>
+          </Card>
+        </div>
       </div>
     </div>
   );
