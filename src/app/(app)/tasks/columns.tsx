@@ -7,15 +7,15 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { ColorTag } from "@/components/shared/color-tag";
 import { EditableCell } from "@/components/shared/editable-cell";
 import { RowEditToggle } from "@/components/shared/row-edit-toggle";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type { RowEditingState } from "@/components/data-table/use-row-editing";
 import { dataTableFeatures, type DataTableFilterOption } from "@/components/data-table/table-features";
 import { TASK_STATUS_CONFIG } from "@/constants/task-status";
 import { TASK_GENDER_CONFIG } from "@/constants/task-gender";
 import { TASK_PRIORITY_CONFIG } from "@/constants/task-priority";
-import { getVizColorForId } from "@/constants/chart-colors";
-import { initials, cn } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { TaskRowActions } from "@/app/(app)/tasks/task-row-actions";
+import { PartyStack } from "@/app/(app)/tasks/party-stack";
+import { taskOwners, taskPeopleInvolved } from "@/app/(app)/tasks/task-parties";
 import type { Task } from "@/data/tasks";
 import { formatDate } from "@/lib/dates";
 
@@ -31,7 +31,6 @@ const EDITABLE_FIELDS = [
   "key_stage_id",
   "gender",
   "due_date",
-  "assignee_id",
   "status",
   "priority",
   "notes",
@@ -46,12 +45,6 @@ interface CreateTaskColumnsOptions {
   seasonOptions: DataTableFilterOption[];
   brandOptions: DataTableFilterOption[];
   keyStageOptions: DataTableFilterOption[];
-  assigneeOptions: DataTableFilterOption[];
-  /** Adds a read-only "People Involved" avatar-stack column after Owner/Assignee — off by
-   *  default so the main Tasks grid (already dense at 11 columns) doesn't grow a 12th; the
-   *  Upcoming Tasks page opts in since "who else is on this" matters more on a page scoped
-   *  to tasks the current user owns or is merely involved in. */
-  includePeopleColumn?: boolean;
 }
 
 export function createTaskColumns({
@@ -63,8 +56,6 @@ export function createTaskColumns({
   seasonOptions,
   brandOptions,
   keyStageOptions,
-  assigneeOptions,
-  includePeopleColumn,
 }: CreateTaskColumnsOptions) {
   // The inline-edit select needs an explicit "not set" choice since key_stage_id is
   // optional — the filter dropdown (passed separately by tasks-board.tsx) doesn't need one.
@@ -72,6 +63,7 @@ export function createTaskColumns({
   // value is falsy (its guard against Base UI firing a spurious empty value on close), so an
   // empty-string option would be unselectable; "none" is normalised back to null in _actions.ts.
   const keyStageEditOptions = [{ value: "none", label: "No key stage" }, ...keyStageOptions];
+  const brandEditOptions = [{ value: "none", label: "No brand" }, ...brandOptions];
 
   return [
     columnHelper.accessor("task_name", {
@@ -111,10 +103,10 @@ export function createTaskColumns({
       filterFn: "weakEquals",
       cell: ({ row }) => (
         <EditableCell
-          value={row.original.brand_id}
-          display={row.original.brand?.brand_name ?? "—"}
+          value={row.original.brand_id ?? "none"}
+          display={row.original.brand?.brand_name ?? <span className="text-muted-foreground">—</span>}
           variant="select"
-          options={brandOptions}
+          options={brandEditOptions}
           isEditing={rowEditing.isEditing(row.original.id)}
           draftValue={rowEditing.draft.brand_id}
           onDraftChange={(next) => rowEditing.setDraftField("brand_id", next)}
@@ -172,74 +164,21 @@ export function createTaskColumns({
         />
       ),
     }),
-    columnHelper.accessor("assignee_id", {
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Owner / Assignee" />,
-      meta: { label: "Owner / Assignee" },
-      filterFn: "weakEquals",
-      cell: ({ row }) => {
-        const assignee = row.original.assignee;
-        return (
-          <EditableCell
-            value={row.original.assignee_id ?? ""}
-            display={
-              assignee ? (
-                <span className="flex items-center gap-2">
-                  <Avatar size="sm">
-                    <AvatarImage src={assignee.avatar_url ?? undefined} alt="" />
-                    <AvatarFallback
-                      className="text-white"
-                      style={{ backgroundColor: getVizColorForId(assignee.id) }}
-                    >
-                      {initials(assignee.full_name, assignee.email)}
-                    </AvatarFallback>
-                  </Avatar>
-                  {assignee.full_name ?? assignee.email}
-                </span>
-              ) : (
-                "—"
-              )
-            }
-            variant="select"
-            options={assigneeOptions}
-            isEditing={rowEditing.isEditing(row.original.id)}
-            draftValue={rowEditing.draft.assignee_id}
-            onDraftChange={(next) => rowEditing.setDraftField("assignee_id", next)}
-          />
-        );
-      },
+    // Display, not accessor: owners are rows in task_participants, not a column on the task,
+    // so there's nothing to sort on and no single value an inline select could edit. Owners
+    // are changed in the detail drawer, where the full add/remove list fits.
+    columnHelper.display({
+      id: "owners",
+      header: "Owners",
+      meta: { label: "Owners" },
+      cell: ({ row }) => <PartyStack parties={taskOwners(row.original)} showSoleName />,
     }),
-    ...(includePeopleColumn
-      ? [
-          columnHelper.display({
-            id: "people",
-            header: "People Involved",
-            meta: { label: "People Involved" },
-            cell: ({ row }) => {
-              const people = row.original.people.map((link) => link.profile).filter((profile) => profile !== null);
-              if (people.length === 0) return <span className="text-muted-foreground">—</span>;
-              const visible = people.slice(0, 3);
-              const overflow = people.length - visible.length;
-              return (
-                <div className="flex items-center -space-x-2">
-                  {visible.map((person) => (
-                    <Avatar key={person.id} size="sm" className="ring-2 ring-card">
-                      <AvatarImage src={person.avatar_url ?? undefined} alt="" />
-                      <AvatarFallback className="text-white" style={{ backgroundColor: getVizColorForId(person.id) }}>
-                        {initials(person.full_name, person.email)}
-                      </AvatarFallback>
-                    </Avatar>
-                  ))}
-                  {overflow > 0 ? (
-                    <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground ring-2 ring-card">
-                      +{overflow}
-                    </span>
-                  ) : null}
-                </div>
-              );
-            },
-          }),
-        ]
-      : []),
+    columnHelper.display({
+      id: "people",
+      header: "People Involved",
+      meta: { label: "People Involved" },
+      cell: ({ row }) => <PartyStack parties={taskPeopleInvolved(row.original)} />,
+    }),
     columnHelper.accessor("status", {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
       meta: { label: "Status" },

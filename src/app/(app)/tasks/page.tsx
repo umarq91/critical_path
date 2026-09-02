@@ -5,7 +5,8 @@ import { listTasks } from "@/data/tasks";
 import { listSeasonOptions } from "@/data/seasons";
 import { listBrandOptions } from "@/data/brands";
 import { listKeyStageOptions } from "@/data/key-stages";
-import { listAssignableProfiles, getCurrentProfile } from "@/data/profiles";
+import { getCurrentProfile } from "@/data/profiles";
+import { listPartyOptions } from "@/data/parties";
 import { can } from "@/lib/permissions";
 import { loadDataTableSearchParams } from "@/components/data-table/data-table-search-params";
 
@@ -18,12 +19,12 @@ export default async function TasksPage({
 }) {
   const queryState = await loadDataTableSearchParams(searchParams, QUERY_STATE_OPTIONS);
 
-  const [{ data: tasks, rowCount }, seasons, brands, keyStages, profiles, profile] = await Promise.all([
+  const [{ data: tasks, rowCount }, seasons, brands, keyStages, ownerOptions, profile] = await Promise.all([
     listTasks(queryState),
     listSeasonOptions(),
     listBrandOptions(),
     listKeyStageOptions(),
-    listAssignableProfiles(),
+    listPartyOptions(),
     getCurrentProfile(),
   ]);
 
@@ -35,10 +36,6 @@ export default async function TasksPage({
   const seasonOptions = seasons.map((season) => ({ value: season.id, label: season.season_name }));
   const brandOptions = brands.map((brand) => ({ value: brand.id, label: brand.brand_name }));
   const keyStageOptions = keyStages.map((keyStage) => ({ value: keyStage.id, label: keyStage.name }));
-  const assigneeOptions = profiles.map((assignee) => ({
-    value: assignee.id,
-    label: assignee.full_name ?? assignee.email,
-  }));
 
   return (
     <div className="flex flex-col">
@@ -51,7 +48,6 @@ export default async function TasksPage({
             seasonOptions={seasonOptions}
             brandOptions={brandOptions}
             keyStageOptions={keyStageOptions}
-            assigneeOptions={assigneeOptions}
           />
         }
       />
@@ -65,7 +61,7 @@ export default async function TasksPage({
           seasonOptions={seasonOptions}
           brandOptions={brandOptions}
           keyStageOptions={keyStageOptions}
-          assigneeOptions={assigneeOptions}
+          ownerOptions={ownerOptions}
         />
       </div>
     </div>

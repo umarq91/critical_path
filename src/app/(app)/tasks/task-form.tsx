@@ -12,10 +12,16 @@ import { TextField } from "@/components/form-fields/text-field";
 import { TextareaField } from "@/components/form-fields/textarea-field";
 import { SelectField } from "@/components/form-fields/select-field";
 import { DateField } from "@/components/form-fields/date-field";
-import { PeopleInvolvedField } from "@/app/(app)/tasks/people-involved-field";
-import type { PersonSummary } from "@/app/(app)/tasks/person-row";
-import { taskSchema, taskGenderValues, taskStatusValues, taskPriorityValues, type TaskInput } from "@/app/(app)/tasks/schema";
-import { createTask, addTaskPeople } from "@/app/(app)/tasks/_actions";
+import { PartyListField } from "@/app/(app)/tasks/party-list-field";
+import type { PartySummary } from "@/lib/party";
+import {
+  taskCreateSchema,
+  taskGenderValues,
+  taskStatusValues,
+  taskPriorityValues,
+  type TaskCreateInput,
+} from "@/app/(app)/tasks/schema";
+import { createTask } from "@/app/(app)/tasks/_actions";
 import { TASK_GENDER_CONFIG } from "@/constants/task-gender";
 import { TASK_STATUS_CONFIG } from "@/constants/task-status";
 import { TASK_PRIORITY_CONFIG } from "@/constants/task-priority";
@@ -26,33 +32,50 @@ interface TaskFormProps {
   seasonOptions: DataTableFilterOption[];
   brandOptions: DataTableFilterOption[];
   keyStageOptions: DataTableFilterOption[];
-  assigneeOptions: DataTableFilterOption[];
 }
 
-export const TaskForm = ({ onSuccess, seasonOptions, brandOptions, keyStageOptions, assigneeOptions }: TaskFormProps) => {
+export const TaskForm = ({ onSuccess, seasonOptions, brandOptions, keyStageOptions }: TaskFormProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  // People Involved is buffered locally, not through react-hook-form — the task doesn't
-  // exist yet, so there's nothing to associate people with until createTask returns an id.
-  const [people, setPeople] = useState<PersonSummary[]>([]);
-  const form = useForm<TaskInput>({
-    resolver: zodResolver(taskSchema),
+  // The full PartySummary objects behind the `owners`/`people_involved` form values — the form
+  // itself holds only `kind:uuid` keys (that's all the Server Action needs), but the list UI
+  // needs names and avatars to render what's been picked without re-fetching.
+  const [owners, setOwners] = useState<PartySummary[]>([]);
+  const [peopleInvolved, setPeopleInvolved] = useState<PartySummary[]>([]);
+  const form = useForm<TaskCreateInput>({
+    resolver: zodResolver(taskCreateSchema),
     defaultValues: {
       task_name: "",
       season_id: seasonOptions[0]?.value ?? "",
-      brand_id: brandOptions[0]?.value ?? "",
+      brand_id: "none",
       key_stage_id: "none",
       gender: "unisex",
       due_date: "",
       start_date: "",
       end_date: "",
-      assignee_id: assigneeOptions[0]?.value ?? "",
+      owners: [],
+      people_involved: [],
       status: "not_started",
       priority: "med",
       notes: "",
     },
   });
 
-  async function onSubmit(input: TaskInput) {
+  // Both party lists are mirrored into react-hook-form so `owners.min(1)` participates in
+  // validation like any other field, instead of being checked separately at submit time.
+  function updateParties(
+    field: "owners" | "people_involved",
+    setLocal: (next: PartySummary[]) => void,
+    next: PartySummary[]
+  ) {
+    setLocal(next);
+    form.setValue(
+      field,
+      next.map((party) => party.key),
+      { shouldValidate: form.formState.isSubmitted }
+    );
+  }
+
+  async function onSubmit(input: TaskCreateInput) {
     setIsSubmitting(true);
     const result = await createTask(input);
 
@@ -62,20 +85,11 @@ export const TaskForm = ({ onSuccess, seasonOptions, brandOptions, keyStageOptio
       return;
     }
 
-    if (people.length > 0) {
-      const peopleResult = await addTaskPeople(
-        result.data.id,
-        people.map((person) => person.id)
-      );
-      // The task itself was created successfully either way — a failure here is worth
-      // surfacing but shouldn't read as "task creation failed".
-      if (!peopleResult.ok) toast.error(`Task created, but people involved couldn't be saved: ${peopleResult.error}`);
-    }
-
     setIsSubmitting(false);
     toast.success(`${input.task_name} created`);
     form.reset();
-    setPeople([]);
+    setOwners([]);
+    setPeopleInvolved([]);
     onSuccess();
   }
 
@@ -87,7 +101,13 @@ export const TaskForm = ({ onSuccess, seasonOptions, brandOptions, keyStageOptio
             <TextField control={form.control} name="task_name" label="Task Name" placeholder="Creative Direction & Range Formation" />
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <SelectField control={form.control} name="season_id" label="Season" options={seasonOptions} />
-              <SelectField control={form.control} name="brand_id" label="Brand" options={brandOptions} />
+              <SelectField
+                control={form.control}
+                name="brand_id"
+                label="Brand"
+                placeholder="No brand"
+                options={[{ value: "none", label: "No brand" }, ...brandOptions]}
+              />
               <SelectField
                 control={form.control}
                 name="key_stage_id"
@@ -117,8 +137,7 @@ export const TaskForm = ({ onSuccess, seasonOptions, brandOptions, keyStageOptio
           <Separator />
 
           <FormSection title="Assignment">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <SelectField control={form.control} name="assignee_id" label="Owner / Assignee" options={assigneeOptions} />
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <SelectField
                 control={form.control}
                 name="status"
@@ -133,11 +152,34 @@ export const TaskForm = ({ onSuccess, seasonOptions, brandOptions, keyStageOptio
               />
             </div>
             <div className="grid gap-1.5">
+              <Label>Owners</Label>
+              <PartyListField
+                parties={owners}
+                onAdd={(party) => updateParties("owners", setOwners, [...owners, party])}
+                onRemove={(party) =>
+                  updateParties("owners", setOwners, owners.filter((existing) => existing.key !== party.key))
+                }
+                emptyLabel="No owners yet — add a department or a person"
+                placeholder="Search departments and people..."
+              />
+              {form.formState.errors.owners ? (
+                <p className="text-sm text-destructive">{form.formState.errors.owners.message}</p>
+              ) : null}
+            </div>
+            <div className="grid gap-1.5">
               <Label>People Involved</Label>
-              <PeopleInvolvedField
-                people={people}
-                onAdd={(person) => setPeople((prev) => [...prev, person])}
-                onRemove={(person) => setPeople((prev) => prev.filter((existing) => existing.id !== person.id))}
+              <PartyListField
+                parties={peopleInvolved}
+                onAdd={(party) => updateParties("people_involved", setPeopleInvolved, [...peopleInvolved, party])}
+                onRemove={(party) =>
+                  updateParties(
+                    "people_involved",
+                    setPeopleInvolved,
+                    peopleInvolved.filter((existing) => existing.key !== party.key)
+                  )
+                }
+                emptyLabel="No one involved yet"
+                placeholder="Search departments and people..."
               />
             </div>
           </FormSection>

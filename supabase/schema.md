@@ -133,12 +133,16 @@ policy — see `0006_tasks.sql`.
 | `id` | uuid, PK | |
 | `name` | text | |
 | `description` | text, nullable | |
+| `is_external` | boolean, not null, default `false` | `0015` — Vendor/Supplier and similar: no logins, ever |
+| `contact_email` | text, nullable | `0015` — where a reminder goes when the party has no member profiles |
 | `created_at` / `updated_at` | timestamptz | |
 | `deleted_at` | timestamptz, nullable | soft delete |
 
 **RLS:** any authenticated user reads; only admin writes — falls under the general `admin.manage_lookups` bucket in `lib/permissions.ts`, same as `key_stages` (no dedicated `department.*` row on the client's Role-Based Access screen).
 
-Referenced only by `profiles.department_id`, a nullable FK with `on delete set null` — deleting a department clears it from every user who had it instead of blocking the delete or cascading. Deliberately **not** referenced by `tasks` — a task's department is read via its assignee's `profile.department_id`, not stored redundantly on the task itself.
+Referenced by `profiles.department_id` (nullable FK, `on delete set null` — deleting a department clears it from every user who had it) and, since `0015_task_participants.sql`, by `task_participants.department_id`: a department is an **assignable party** on a task, not just a label on a user. Still deliberately **not** a column on `tasks` itself.
+
+Seeded from real client data — see `supabase/seed-departments.sql` and the Departments section of `things-to-know.md`.
 
 ### `tasks`
 *Migration: `0006_tasks.sql`, `priority` added in `0014_tasks_priority.sql`. The core entity — spreadsheet grid, calendar, Gantt/Timeline, and dashboards all read from this table.*
@@ -148,11 +152,11 @@ Referenced only by `profiles.department_id`, a nullable FK with `on delete set n
 | `id` | uuid, PK | |
 | `task_name` | text | |
 | `season_id` | uuid, FK → `seasons.id`, not null | |
-| `brand_id` | uuid, FK → `brands.id`, not null | |
+| `brand_id` | uuid, FK → `brands.id`, **nullable** since `0016_tasks_brand_optional.sql` | Optional, unlike `season_id` — plenty of stage work (trend trips, range reviews, shipping) isn't brand-specific, and the client's export has no BRAND column at all. FK left as restrict, not `set null`: brands are soft-deleted, so a brand vanishing under a task should surface, not silently blank the column |
 | `key_stage_id` | uuid, FK → `key_stages.id`, nullable, `on delete set null` | optional — a task isn't required to belong to a key stage |
 | `gender` | `task_gender`, not null | `men` \| `women` \| `unisex` |
 | `due_date` | date, not null | |
-| `assignee_id` | uuid, FK → `profiles.id`, nullable, `on delete set null` | "Owner / Assignee" — one combined field, not the two separate `owner`/`assignee` columns `plan.md`'s original sketch had; collapsed to match the confirmed UI (one column) and current scope |
+| `assignee_id` | uuid, FK → `profiles.id`, nullable, `on delete set null` | **Superseded by `task_participants` (`0015`)** — owner is 1..n parties, each a profile *or* a department, not one profile. Backfilled and left in place during the expand phase; a follow-up migration drops it. Don't write to it in new code |
 | `status` | `task_status`, default `not_started` | `not_started` \| `in_progress` \| `completed` \| `overdue` |
 | `priority` | `task_priority`, default `med` | `high` \| `med` \| `low` — was stubbed as a hardcoded "Not set" placeholder in the task detail drawer until this migration landed |
 | `notes` | text, nullable | the UI's "Comments" column — a single free-text field on the task, not a separate `task_comments` table |
@@ -171,7 +175,7 @@ Referenced only by `profiles.department_id`, a nullable FK with `on delete set n
 
 **Deliberately not columns (this pass):** attachments (explicitly deferred).
 
-**Google Calendar sync — manual, per-user, assignee-scoped.** `lib/google/calendar.ts` + `calendar/_actions.ts`'s `syncGoogleCalendar()` (triggered by the Calendar page's Sync button, not a cron) pushes a signed-in user's own assigned tasks (`assignee_id = current user`, due date within roughly the surrounding year) to their primary Google Calendar as all-day events, and pulls back any edit to that event's title/date if it changed more recently than `google_synced_at`. Only the assignee's tasks are pushed — one task maps to exactly one `google_event_id`, so it can only live on one person's calendar. Every other event already on that user's calendar (meetings, personal events — anything not created from a task) is cached read-only in `external_calendar_events` below purely for display; it never becomes a task since tasks require `season_id`/`brand_id`/`gender`/`assignee_id` a Google Calendar event doesn't have. `deleteTask` best-effort deletes the linked Google event (via `google_calendar_owner_id`'s account) when a synced task is deleted; failures there don't block the task delete itself.
+**Google Calendar sync — manual, per-user, assignee-scoped.** `lib/google/calendar.ts` + `calendar/_actions.ts`'s `syncGoogleCalendar()` (triggered by the Calendar page's Sync button, not a cron) pushes a signed-in user's own assigned tasks (`assignee_id = current user`, due date within roughly the surrounding year) to their primary Google Calendar as all-day events, and pulls back any edit to that event's title/date if it changed more recently than `google_synced_at`. Only the assignee's tasks are pushed — one task maps to exactly one `google_event_id`, so it can only live on one person's calendar. Every other event already on that user's calendar (meetings, personal events — anything not created from a task) is cached read-only in `external_calendar_events` below purely for display; it never becomes a task since tasks require `season_id`/`gender`/an owner a Google Calendar event doesn't have. `deleteTask` best-effort deletes the linked Google event (via `google_calendar_owner_id`'s account) when a synced task is deleted; failures there don't block the task delete itself.
 
 **Auth for the Calendar API call itself is per-user OAuth (`google_oauth_tokens` below), NOT the domain-wide-delegated service account** used for role sync — see that table's note for why, and why this is meant to be temporary.
 
@@ -179,8 +183,35 @@ Referenced only by `profiles.department_id`, a nullable FK with `on delete set n
 
 **RLS — the one table that isn't the simple admin-only-write pattern:** any authenticated user reads (`task.view` is granted to every role). Insert/update require `standard_user` or `admin` (`current_user_role() in ('standard_user', 'admin')`), matching `task.create`/`task.update` in `lib/permissions.ts`. Delete stays admin-only (`task.delete` isn't in `STANDARD_USER_ALLOWED`).
 
+### `task_participants`
+*Migration: `0015_task_participants.sql`. Owner **and** People Involved, in one table. Supersedes both `tasks.assignee_id` and `task_people` — a participant is either a profile or a department, a task can have any number of each, in either role.*
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid, PK | |
+| `task_id` | uuid, FK → `tasks.id`, not null, `on delete cascade` | |
+| `profile_id` | uuid, FK → `profiles.id`, nullable, `on delete cascade` | exactly one of this / `department_id` is set |
+| `department_id` | uuid, FK → `departments.id`, nullable, `on delete cascade` | |
+| `role` | `task_participant_role`, not null | `owner` \| `involved` |
+| `created_at` | timestamptz | |
+
+`check (num_nonnulls(profile_id, department_id) = 1)` — a polymorphic party kept as two real FKs rather than a `(party_type, party_id)` pair, so cascades and referential integrity still apply.
+
+Uniqueness is **two partial indexes** (`…_profile_uniq`, `…_department_uniq`), not one composite unique constraint: Postgres treats NULLs as distinct, so `unique (task_id, profile_id, department_id, role)` would let duplicates through on whichever column is null.
+
+**Owner is not capped at one.** The client's export has two owners on 283 of 833 tasks (34%) — `Product Development, Vendor`, `US Team, EU Team` — and that's intentional joint ownership. If that ever needs enforcing, it's a partial unique index on `(task_id) where role = 'owner'`, not a schema change.
+
+**A department participant may have zero member profiles** and that's a normal state, not a data error — `Vendor` (254 owner rows) and `Supplier` (16) are external and will never have logins. Anything resolving a task to human recipients has to handle the empty case and fall back to `departments.contact_email`.
+
+**RLS:** same matrix as `tasks` and `task_people` — any authenticated user reads; add/remove requires `standard_user` or `admin`, matching `task.assign` in `lib/permissions.ts`.
+
+### `task_participant_profiles` (view)
+*Migration: `0015_task_participants.sql`. Flattens department membership down to individual profiles: `(task_id, role, profile_id, via)` where `via` is `direct` or `department`.*
+
+Exists so "tasks relevant to me" stays one query rather than the three hops (me → my department → tasks that department participates in) PostgREST can't express inline — which is already why `listTasks` does a two-step for `task_people` today. Built with `union`, not `union all`: being named directly *and* sitting in the owning department is the common case (95% of rows in the client export) and should collapse to one row. `security_invoker = on`, so the underlying tables' RLS still applies through it.
+
 ### `task_people`
-*Migration: `0010_task_people.sql`. "People Involved" — many-to-many between `tasks` and `profiles`, distinct from the single `tasks.assignee_id` ("Owner / Assignee"). Join table, not an array column, so it reads as an embedded resource like every other relationship here.*
+*Migration: `0010_task_people.sql`. **Superseded by `task_participants`** (`0015`) — backfilled from and left in place during the expand phase; a follow-up migration drops it once the app reads from `task_participants`. Don't write to it in new code.*
 
 | Column | Type | Notes |
 |---|---|---|
@@ -249,6 +280,8 @@ Referenced only by `profiles.department_id`, a nullable FK with `on delete set n
 | `0012_google_oauth_tokens.sql` | Creates `google_oauth_tokens` (zero RLS policies — service-role-only access) to hold per-user Calendar OAuth tokens. **Temporary** — see that table's note above. |
 | `0013_brand_seasons.sql` | Drops `brands.season_id`, creates `brand_seasons` join table (same shape as `task_people`) so a brand can belong to multiple seasons. Migrates existing 1:1 links into the new table before dropping the column. |
 | `0014_tasks_priority.sql` | Adds `task_priority` enum (`high`/`med`/`low`) and `tasks.priority` (default `med`), plus an index. |
+| `0015_task_participants.sql` | `task_participant_role` enum (`owner`/`involved`), `task_participants` table (polymorphic profile-or-department party, two partial unique indexes, RLS matching `tasks`), `departments.is_external`/`contact_email`, the `task_participant_profiles` view, and a backfill from `tasks.assignee_id` + `task_people`. **Expand phase** — neither of those is dropped here; a follow-up does that once the app reads from `task_participants`. |
+| `0016_tasks_brand_optional.sql` | Drops the NOT NULL on `tasks.brand_id`. Column and FK otherwise unchanged — brand is now optional on a task, season is not. |
 
 ## Not built yet
 

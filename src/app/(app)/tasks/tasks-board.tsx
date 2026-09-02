@@ -24,7 +24,7 @@ interface TasksBoardProps {
   seasonOptions: DataTableFilterOption[];
   brandOptions: DataTableFilterOption[];
   keyStageOptions: DataTableFilterOption[];
-  assigneeOptions: DataTableFilterOption[];
+  ownerOptions: DataTableFilterOption[];
 }
 
 export const TasksBoard = ({
@@ -36,7 +36,7 @@ export const TasksBoard = ({
   seasonOptions,
   brandOptions,
   keyStageOptions,
-  assigneeOptions,
+  ownerOptions,
 }: TasksBoardProps) => {
   const queryState = useDataTableQueryState({ defaultPageSize: 15, defaultSort: { id: "due_date", desc: false } });
   const rowEditing = useRowEditing();
@@ -72,7 +72,6 @@ export const TasksBoard = ({
         seasonOptions,
         brandOptions,
         keyStageOptions,
-        assigneeOptions,
       }),
     // rowEditing's methods are stable across renders (from useState setters); only its
     // values (editingId/draft) actually need to trigger a column rebuild.
@@ -86,7 +85,7 @@ export const TasksBoard = ({
       seasonOptions,
       brandOptions,
       keyStageOptions,
-      assigneeOptions,
+      ownerOptions,
     ]
   );
 
@@ -129,7 +128,7 @@ export const TasksBoard = ({
               placeholder: "All Priorities",
               options: Object.entries(TASK_PRIORITY_CONFIG).map(([value, { label }]) => ({ value, label })),
             },
-            { columnId: "assignee_id", title: "Owner", placeholder: "All Owners", options: assigneeOptions },
+            { columnId: "owner", title: "Owner", placeholder: "All Owners", options: ownerOptions },
           ],
           sortOptions: [
             { columnId: "task_name", desc: false, label: "Task Name (A-Z)" },

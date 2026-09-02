@@ -19,7 +19,6 @@ interface TaskPageActionsProps {
   seasonOptions: DataTableFilterOption[];
   brandOptions: DataTableFilterOption[];
   keyStageOptions: DataTableFilterOption[];
-  assigneeOptions: DataTableFilterOption[];
 }
 
 export const TaskPageActions = ({
@@ -27,7 +26,6 @@ export const TaskPageActions = ({
   seasonOptions,
   brandOptions,
   keyStageOptions,
-  assigneeOptions,
 }: TaskPageActionsProps) => {
   const [open, setOpen] = useState(false);
 
@@ -62,7 +60,6 @@ export const TaskPageActions = ({
             seasonOptions={seasonOptions}
             brandOptions={brandOptions}
             keyStageOptions={keyStageOptions}
-            assigneeOptions={assigneeOptions}
           />
         </FormDialog>
       ) : null}

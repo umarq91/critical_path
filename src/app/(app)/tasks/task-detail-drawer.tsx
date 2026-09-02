@@ -21,18 +21,17 @@ import {
   X,
 } from "lucide-react";
 import { Sheet, SheetClose, SheetContent, SheetTitle } from "@/components/ui/sheet";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { ColorTag } from "@/components/shared/color-tag";
-import { TaskPeopleSection } from "@/app/(app)/tasks/task-people-section";
+import { TaskParticipantsSection } from "@/app/(app)/tasks/task-participants-section";
+import { PartyStack } from "@/app/(app)/tasks/party-stack";
+import { taskOwners, taskPeopleInvolved } from "@/app/(app)/tasks/task-parties";
 import { TASK_STATUS_CONFIG } from "@/constants/task-status";
 import { TASK_GENDER_CONFIG } from "@/constants/task-gender";
 import { TASK_PRIORITY_CONFIG } from "@/constants/task-priority";
-import { getVizColorForId } from "@/constants/chart-colors";
-import { initials } from "@/lib/utils";
 import { formatDate } from "@/lib/dates";
 import type { Task } from "@/data/tasks";
 import type { LucideIcon } from "lucide-react";
@@ -72,9 +71,8 @@ function EmptyNote({ children }: { children: ReactNode }) {
 export const TaskDetailDrawer = ({ task, open, onOpenChange, canAssignPeople }: TaskDetailDrawerProps) => {
   if (!task) return null;
 
-  const initialPeople = task.people
-    .map((entry) => entry.profile)
-    .filter((profile): profile is NonNullable<typeof profile> => profile !== null);
+  const owners = taskOwners(task);
+  const peopleInvolved = taskPeopleInvolved(task);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -119,20 +117,9 @@ export const TaskDetailDrawer = ({ task, open, onOpenChange, canAssignPeople }: 
               <OverviewField icon={Milestone} label="Key Stage">
                 {task.key_stage?.name ?? <span className="text-muted-foreground">Not set</span>}
               </OverviewField>
-              <OverviewField icon={UserCheck} label="Owner / Assignee">
-                {task.assignee ? (
-                  <span className="flex items-center gap-2">
-                    <Avatar size="sm">
-                      <AvatarImage src={task.assignee.avatar_url ?? undefined} alt="" />
-                      <AvatarFallback
-                        className="text-white"
-                        style={{ backgroundColor: getVizColorForId(task.assignee.id) }}
-                      >
-                        {initials(task.assignee.full_name, task.assignee.email)}
-                      </AvatarFallback>
-                    </Avatar>
-                    {task.assignee.full_name ?? task.assignee.email}
-                  </span>
+              <OverviewField icon={UserCheck} label="Owners">
+                {owners.length > 0 ? (
+                  <PartyStack parties={owners} showSoleName />
                 ) : (
                   <span className="text-muted-foreground">Not set</span>
                 )}
@@ -169,12 +156,28 @@ export const TaskDetailDrawer = ({ task, open, onOpenChange, canAssignPeople }: 
           <Separator />
 
           <div className="flex flex-col gap-3">
-            <SectionHeading icon={Users} title="People Involved" />
-            <TaskPeopleSection
-              key={task.id}
+            <SectionHeading icon={UserCheck} title="Owners" />
+            <TaskParticipantsSection
+              key={`${task.id}-owner`}
               taskId={task.id}
-              initialPeople={initialPeople}
+              role="owner"
+              initialParties={owners}
               canManage={canAssignPeople}
+              emptyLabel="No owners yet"
+            />
+          </div>
+
+          <Separator />
+
+          <div className="flex flex-col gap-3">
+            <SectionHeading icon={Users} title="People Involved" />
+            <TaskParticipantsSection
+              key={`${task.id}-involved`}
+              taskId={task.id}
+              role="involved"
+              initialParties={peopleInvolved}
+              canManage={canAssignPeople}
+              emptyLabel="No one involved yet"
             />
           </div>
 

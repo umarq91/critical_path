@@ -34,7 +34,6 @@ interface UpcomingTasksBoardProps {
   seasonOptions: DataTableFilterOption[];
   brandOptions: DataTableFilterOption[];
   keyStageOptions: DataTableFilterOption[];
-  assigneeOptions: DataTableFilterOption[];
 }
 
 // Deliberately not a re-skin of TasksBoard — same underlying DataTable/columns machinery
@@ -53,7 +52,6 @@ export const UpcomingTasksBoard = ({
   seasonOptions,
   brandOptions,
   keyStageOptions,
-  assigneeOptions,
 }: UpcomingTasksBoardProps) => {
   const queryState = useDataTableQueryState({ defaultPageSize: 15, defaultSort: { id: "due_date", desc: false } });
   const rowEditing = useRowEditing();
@@ -93,8 +91,6 @@ export const UpcomingTasksBoard = ({
         seasonOptions,
         brandOptions,
         keyStageOptions,
-        assigneeOptions,
-        includePeopleColumn: true,
       }),
     // rowEditing's methods are stable across renders (from useState setters); only its
     // values (editingId/draft) actually need to trigger a column rebuild.
@@ -108,7 +104,6 @@ export const UpcomingTasksBoard = ({
       seasonOptions,
       brandOptions,
       keyStageOptions,
-      assigneeOptions,
     ]
   );
 

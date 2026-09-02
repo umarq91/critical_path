@@ -1,8 +1,9 @@
 import { isBefore, parseISO, startOfToday } from "date-fns";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ColorTag } from "@/components/shared/color-tag";
 import { TASK_STATUS_CONFIG } from "@/constants/task-status";
-import { cn, initials } from "@/lib/utils";
+import { cn } from "@/lib/utils";
+import { PartyStack } from "@/app/(app)/tasks/party-stack";
+import { taskOwners } from "@/app/(app)/tasks/task-parties";
 import type { Task } from "@/data/tasks";
 
 // Mirrors TASK_STATUS_CONFIG's palette but as a solid dot rather than a soft-tinted badge —
@@ -22,6 +23,7 @@ interface CalendarTaskChipProps {
 }
 
 export const CalendarTaskChip = ({ task, onSelect, variant = "compact" }: CalendarTaskChipProps) => {
+  const owners = taskOwners(task);
   // The `overdue` status is only stamped by the nightly status-rollover cron — a task whose
   // due_date has already passed can still read "in_progress" until that job catches up. The
   // calendar shows the actual due date, so it derives overdue from the date directly rather
@@ -73,13 +75,9 @@ export const CalendarTaskChip = ({ task, onSelect, variant = "compact" }: Calend
       <div className="flex flex-wrap items-center gap-2">
         {task.season ? <ColorTag label={task.season.season_name} color={task.season.color} /> : null}
         {task.brand ? <ColorTag label={task.brand.brand_name} color={task.brand.color} /> : null}
-        {task.assignee ? (
+        {owners.length > 0 ? (
           <span className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Avatar className="size-6">
-              <AvatarImage src={task.assignee.avatar_url ?? undefined} alt={task.assignee.full_name ?? task.assignee.email} />
-              <AvatarFallback className="text-xs">{initials(task.assignee.full_name, task.assignee.email)}</AvatarFallback>
-            </Avatar>
-            {task.assignee.full_name ?? task.assignee.email}
+            <PartyStack parties={owners} maxVisible={2} showSoleName />
           </span>
         ) : null}
       </div>

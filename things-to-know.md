@@ -11,6 +11,110 @@ disagree: `supabase/schema.md` (as-built DB) > this file (as-built behaviour) > 
 
 ---
 
+## Departments
+
+**The seed list is the client's own dropdown, not sample data.** `supabase/seed-departments.sql`
+mirrors the `Department` column of the `Lists` sheet in
+`Critical Path - Data exported 24th August 2026.xlsx`, which is the source of the TASKS sheet's
+`OWNER` and `PEOPLE INVOLVED` values. Names are verbatim from that sheet — don't "tidy" the
+casing (`Brand Managers` plural, `E-Commerce` hyphenated, `SLT` uppercase); a CSV import of that
+export matches on exact string.
+
+**Two dropdown entries are not departments.** `Johan Persson` and `Par Lundqvist` are individual
+people the spreadsheet had nowhere else to put. They're excluded from the seed and belong in
+`profiles` instead. If a task import hits either as an owner, map it to a person, not a new
+department row.
+
+**Departments are assignable parties, not just a label on a user.** `OWNER` and `PEOPLE INVOLVED`
+in the export both hold *department* names, not people (832 of 833 owner rows). Since
+`0015_task_participants.sql` a department attaches directly to a task via
+`task_participants.department_id` — this is the **normal path**, not the fallback. Attaching an
+individual profile is the exception, kept because the sheet does contain two person-valued
+entries. The old `0009_departments.sql` note that "a task's department is read via its assignee's
+profile" is obsolete.
+
+**A department participant with zero members is valid.** `Vendor` (254 owner rows) and `Supplier`
+(16) are external — `is_external = true`, no logins, ever. Anything resolving a task to human
+recipients (reminders, calendar push) must handle the empty set and fall back to
+`departments.contact_email` rather than treating it as a data error.
+
+**Owner is 1..n, not 1.** 283 of 833 tasks (34%) have two owners — `Product Development, Vendor`,
+`US Team, EU Team`. Confirmed intentional. Don't reintroduce a single-owner assumption; if it
+ever needs enforcing it's a partial unique index on `(task_id) where role = 'owner'`.
+
+**Owner is a subset of involved, not a separate axis.** The owning party also appears in PEOPLE
+INVOLVED on 795 of 833 rows (95%) — which is why `task_participants` is one table with a `role`
+column rather than two parallel join tables, and why `task_participant_profiles` uses `union`
+rather than `union all`.
+
+---
+
+## Tasks — Owners & People Involved
+
+**One picker stack serves both fields, and both accept departments and people.**
+`party-row.tsx` → `party-search-dropdown.tsx` → `party-list-field.tsx`, with
+`task-participants-section.tsx` as the server-backed wrapper the drawer uses and the create
+form buffering locally. Owners and People Involved differ only by their `role` value and their
+labels — don't fork a second stack for one of them.
+
+**A party is addressed as a `kind:uuid` string** (`lib/party.ts`) everywhere on the client —
+form values, option values, React keys — and split back into `profile_id`/`department_id` on
+write. `task_participants` has no single id column to key on, so this encoding is what lets one
+`<PartyListField>` hold a mixed set.
+
+**The Owner grid column is display-only.** Owners are rows in another table, so there's nothing
+to sort on and no single value an inline `<EditableCell>` select could write. Owners are edited
+in the detail drawer. `assignee_id` is gone from `EDITABLE_FIELDS` and from `taskSchema` for the
+same reason.
+
+**`tasks.assignee_id` is still written, as a shim.** `createTask` sets it to the first
+*individual* owner, or null when every owner is a department (the common case). Calendar sync
+(`calendar/_actions.ts`) still reads it, which is why it can't be dropped yet — that's the
+follow-up `0016`, gated on the one-way calendar rework.
+
+**Filtering by a participant costs an extra round trip.** PostgREST can't express
+`id in (select task_id from …)` inline, so `listTasks` resolves the id set first — via
+`task_participants` for the Owner filter, via the `task_participant_profiles` view for
+"relevant to me". An empty result set filters on an impossible uuid (`EMPTY_RESULT_ID`) rather
+than dropping the clause, which would silently widen the query to "no filter at all".
+
+**"My tasks" is now transitive.** Upcoming scopes through `task_participant_profiles`, so being
+in Planning shows you every task Planning owns, not just ones naming you. Upcoming deliberately
+has no Owner filter — the page is already scoped to you.
+
+---
+
+## Seasons & Key Stages
+
+**Both are seeded from client data, not invented.** `supabase/seed-seasons.sql` (28 rows) and
+`supabase/seed-key-stages.sql` (13 rows) come from the SEASON and KEY STAGE columns of
+`Critical Path - Data exported 24th August 2026.xlsx`. `season_code` and `key_stages.name` are
+verbatim, including the client's own inconsistency (`RJ'S H1'27` upper vs `RJ's H2'27` lower) —
+a CSV import of that export matches on exact string, so normalising the casing breaks it.
+
+**Seasons have no date range in the source.** `start_date`/`end_date` are derived as the tightest
+interval containing that season's tasks (min/max of Working Timeline start/end and DUE DATE).
+`status` is computed against the seed date, not stored in the sheet — it's a snapshot.
+
+**Key stage order is not preserved and the Timeline is wrong because of it.** `key_stages` has no
+`sort_order` column (`0008_key_stages.sql`) and `data/key-stages.ts` orders by `name`, so
+Timeline/Gantt groups stages alphabetically. The real sequence is the insert order in the seed
+file (PRE SEASON PREP → TREND TRIP → CREATIVE DIRECTION → RANGE DEVELOPMENT → RANGE
+REVIEW/REFINEMENT → RANGE RELEASE → SALES TOOLS FORMATION → SELL PERIOD → CONSOLIDATION →
+CAMPAIGN → SHIPPING → LAUNCH), but insertion order isn't retrievable. Needs a `sort_order`
+column before Timeline grouping reads correctly.
+
+**RANGE REVIEW and RANGE REFINEMENT are the same slot, never co-occurring** — quarterly seasons
+use REFINEMENT, monthly INJECTION seasons use REVIEW. Don't merge them; don't expect both.
+
+**Reseeding seasons deletes tasks.** `brand_seasons.season_id` is `on delete restrict` and
+`tasks.season_id` is a NOT NULL FK, so `seed-seasons.sql` has to clear `task_people`, `tasks`,
+and `brand_seasons` before it can touch `seasons`. It also invalidates the hardcoded season
+UUIDs in `seed-brands.sql`'s `brand_seasons` block — re-link by `season_code`, don't paste new
+UUIDs.
+
+---
+
 ## Dashboard (`/dashboard`)
 
 **Cost: 3 Supabase calls for the page** (6 per load; the other 3 are the authenticated shell —

@@ -1,7 +1,38 @@
 import "server-only";
 import { addDays, format } from "date-fns";
 import { createClient } from "@/lib/supabase/server";
+import { parsePartyKey } from "@/lib/party";
 import { taskGenderValues, taskStatusValues, taskPriorityValues, type TaskInput } from "@/app/(app)/tasks/schema";
+
+type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
+
+// A syntactically valid uuid that no row can hold, for filters that resolved to an empty set.
+// Dropping the clause instead would silently widen the query to "no filter at all".
+const EMPTY_RESULT_ID = "00000000-0000-0000-0000-000000000000";
+
+// Every task this profile participates in, whether named directly or via their department.
+// The view already collapses "both" to one row (it's a UNION), so no dedupe is needed here.
+async function taskIdsForProfile(supabase: SupabaseClient, profileId: string) {
+  const { data, error } = await supabase
+    .from("task_participant_profiles")
+    .select("task_id")
+    .eq("profile_id", profileId);
+  if (error) throw error;
+  return (data ?? []).flatMap((row) => (row.task_id ? [row.task_id] : []));
+}
+
+async function taskIdsForOwner(supabase: SupabaseClient, ownerKey: string) {
+  const party = parsePartyKey(ownerKey);
+  if (!party) return [];
+
+  const { data, error } = await supabase
+    .from("task_participants")
+    .select("task_id")
+    .eq("role", "owner")
+    .eq(party.kind === "user" ? "profile_id" : "department_id", party.id);
+  if (error) throw error;
+  return (data ?? []).map((row) => row.task_id);
+}
 
 export interface ListTasksParams {
   page?: number;
@@ -9,11 +40,12 @@ export interface ListTasksParams {
   sortBy?: string;
   sortDir?: string;
   filters?: Record<string, string>;
-  /** Scopes results to tasks this profile owns (assignee_id) OR is a People Involved member
-   *  of (task_people) — the Upcoming Tasks page's "relevant to me" scope. Deliberately
-   *  narrower than listTasksByDueDateRange's `involvesProfileId` (which also matches
-   *  created_by, the calendar's broader "involves" concept). A dedicated param rather than a
-   *  `filters` key since it's an OR across two relations, not a plain equality match. */
+  /** Scopes results to tasks this profile participates in — as an owner or as People
+   *  Involved, named directly or via their department (see the task_participant_profiles
+   *  view). The Upcoming Tasks page's "relevant to me" scope. Deliberately narrower than
+   *  listTasksByDueDateRange's `involvesProfileId`, which also matches created_by (the
+   *  calendar's broader "involves" concept). A dedicated param rather than a `filters` key
+   *  since it resolves through a join table, not a plain equality match. */
   ownerOrInvolvedProfileId?: string;
   /** Hard floor of `due_date >= today` — not exposed via `filters` since callers shouldn't
    *  be able to relax it; it's the Upcoming Tasks page's core "upcoming" definition. */
@@ -24,7 +56,7 @@ const SORTABLE_COLUMNS = new Set(["task_name", "due_date", "status", "priority",
 
 // Shared by every task query below — the grid, and the calendar's bounded range query —
 // so a relation gets added once, not once per query.
-const TASK_SELECT = `*, season:seasons(id, season_code, season_name, color), brand:brands(id, brand_name, color), key_stage:key_stages(id, name), assignee:profiles!tasks_assignee_id_fkey(id, full_name, email, avatar_url), created_by_profile:profiles!tasks_created_by_fkey(id, full_name, email, avatar_url), last_edited_by_profile:profiles!tasks_last_edited_by_fkey(id, full_name, email, avatar_url), people:task_people(profile:profiles(id, full_name, email, avatar_url, department:departments(name)))`;
+const TASK_SELECT = `*, season:seasons(id, season_code, season_name, color), brand:brands(id, brand_name, color), key_stage:key_stages(id, name), assignee:profiles!tasks_assignee_id_fkey(id, full_name, email, avatar_url), created_by_profile:profiles!tasks_created_by_fkey(id, full_name, email, avatar_url), last_edited_by_profile:profiles!tasks_last_edited_by_fkey(id, full_name, email, avatar_url), participants:task_participants(role, profile:profiles(id, full_name, email, avatar_url, department:departments(name)), department:departments(id, name, description, is_external))`;
 
 function isTaskGender(value: string | undefined): value is TaskInput["gender"] {
   return !!value && (taskGenderValues as readonly string[]).includes(value);
@@ -59,7 +91,15 @@ export async function listTasks({
   if (isTaskGender(filters.gender)) query = query.eq("gender", filters.gender);
   if (isTaskStatus(filters.status)) query = query.eq("status", filters.status);
   if (isTaskPriority(filters.priority)) query = query.eq("priority", filters.priority);
-  if (filters.assignee_id) query = query.eq("assignee_id", filters.assignee_id);
+  // "Owner" toolbar filter. A `kind:uuid` party key, not a profile id — owners live in
+  // task_participants now, so this resolves to a task-id set first for the same reason
+  // ownerOrInvolvedProfileId does below: PostgREST can't express the join-table subquery
+  // inline. An unmatched owner must yield zero rows, not every row, hence the impossible-id
+  // fallback rather than skipping the clause.
+  if (filters.owner) {
+    const taskIds = await taskIdsForOwner(supabase, filters.owner);
+    query = taskIds.length > 0 ? query.in("id", taskIds) : query.eq("id", EMPTY_RESULT_ID);
+  }
   // "Due" toolbar filter (Upcoming Tasks) — a day-count preset ("7"/"30"/"90"), not a literal
   // date; caps due_date at today + N days. Composes with onlyUpcoming's >= today floor below
   // to express "due within the next N days" as a whole.
@@ -73,22 +113,12 @@ export async function listTasks({
   if (onlyUpcoming) query = query.gte("due_date", format(new Date(), "yyyy-MM-dd"));
 
   if (ownerOrInvolvedProfileId) {
-    // task_people is a join table — Postgrest can't express "id in (select task_id from
-    // task_people where profile_id = x)" inside a single .or() filter, so that half of the
-    // condition is resolved as its own lookup first (same technique as
-    // listTasksByDueDateRange's involvesProfileId, just without the created_by leg — Upcoming
-    // Tasks scopes strictly to "I own it or I'm involved in it", not "I created it").
-    const { data: involved, error: involvedError } = await supabase
-      .from("task_people")
-      .select("task_id")
-      .eq("profile_id", ownerOrInvolvedProfileId);
-    if (involvedError) throw involvedError;
-
-    const orConditions = [`assignee_id.eq.${ownerOrInvolvedProfileId}`];
-    if (involved && involved.length > 0) {
-      orConditions.push(`id.in.(${involved.map((row) => row.task_id).join(",")})`);
-    }
-    query = query.or(orConditions.join(","));
+    // Reads the task_participant_profiles view (0015_task_participants.sql), which flattens
+    // department membership down to individual profiles — so a task owned by Planning counts
+    // as "mine" when I'm in Planning, not only when I'm named on it directly. Still resolved
+    // as its own lookup first because PostgREST can't express the subquery inline.
+    const taskIds = await taskIdsForProfile(supabase, ownerOrInvolvedProfileId);
+    query = taskIds.length > 0 ? query.in("id", taskIds) : query.eq("id", EMPTY_RESULT_ID);
   }
 
   const orderColumn = sortBy && SORTABLE_COLUMNS.has(sortBy) ? sortBy : "due_date";
@@ -134,14 +164,13 @@ export async function listTasksByDueDateRange({
 }: ListTasksByDueDateRangeParams) {
   const supabase = await createClient();
 
-  // task_people is a join table — Postgrest can't express "id in (select task_id from
-  // task_people where profile_id = x)" inside a single .or() filter, so that half of the
-  // "involves this person" condition is resolved as its own lookup first.
+  // Participation is resolved as its own lookup first (PostgREST can't express the subquery
+  // inline) via the task_participant_profiles view, so a task owned by this person's
+  // department counts as involving them. Unlike listTasks' scope, the calendar's broader
+  // "involves" concept also includes tasks they merely created — that leg stays an .or().
   let involvedTaskIds: string[] = [];
   if (involvesProfileId) {
-    const { data, error } = await supabase.from("task_people").select("task_id").eq("profile_id", involvesProfileId);
-    if (error) throw error;
-    involvedTaskIds = (data ?? []).map((row) => row.task_id);
+    involvedTaskIds = await taskIdsForProfile(supabase, involvesProfileId);
   }
 
   let query = supabase
@@ -156,7 +185,7 @@ export async function listTasksByDueDateRange({
   if (isTaskStatus(filters.status)) query = query.eq("status", filters.status);
 
   if (involvesProfileId) {
-    const orConditions = [`assignee_id.eq.${involvesProfileId}`, `created_by.eq.${involvesProfileId}`];
+    const orConditions = [`created_by.eq.${involvesProfileId}`];
     if (involvedTaskIds.length > 0) orConditions.push(`id.in.(${involvedTaskIds.join(",")})`);
     query = query.or(orConditions.join(","));
   }

@@ -89,26 +89,32 @@ export type Database = {
       }
       departments: {
         Row: {
+          contact_email: string | null
           created_at: string
           deleted_at: string | null
           description: string | null
           id: string
+          is_external: boolean
           name: string
           updated_at: string
         }
         Insert: {
+          contact_email?: string | null
           created_at?: string
           deleted_at?: string | null
           description?: string | null
           id?: string
+          is_external?: boolean
           name: string
           updated_at?: string
         }
         Update: {
+          contact_email?: string | null
           created_at?: string
           deleted_at?: string | null
           description?: string | null
           id?: string
+          is_external?: boolean
           name?: string
           updated_at?: string
         }
@@ -326,6 +332,55 @@ export type Database = {
           },
         ]
       }
+      task_participants: {
+        Row: {
+          created_at: string
+          department_id: string | null
+          id: string
+          profile_id: string | null
+          role: Database["public"]["Enums"]["task_participant_role"]
+          task_id: string
+        }
+        Insert: {
+          created_at?: string
+          department_id?: string | null
+          id?: string
+          profile_id?: string | null
+          role: Database["public"]["Enums"]["task_participant_role"]
+          task_id: string
+        }
+        Update: {
+          created_at?: string
+          department_id?: string | null
+          id?: string
+          profile_id?: string | null
+          role?: Database["public"]["Enums"]["task_participant_role"]
+          task_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_participants_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_participants_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_participants_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       task_people: {
         Row: {
           created_at: string
@@ -365,7 +420,7 @@ export type Database = {
       tasks: {
         Row: {
           assignee_id: string | null
-          brand_id: string
+          brand_id: string | null
           created_at: string
           created_by: string | null
           deleted_at: string | null
@@ -392,7 +447,7 @@ export type Database = {
         }
         Insert: {
           assignee_id?: string | null
-          brand_id: string
+          brand_id?: string | null
           created_at?: string
           created_by?: string | null
           deleted_at?: string | null
@@ -419,7 +474,7 @@ export type Database = {
         }
         Update: {
           assignee_id?: string | null
-          brand_id?: string
+          brand_id?: string | null
           created_at?: string
           created_by?: string | null
           deleted_at?: string | null
@@ -512,7 +567,30 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      task_participant_profiles: {
+        Row: {
+          profile_id: string | null
+          role: Database["public"]["Enums"]["task_participant_role"] | null
+          task_id: string | null
+          via: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_participants_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_participants_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       current_user_role: {
@@ -525,6 +603,7 @@ export type Database = {
       brand_status: "active" | "inactive"
       season_status: "planning" | "upcoming" | "active" | "completed"
       task_gender: "men" | "women" | "unisex"
+      task_participant_role: "owner" | "involved"
       task_priority: "high" | "med" | "low"
       task_status: "not_started" | "in_progress" | "completed" | "overdue"
       user_role: "admin" | "standard_user" | "viewer"
