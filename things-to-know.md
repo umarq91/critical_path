@@ -82,6 +82,24 @@ than dropping the clause, which would silently widen the query to "no filter at 
 in Planning shows you every task Planning owns, not just ones naming you. Upcoming deliberately
 has no Owner filter — the page is already scoped to you.
 
+**The seeded tasks are real client data, and `supabase/seed-tasks.sql` hardcodes live uuids.**
+793 of the export's 833 rows, with the actual `season_id`/`key_stage_id`/`department_id` values
+read out of the database at generation time — not subqueries. Re-seed any of those lookups and
+every FK in that file goes stale; regenerate it rather than patching. Task ids are uuid5 of
+(season, task name, sheet row), so regenerating is idempotent and a re-run replaces rather than
+duplicates.
+
+**What the export doesn't carry, and what the seed therefore invented:** `gender` is `unisex`,
+`status` is `not_started`, `priority` is `med`, `brand_id` is null — none of these exist as
+columns in the sheet. The `X` column looks like a completion marker but isn't one (166
+future-dated tasks carry it, 63 past-due tasks don't), so it's ignored rather than mapped to
+`status`. Don't read the seeded statuses as meaningful client data.
+
+**40 rows were excluded and 35 had their start date dropped** — see
+`supabase/seed-tasks-excluded.md` for the per-row reasons. The dropped starts were later than
+their own end dates; the sheet's `Duration (Days)` is negative on exactly those rows, so it's
+bad data at source, not a mapping error.
+
 ---
 
 ## Seasons & Key Stages
