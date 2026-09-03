@@ -10,6 +10,16 @@ user), one `for all` policy gating writes to `admin` via `is_admin()`. Kept deli
 simple — no per-field/per-row RLS logic; that nuance lives in `lib/permissions.ts` +
 Server Actions instead. See `0003_seasons.sql` for the reference shape.
 
+**`0018_external_user_access.sql` is the exception to "usually `true`", and it matters.**
+Once accounts can exist for people outside the company (`external`), a blanket
+`using (true)` read policy hands them the whole organisation's task list and staff
+directory. `tasks`, `task_participants`, `task_people` and `profiles` are therefore scoped:
+internal roles still read everything, an `external` user reads only tasks they participate
+in (and only the people on those tasks). Lookup tables (`seasons`, `brands`, `key_stages`,
+`departments`) stay readable by any active user — an external user's own task rows have to
+render their season/brand/department labels — and those *pages* are gated in the app layer
+instead (`lookups.view` / `brand.view` + `requirePageAccess`).
+
 `tasks` is the one exception: its write matrix genuinely isn't admin-only (`standard_user`
 creates/edits tasks too, per `lib/permissions.ts`), so it has separate insert/update/delete
 policies keyed off `current_user_role()` instead of the single `is_admin()`-gated `for all`
@@ -21,7 +31,7 @@ policy — see `0006_tasks.sql`.
 
 | Enum | Values | Used by |
 |---|---|---|
-| `user_role` | `admin`, `standard_user`, `viewer` | `profiles.role` |
+| `user_role` | `admin`, `standard_user`, `viewer`, `external` | `profiles.role`. `external` (`0017`) = a platform user who is **not** in the client's Google Workspace: created by an admin, signs in with email + password, never through Google. Role and account type are one and the same thing — there is no separate `auth_provider` column, deliberately, so the two can't disagree |
 | `season_status` | `planning`, `upcoming`, `active`, `completed` | `seasons.status` |
 | `brand_status` | `active`, `inactive` | `brands.status` |
 | `task_gender` | `men`, `women`, `unisex` | `tasks.gender` |
@@ -35,6 +45,12 @@ policy — see `0006_tasks.sql`.
 | `set_updated_at()` | Trigger fn — stamps `updated_at = now()` on every table that has the column. Attach via `create trigger ..._set_updated_at before update ... execute function public.set_updated_at();` |
 | `current_user_role()` | Returns the caller's role. `security definer`, bypasses RLS on `profiles` internally so it can be called *from inside* other RLS policies without recursion. |
 | `is_admin()` | `current_user_role() = 'admin'`. What every write policy checks. |
+| `is_active_user()` | `0018`. True when the caller's profile exists and `status = 'active'`. Gates every task/participant/profile read and write policy — this is what makes deactivating a user a real revocation rather than a badge. |
+| `is_external_user()` | `0018`. `current_user_role() = 'external'`. |
+| `task_involves_current_user(task_id)` | `0018`. Is the caller a participant on this task — named directly, or via their department? The `task_participant_profiles` UNION expressed as a per-row predicate. Row-dependent, so it genuinely runs per row. |
+| `profile_shares_task_with_current_user(profile_id)` | `0018`. Does this profile appear on any task the caller is also on? Gates which people an external user can resolve. |
+
+**Policy performance idiom (`0018`):** parameterless predicates are called as `(select public.is_active_user())`, not bare. The scalar subquery is hoisted into an InitPlan and evaluated once per statement; a bare call is re-evaluated per row scanned. Predicates taking the row's own id (`task_involves_current_user(id)`) must stay unwrapped.
 
 ---
 
@@ -56,7 +72,7 @@ policy — see `0006_tasks.sql`.
 | `created_at` | timestamptz | |
 | `updated_at` | timestamptz | auto |
 
-**RLS:** any authenticated user can read every profile (needed for owner/assignee pickers). Update allowed for self or admin — but a trigger blocks anyone except admin/service-role from changing `role`, `status`, `department_id`, or `google_group_id`, even on their own row. No insert/delete policies — rows are only created by the `handle_new_user` trigger on sign-up, never hard-deleted (deactivate via `status` instead).
+**RLS (rewritten in `0018`):** reading your own row is unconditional — a deactivated user must still be able to load their own profile, or `(app)/layout.tsx` can't distinguish "deactivated" from "signed out" and ping-pongs against `proxy.ts`. Beyond that: an active internal user reads every profile (needed for owner/assignee pickers); an active `external` user reads only profiles sharing a task with them (`profile_shares_task_with_current_user`); an inactive user reads nothing else. Update allowed for self or admin — but a trigger blocks anyone except admin/service-role from changing `role`, `status`, `department_id`, or `google_group_id`, even on their own row. No insert/delete policies — rows are only created by the `handle_new_user` trigger on sign-up, never hard-deleted (deactivate via `status` instead).
 
 *Migration: `0004_profiles_guard_allow_dashboard.sql`.* The privileged-column guard also exempts direct dashboard/DB connections (`session_user in ('postgres', 'supabase_admin')`) — stopgap so the Supabase project owner can hand-edit `role`/`status`/`department_id`/`google_group_id` via the SQL Editor / Table Editor before an admin-bootstrap flow exists. Tighten this back up once that flow lands.
 
@@ -140,7 +156,7 @@ policy — see `0006_tasks.sql`.
 
 **RLS:** any authenticated user reads; only admin writes — falls under the general `admin.manage_lookups` bucket in `lib/permissions.ts`, same as `key_stages` (no dedicated `department.*` row on the client's Role-Based Access screen).
 
-Referenced by `profiles.department_id` (nullable FK, `on delete set null` — deleting a department clears it from every user who had it) and, since `0015_task_participants.sql`, by `task_participants.department_id`: a department is an **assignable party** on a task, not just a label on a user. Still deliberately **not** a column on `tasks` itself.
+Membership is managed at `/management/teams` (add/remove writes `profiles.department_id`); because that's a single FK, **a person belongs to exactly one department** and adding them to a second one moves them. Referenced by `profiles.department_id` (nullable FK, `on delete set null` — deleting a department clears it from every user who had it) and, since `0015_task_participants.sql`, by `task_participants.department_id`: a department is an **assignable party** on a task, not just a label on a user. Still deliberately **not** a column on `tasks` itself.
 
 Seeded from real client data — see `supabase/seed-departments.sql` and the Departments section of `things-to-know.md`.
 
@@ -168,20 +184,24 @@ Seeded from real client data — see `supabase/seed-departments.sql` and the Dep
 | `is_locked` | boolean, default `false` | column only — no enforcement yet, see below |
 | `locked_by` / `locked_at` | uuid FK → `profiles.id` / timestamptz, nullable | columns only — no enforcement yet, see below |
 | `google_event_id` | text, nullable | Google Calendar event id this task is pushed to — set by `syncGoogleCalendar()`, see below |
-| `google_calendar_owner_id` | uuid, FK → `profiles.id`, nullable, `on delete set null` | whose Google Calendar `google_event_id` actually lives on (the assignee who last ran Sync) — needed so `deleteTask` cleans up the event on the right account |
-| `google_synced_at` | timestamptz, nullable | last time this task's Google Calendar event was pushed to or pulled from — drives the "which side changed more recently" conflict check |
+| `google_calendar_owner_id` | uuid, FK → `profiles.id`, nullable, `on delete set null` | whose Google Calendar `google_event_id` actually lives on. A task maps to exactly one event, so the first eligible **owner** to sync claims it and other owners skip it — needed so `updateTask`/`deleteTask` touch the event on the right account |
+| `google_synced_at` | timestamptz, nullable | last time this task was **pushed** to Google Calendar. Since `0019` there is no pull, so this is a record of the last outbound write and never an input to a conflict check |
 | `created_at` / `updated_at` | timestamptz | |
 | `deleted_at` | timestamptz, nullable | soft delete |
 
 **Deliberately not columns (this pass):** attachments (explicitly deferred).
 
-**Google Calendar sync — manual, per-user, assignee-scoped.** `lib/google/calendar.ts` + `calendar/_actions.ts`'s `syncGoogleCalendar()` (triggered by the Calendar page's Sync button, not a cron) pushes a signed-in user's own assigned tasks (`assignee_id = current user`, due date within roughly the surrounding year) to their primary Google Calendar as all-day events, and pulls back any edit to that event's title/date if it changed more recently than `google_synced_at`. Only the assignee's tasks are pushed — one task maps to exactly one `google_event_id`, so it can only live on one person's calendar. Every other event already on that user's calendar (meetings, personal events — anything not created from a task) is cached read-only in `external_calendar_events` below purely for display; it never becomes a task since tasks require `season_id`/`gender`/an owner a Google Calendar event doesn't have. `deleteTask` best-effort deletes the linked Google event (via `google_calendar_owner_id`'s account) when a synced task is deleted; failures there don't block the task delete itself.
+**Google Calendar sync — ONE-WAY, manual, per-user, owner-scoped.** `lib/google/calendar.ts` + `lib/google/task-calendar-sync.ts` push tasks out; nothing reads events back in. `calendar/_actions.ts`'s `syncGoogleCalendar()` (the Calendar page's Sync button, not a cron) pushes the tasks the signed-in user **owns** — resolved through `task_participant_profiles` where `role = 'owner'`, so a task owned by their *department* counts, not just one naming them personally — to their primary Google Calendar as all-day events, within roughly the surrounding year. `updateTask` re-pushes an already-linked event when `task_name`/`due_date` changes, on whichever account holds it; `deleteTask` best-effort deletes it. All three are best-effort: a Google failure never fails the platform write.
+
+Eligibility is a property of the account, not of token presence — `isGoogleCalendarEligible()` (`lib/calendar-eligibility.ts`) requires a non-`external` role, `calendar.sync_google`, and a Workspace email address. External users therefore never sync and never see the Sync button.
+
+**Google Calendar is never a source of truth.** `0011`'s pull-back (a Google event whose `updated` beat `google_synced_at` overwrote the task's title/date) and its `external_calendar_events` cache of unrelated events were both removed in `0019`. The platform calendar shows platform tasks only.
 
 **Auth for the Calendar API call itself is per-user OAuth (`google_oauth_tokens` below), NOT the domain-wide-delegated service account** used for role sync — see that table's note for why, and why this is meant to be temporary.
 
 **Locking — columns exist, behavior doesn't yet.** `is_locked`/`locked_by`/`locked_at` were added in `0007_tasks_tracking_and_timeline.sql` alongside the other tracking columns, but nothing sets or enforces them yet (no toggle action, no RLS restriction, no disabled-field UI). `lib/permissions.ts` already has `task.lock`/`task.edit_due_date_when_locked` actions reserved for when that follow-up lands.
 
-**RLS — the one table that isn't the simple admin-only-write pattern:** any authenticated user reads (`task.view` is granted to every role). Insert/update require `standard_user` or `admin` (`current_user_role() in ('standard_user', 'admin')`), matching `task.create`/`task.update` in `lib/permissions.ts`. Delete stays admin-only (`task.delete` isn't in `STANDARD_USER_ALLOWED`).
+**RLS — the one table that isn't the simple admin-only-write pattern**, rewritten in `0018`: an **active** internal user reads every task (`task.view` is granted to every internal role); an active `external` user reads only tasks `task_involves_current_user(id)` matches; an inactive user reads none. Insert/update require an active account plus `standard_user` or `admin`, matching `task.create`/`task.update` in `lib/permissions.ts` — `external` is simply absent from that allow-list, so it has no write path at all. Delete stays admin-only (`task.delete` isn't in `STANDARD_USER_ALLOWED`).
 
 ### `task_participants`
 *Migration: `0015_task_participants.sql`. Owner **and** People Involved, in one table. Supersedes both `tasks.assignee_id` and `task_people` — a participant is either a profile or a department, a task can have any number of each, in either role.*
@@ -203,7 +223,7 @@ Uniqueness is **two partial indexes** (`…_profile_uniq`, `…_department_uniq`
 
 **A department participant may have zero member profiles** and that's a normal state, not a data error — `Vendor` (254 owner rows) and `Supplier` (16) are external and will never have logins. Anything resolving a task to human recipients has to handle the empty case and fall back to `departments.contact_email`.
 
-**RLS:** same matrix as `tasks` and `task_people` — any authenticated user reads; add/remove requires `standard_user` or `admin`, matching `task.assign` in `lib/permissions.ts`.
+**RLS:** same matrix as `tasks`, and scoped the same way since `0018` — an external user only sees participants of tasks they're on, so they can't enumerate who works on work that's invisible to them. Add/remove requires an active account plus `standard_user` or `admin`, matching `task.assign` in `lib/permissions.ts`.
 
 ### `task_participant_profiles` (view)
 *Migration: `0015_task_participants.sql`. Flattens department membership down to individual profiles: `(task_id, role, profile_id, via)` where `via` is `direct` or `department`.*
@@ -222,26 +242,7 @@ Exists so "tasks relevant to me" stays one query rather than the three hops (me 
 
 `unique (task_id, profile_id)` — no duplicate associations.
 
-**RLS:** same matrix as `tasks` itself — any authenticated user reads; add/remove requires `standard_user` or `admin` (`current_user_role() in ('standard_user', 'admin')`), matching `task.assign` in `lib/permissions.ts`.
-
-### `external_calendar_events`
-*Migration: `0011_google_calendar_sync.sql`. Read-only cache of a user's Google Calendar events that are NOT linked to one of their tasks (see `tasks.google_event_id` above) — personal data, not shared org data like every other table here.*
-
-| Column | Type | Notes |
-|---|---|---|
-| `id` | uuid, PK | |
-| `profile_id` | uuid, FK → `profiles.id`, not null, `on delete cascade` | whose calendar this event was read from |
-| `google_event_id` | text, not null | |
-| `title` | text, not null | |
-| `starts_at` | timestamptz, not null | for an all-day event, midnight UTC on that date |
-| `ends_at` | timestamptz, nullable | null for all-day events |
-| `all_day` | boolean, default `false` | |
-| `last_synced_at` | timestamptz, default `now()` | |
-| `created_at` / `updated_at` | timestamptz | |
-
-`unique (profile_id, google_event_id)` — upserted on every sync run; rows in the synced window no longer returned by Google are deleted (see `syncGoogleCalendar()`).
-
-**RLS:** unlike every other table here, not the shared admin-only-write pattern — a single `for all using (profile_id = auth.uid())` policy, since this is one user's own cached calendar data, not organization-wide.
+**RLS:** same matrix as `tasks` itself, and scoped in `0018` alongside `task_participants` — leaving this superseded table on `using (true)` would have been a read-around for the whole people-involved graph.
 
 ### `google_oauth_tokens`
 *Migration: `0012_google_oauth_tokens.sql`. Per-user Google OAuth access/refresh tokens, used only to call the Calendar API as that specific user.*
@@ -258,7 +259,7 @@ Exists so "tasks relevant to me" stays one query rather than the three hops (me 
 | `scope` | text, nullable | the scope string granted, for reference |
 | `created_at` / `updated_at` | timestamptz | |
 
-**RLS: zero policies.** RLS is enabled but nothing grants access — not even a `profile_id = auth.uid()` self-read like `external_calendar_events`, since these are live API credentials, not display data. The only access path is `lib/google/oauth-tokens.ts`, which always goes through the service-role client (`lib/supabase/admin.ts`) and scopes every query to a specific `profile_id` in application code.
+**RLS: zero policies.** RLS is enabled but nothing grants access — not even a `profile_id = auth.uid()` self-read, since these are live API credentials, not display data. The only access path is `lib/google/oauth-tokens.ts`, which always goes through the service-role client (`lib/supabase/admin.ts`) and scopes every query to a specific `profile_id` in application code.
 
 ---
 
@@ -276,12 +277,15 @@ Exists so "tasks relevant to me" stays one query rather than the three hops (me 
 | `0008_key_stages.sql` | `key_stages` table (name + description only), RLS, and `tasks.key_stage_id` (nullable FK, `on delete set null`). |
 | `0009_departments.sql` | `departments` table (name + description only, same shape as `key_stages`), RLS, and replaces the old free-text `profiles.department` with `profiles.department_id` (nullable FK, `on delete set null`) — re-points the privileged-column guard trigger at the new column name. Not referenced by `tasks`. |
 | `0010_task_people.sql` | `task_people` join table (`task_id`, `profile_id`, unique pair, both `on delete cascade`) — "People Involved," a many-to-many distinct from `tasks.assignee_id`. RLS matches `tasks`' own read-all/`standard_user`-or-`admin`-write pattern. |
-| `0011_google_calendar_sync.sql` | Adds `google_event_id`/`google_calendar_owner_id`/`google_synced_at` to `tasks` for two-way sync, and creates `external_calendar_events` (self-scoped RLS) to cache the rest of a user's Google Calendar read-only. |
+| `0011_google_calendar_sync.sql` | Adds `google_event_id`/`google_calendar_owner_id`/`google_synced_at` to `tasks` for two-way sync, and creates `external_calendar_events` (self-scoped RLS) to cache the rest of a user's Google Calendar read-only. **Both halves of the sync were reversed by `0019`** — the columns survive, the table and the pull do not. |
 | `0012_google_oauth_tokens.sql` | Creates `google_oauth_tokens` (zero RLS policies — service-role-only access) to hold per-user Calendar OAuth tokens. **Temporary** — see that table's note above. |
 | `0013_brand_seasons.sql` | Drops `brands.season_id`, creates `brand_seasons` join table (same shape as `task_people`) so a brand can belong to multiple seasons. Migrates existing 1:1 links into the new table before dropping the column. |
 | `0014_tasks_priority.sql` | Adds `task_priority` enum (`high`/`med`/`low`) and `tasks.priority` (default `med`), plus an index. |
 | `0015_task_participants.sql` | `task_participant_role` enum (`owner`/`involved`), `task_participants` table (polymorphic profile-or-department party, two partial unique indexes, RLS matching `tasks`), `departments.is_external`/`contact_email`, the `task_participant_profiles` view, and a backfill from `tasks.assignee_id` + `task_people`. **Expand phase** — neither of those is dropped here; a follow-up does that once the app reads from `task_participants`. |
 | `0016_tasks_brand_optional.sql` | Drops the NOT NULL on `tasks.brand_id`. Column and FK otherwise unchanged — brand is now optional on a task, season is not. |
+| `0017_external_user_role.sql` | Adds `external` to the `user_role` enum, and **nothing else**. Postgres won't let a newly added enum label be *used* in the transaction that adds it, and Supabase runs each file in one transaction — so `0018` has to be a separate file. Do not merge them. |
+| `0018_external_user_access.sql` | `is_active_user()`, `is_external_user()`, `task_involves_current_user()`, `profile_shares_task_with_current_user()`; rewrites the SELECT policies on `tasks`, `task_participants`, `task_people` and `profiles` to scope external users to their own tasks; adds an active-account requirement to those tables' read *and* write policies; updates `handle_new_user()` to honour a `user_metadata.app_role` hint of `external` (only that value — it can lower privilege, never raise it) so an admin-created external user's profile is born with the right role. |
+| `0019_one_way_calendar_sync.sql` | Drops `external_calendar_events` and its RLS; re-comments `tasks.google_synced_at`/`google_calendar_owner_id` for one-way push semantics. Google Calendar can no longer write to a task. |
 
 ## Not built yet
 

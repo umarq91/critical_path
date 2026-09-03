@@ -6,11 +6,9 @@ import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TaskDetailDrawer } from "@/app/(app)/tasks/task-detail-drawer";
 import { CalendarTaskChip } from "@/app/(app)/calendar/calendar-task-chip";
-import { CalendarExternalEventChip } from "@/app/(app)/calendar/calendar-external-event-chip";
 import { toDateKey, toQueryDate, type CalendarRange } from "@/app/(app)/calendar/calendar-utils";
 import type { CalendarView } from "@/app/(app)/calendar/calendar-search-params";
 import type { Task } from "@/data/tasks";
-import type { ExternalCalendarEvent } from "@/data/external-calendar-events";
 
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -30,7 +28,6 @@ interface CalendarBoardProps {
   anchorDate: Date;
   range: CalendarRange;
   tasks: Task[];
-  externalEvents: ExternalCalendarEvent[];
   canAssignPeople: boolean;
   isPending: boolean;
   hasActiveFilters: boolean;
@@ -42,7 +39,6 @@ export const CalendarBoard = ({
   anchorDate,
   range,
   tasks,
-  externalEvents,
   canAssignPeople,
   isPending,
   hasActiveFilters,
@@ -51,16 +47,12 @@ export const CalendarBoard = ({
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
   const tasksByDate = useMemo(() => groupByDate(tasks, (task) => toDateKey(task.due_date)), [tasks]);
-  const externalEventsByDate = useMemo(
-    () => groupByDate(externalEvents, (event) => toDateKey(event.starts_at)),
-    [externalEvents]
-  );
 
   // Keying the active grid by its range forces a remount on every Prev/Next/Today/view
   // change, so the fade-in animation on each grid replays instead of only firing once on
   // first mount (a re-render with new props alone wouldn't retrigger a CSS-entry animation).
   const gridKey = `${view}-${toQueryDate(range.start)}`;
-  const showEmptyState = tasks.length === 0 && externalEvents.length === 0 && hasActiveFilters;
+  const showEmptyState = tasks.length === 0 && hasActiveFilters;
 
   return (
     <div className="flex flex-col gap-4">
@@ -78,7 +70,6 @@ export const CalendarBoard = ({
               range={range}
               anchorDate={anchorDate}
               tasksByDate={tasksByDate}
-              externalEventsByDate={externalEventsByDate}
               onSelectTask={setSelectedTask}
               onNavigateToDate={onNavigateToDate}
             />
@@ -88,7 +79,6 @@ export const CalendarBoard = ({
               key={gridKey}
               range={range}
               tasksByDate={tasksByDate}
-              externalEventsByDate={externalEventsByDate}
               onSelectTask={setSelectedTask}
               onNavigateToDate={onNavigateToDate}
             />
@@ -98,7 +88,6 @@ export const CalendarBoard = ({
               key={gridKey}
               anchorDate={anchorDate}
               tasksByDate={tasksByDate}
-              externalEventsByDate={externalEventsByDate}
               onSelectTask={setSelectedTask}
             />
           ) : null}
@@ -151,14 +140,12 @@ function MonthGrid({
   range,
   anchorDate,
   tasksByDate,
-  externalEventsByDate,
   onSelectTask,
   onNavigateToDate,
 }: {
   range: CalendarRange;
   anchorDate: Date;
   tasksByDate: Map<string, Task[]>;
-  externalEventsByDate: Map<string, ExternalCalendarEvent[]>;
   onSelectTask: (task: Task) => void;
   onNavigateToDate: (date: Date) => void;
 }) {
@@ -178,15 +165,11 @@ function MonthGrid({
           {days.map((day) => {
             const dateKey = toDateKey(day);
             const dayTasks = tasksByDate.get(dateKey) ?? [];
-            const dayExternalEvents = externalEventsByDate.get(dateKey) ?? [];
             const inCurrentMonth = isSameMonth(day, anchorDate);
             const today = isToday(day);
             const weekend = isWeekend(day);
             const visibleTasks = dayTasks.slice(0, 3);
-            const taskOverflowCount = dayTasks.length - visibleTasks.length;
-            const visibleExternalEvents = dayExternalEvents.slice(0, taskOverflowCount > 0 ? 0 : 2);
-            const externalOverflowCount = dayExternalEvents.length - visibleExternalEvents.length;
-            const totalOverflowCount = taskOverflowCount + externalOverflowCount;
+            const overflowCount = dayTasks.length - visibleTasks.length;
 
             return (
               <div
@@ -203,17 +186,14 @@ function MonthGrid({
                   {visibleTasks.map((task) => (
                     <CalendarTaskChip key={task.id} task={task} onSelect={onSelectTask} variant="compact" />
                   ))}
-                  {visibleExternalEvents.map((event) => (
-                    <CalendarExternalEventChip key={event.id} event={event} variant="compact" />
-                  ))}
-                  {totalOverflowCount > 0 ? (
+                  {overflowCount > 0 ? (
                     <button
                       type="button"
                       onClick={() => onNavigateToDate(day)}
-                      aria-label={`View all ${dayTasks.length + dayExternalEvents.length} items on ${format(day, "MMMM d")}`}
+                      aria-label={`View all ${dayTasks.length} tasks on ${format(day, "MMMM d")}`}
                       className="rounded px-2 text-left text-sm text-muted-foreground underline-offset-2 transition-colors hover:text-foreground hover:underline"
                     >
-                      +{totalOverflowCount} more
+                      +{overflowCount} more
                     </button>
                   ) : null}
                 </div>
@@ -229,13 +209,11 @@ function MonthGrid({
 function WeekAgenda({
   range,
   tasksByDate,
-  externalEventsByDate,
   onSelectTask,
   onNavigateToDate,
 }: {
   range: CalendarRange;
   tasksByDate: Map<string, Task[]>;
-  externalEventsByDate: Map<string, ExternalCalendarEvent[]>;
   onSelectTask: (task: Task) => void;
   onNavigateToDate: (date: Date) => void;
 }) {
@@ -246,7 +224,6 @@ function WeekAgenda({
       {days.map((day) => {
         const dateKey = toDateKey(day);
         const dayTasks = tasksByDate.get(dateKey) ?? [];
-        const dayExternalEvents = externalEventsByDate.get(dateKey) ?? [];
         const today = isToday(day);
         const weekend = isWeekend(day);
 
@@ -264,17 +241,12 @@ function WeekAgenda({
               <DayNumberButton day={day} today={today} onNavigateToDate={onNavigateToDate} />
             </div>
             <div className="flex flex-col gap-2">
-              {dayTasks.length === 0 && dayExternalEvents.length === 0 ? (
+              {dayTasks.length === 0 ? (
                 <span className="text-sm text-muted-foreground">No tasks</span>
               ) : (
-                <>
-                  {dayTasks.map((task) => (
-                    <CalendarTaskChip key={task.id} task={task} onSelect={onSelectTask} variant="full" />
-                  ))}
-                  {dayExternalEvents.map((event) => (
-                    <CalendarExternalEventChip key={event.id} event={event} variant="full" />
-                  ))}
-                </>
+                dayTasks.map((task) => (
+                  <CalendarTaskChip key={task.id} task={task} onSelect={onSelectTask} variant="full" />
+                ))
               )}
             </div>
           </div>
@@ -287,38 +259,27 @@ function WeekAgenda({
 function DayAgenda({
   anchorDate,
   tasksByDate,
-  externalEventsByDate,
   onSelectTask,
 }: {
   anchorDate: Date;
   tasksByDate: Map<string, Task[]>;
-  externalEventsByDate: Map<string, ExternalCalendarEvent[]>;
   onSelectTask: (task: Task) => void;
 }) {
   const dateKey = toDateKey(anchorDate);
   const dayTasks = tasksByDate.get(dateKey) ?? [];
-  const dayExternalEvents = externalEventsByDate.get(dateKey) ?? [];
 
   return (
     <div className="animate-in fade-in-0 slide-in-from-bottom-1 flex flex-col gap-3 rounded-lg border border-border p-4 duration-300">
       <span className="text-h3 text-foreground">
         {isSameDay(anchorDate, new Date()) ? "Today" : format(anchorDate, "EEEE")}
       </span>
-      {dayTasks.length === 0 && dayExternalEvents.length === 0 ? (
+      {dayTasks.length === 0 ? (
         <p className="text-body text-muted-foreground">No tasks due on this day.</p>
       ) : (
         <div className="flex flex-col gap-2">
           {dayTasks.map((task) => (
             <CalendarTaskChip key={task.id} task={task} onSelect={onSelectTask} variant="full" />
           ))}
-          {dayExternalEvents.length > 0 ? (
-            <>
-              {dayTasks.length > 0 ? <span className="pt-1 text-sm font-medium text-text-secondary">Also on your calendar</span> : null}
-              {dayExternalEvents.map((event) => (
-                <CalendarExternalEventChip key={event.id} event={event} variant="full" />
-              ))}
-            </>
-          ) : null}
         </div>
       )}
     </div>
@@ -330,7 +291,6 @@ const LEGEND_ITEMS = [
   { status: "in_progress", label: "In Progress", dotClass: "bg-status-progress-base" },
   { status: "completed", label: "Complete", dotClass: "bg-status-complete-base" },
   { status: "overdue", label: "Overdue", dotClass: "bg-status-overdue-base" },
-  { status: "google_calendar", label: "Google Calendar", dotClass: "bg-primary" },
 ] as const;
 
 function CalendarLegend() {

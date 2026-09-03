@@ -4,10 +4,15 @@ import { addDays, format } from "date-fns";
 import { getGoogleOAuthEnv } from "@/lib/env.server";
 import { getStoredGoogleTokens, saveGoogleTokens } from "@/lib/google/oauth-tokens";
 
-// Per-user OAuth (not domain-wide delegation — see auth.ts/admin-directory.ts for that
-// path, still used for role sync). Works with any Google account, which is what makes it
-// usable in dev against personal @gmail.com test accounts as well as a real Workspace
-// later. google-button.tsx requests the calendar.events scope + offline access at sign-in;
+// ONE-WAY: platform task → Google Calendar. This module writes events and deletes them; it
+// deliberately has no read path. Nothing here may return calendar data into the app, because
+// the platform database is the sole source of truth for a task — an event edited on someone's
+// phone must never travel back and rewrite a task's name or due date (0019).
+//
+// Per-user OAuth (not domain-wide delegation — see auth.ts/admin-directory.ts for that path,
+// still used for role sync). Works with any Google account, which is what makes it usable in
+// dev against personal @gmail.com test accounts as well as a real Workspace later.
+// google-button.tsx requests the calendar.events scope + offline access at sign-in;
 // auth/callback/route.ts stores the resulting tokens; this module reads and refreshes them.
 async function getCalendarClientForProfile(profileId: string) {
   const env = getGoogleOAuthEnv();
@@ -38,60 +43,13 @@ async function getCalendarClientForProfile(profileId: string) {
   return google.calendar({ version: "v3", auth: oauth2Client });
 }
 
-export interface GoogleCalendarEvent {
-  id: string;
-  title: string;
-  /** RFC3339 timestamp of the event's last edit on Google's side — drives sync conflict resolution. */
-  updatedAt: string;
-  /** yyyy-MM-dd when it's an all-day event. */
-  startDate: string | null;
-  /** RFC3339 when it's a timed event. */
-  startDateTime: string | null;
-  endDateTime: string | null;
-  allDay: boolean;
-}
-
-// Lists events on the user's own primary calendar within [timeMin, timeMax). No sync token —
-// this is a manual, button-triggered sync (not a background poller), so a plain bounded list
-// call each run is simpler and avoids managing token expiry/invalidation.
-export async function listCalendarEvents(profileId: string, timeMin: string, timeMax: string): Promise<GoogleCalendarEvent[]> {
-  const calendar = await getCalendarClientForProfile(profileId);
-  if (!calendar) return [];
-
-  const events: GoogleCalendarEvent[] = [];
-  let pageToken: string | undefined;
-
-  do {
-    const { data } = await calendar.events.list({
-      calendarId: "primary",
-      timeMin,
-      timeMax,
-      singleEvents: true,
-      maxResults: 250,
-      pageToken,
-    });
-
-    for (const item of data.items ?? []) {
-      if (!item.id || !item.updated) continue;
-      const allDay = !!item.start?.date;
-      events.push({
-        id: item.id,
-        title: item.summary ?? "(No title)",
-        updatedAt: item.updated,
-        startDate: item.start?.date ?? null,
-        startDateTime: item.start?.dateTime ?? null,
-        endDateTime: item.end?.dateTime ?? null,
-        allDay,
-      });
-    }
-    pageToken = data.nextPageToken ?? undefined;
-  } while (pageToken);
-
-  return events;
-}
-
 // Tasks only carry a due_date, no time — a synced task is always pushed as an all-day event.
 // Google's all-day convention is an exclusive end date, so `end.date` is one day after start.
+//
+// Returns the event id and Google's `updated` timestamp; the caller stores the id to find
+// this event again and stamps google_synced_at to record that the push happened. Neither
+// value is ever compared against the task to decide who "wins" — there is no conflict to
+// resolve when only one side can write.
 export async function upsertTaskCalendarEvent(
   profileId: string,
   { eventId, title, date }: { eventId: string | null; title: string; date: string }

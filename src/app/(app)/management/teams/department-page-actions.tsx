@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { FormDialog } from "@/components/shared/form-dialog";
-import { DepartmentForm } from "@/app/(app)/departments/department-form";
+import { DepartmentForm } from "@/app/(app)/management/teams/department-form";
 import { cn } from "@/lib/utils";
 
 export const DepartmentPageActions = ({ canCreateDepartment }: { canCreateDepartment: boolean }) => {

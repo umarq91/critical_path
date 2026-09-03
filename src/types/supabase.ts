@@ -120,53 +120,6 @@ export type Database = {
         }
         Relationships: []
       }
-      external_calendar_events: {
-        Row: {
-          all_day: boolean
-          created_at: string
-          ends_at: string | null
-          google_event_id: string
-          id: string
-          last_synced_at: string
-          profile_id: string
-          starts_at: string
-          title: string
-          updated_at: string
-        }
-        Insert: {
-          all_day?: boolean
-          created_at?: string
-          ends_at?: string | null
-          google_event_id: string
-          id?: string
-          last_synced_at?: string
-          profile_id: string
-          starts_at: string
-          title: string
-          updated_at?: string
-        }
-        Update: {
-          all_day?: boolean
-          created_at?: string
-          ends_at?: string | null
-          google_event_id?: string
-          id?: string
-          last_synced_at?: string
-          profile_id?: string
-          starts_at?: string
-          title?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "external_calendar_events_profile_id_fkey"
-            columns: ["profile_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       google_oauth_tokens: {
         Row: {
           access_token: string
@@ -597,7 +550,17 @@ export type Database = {
         Args: never
         Returns: Database["public"]["Enums"]["user_role"]
       }
+      is_active_user: { Args: never; Returns: boolean }
       is_admin: { Args: never; Returns: boolean }
+      is_external_user: { Args: never; Returns: boolean }
+      profile_shares_task_with_current_user: {
+        Args: { p_profile_id: string }
+        Returns: boolean
+      }
+      task_involves_current_user: {
+        Args: { p_task_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       brand_status: "active" | "inactive"
@@ -606,7 +569,7 @@ export type Database = {
       task_participant_role: "owner" | "involved"
       task_priority: "high" | "med" | "low"
       task_status: "not_started" | "in_progress" | "completed" | "overdue"
-      user_role: "admin" | "standard_user" | "viewer"
+      user_role: "admin" | "standard_user" | "viewer" | "external"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -739,7 +702,7 @@ export const Constants = {
       task_gender: ["men", "women", "unisex"],
       task_priority: ["high", "med", "low"],
       task_status: ["not_started", "in_progress", "completed", "overdue"],
-      user_role: ["admin", "standard_user", "viewer"],
+      user_role: ["admin", "standard_user", "viewer", "external"],
     },
   },
 } as const

@@ -9,15 +9,14 @@ import { toQueryDate, type CalendarRange } from "@/app/(app)/calendar/calendar-u
 import type { CalendarView } from "@/app/(app)/calendar/calendar-search-params";
 import type { DataTableFilterOption } from "@/components/data-table/table-features";
 import type { Task } from "@/data/tasks";
-import type { ExternalCalendarEvent } from "@/data/external-calendar-events";
 
 interface CalendarWorkspaceProps {
   view: CalendarView;
   anchorDate: Date;
   range: CalendarRange;
   tasks: Task[];
-  externalEvents: ExternalCalendarEvent[];
   canAssignPeople: boolean;
+  canSyncGoogleCalendar: boolean;
   seasonOptions: DataTableFilterOption[];
   brandOptions: DataTableFilterOption[];
   statusOptions: DataTableFilterOption[];
@@ -32,8 +31,8 @@ export const CalendarWorkspace = ({
   anchorDate,
   range,
   tasks,
-  externalEvents,
   canAssignPeople,
+  canSyncGoogleCalendar,
   seasonOptions,
   brandOptions,
   statusOptions,
@@ -59,6 +58,7 @@ export const CalendarWorkspace = ({
           brandOptions={brandOptions}
           statusOptions={statusOptions}
           taskCount={tasks.length}
+          canSyncGoogleCalendar={canSyncGoogleCalendar}
           isSyncing={isSyncing}
           onSyncingChange={setIsSyncing}
         />
@@ -67,7 +67,6 @@ export const CalendarWorkspace = ({
           anchorDate={anchorDate}
           range={range}
           tasks={tasks}
-          externalEvents={externalEvents}
           canAssignPeople={canAssignPeople}
           isPending={queryState.isPending || isSyncing}
           hasActiveFilters={hasActiveFilters}

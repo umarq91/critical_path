@@ -2,9 +2,10 @@ import { NextResponse } from "next/server";
 import { addSeconds } from "date-fns";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { resolveUserRole } from "@/lib/google/admin-directory";
+import { reconcileProfileRole } from "@/lib/google/role-sync";
 import { saveGoogleTokens } from "@/lib/google/oauth-tokens";
-import { publicEnv } from "@/lib/env";
+import { isWorkspaceEmail } from "@/lib/calendar-eligibility";
+import { ROLE } from "@/constants/roles";
 import { ROUTES } from "@/constants/routes";
 
 // Google's own access tokens last ~3600s; Supabase doesn't surface the provider's exact
@@ -13,6 +14,9 @@ import { ROUTES } from "@/constants/routes";
 // long risks using a token Google's already rejected.
 const ASSUMED_PROVIDER_TOKEN_TTL_SECONDS = 3500;
 
+// Google OAuth is for Google Workspace accounts ONLY. There is deliberately no third category
+// of "external user who happens to have a Google account": an admin-created external user
+// authenticates with email + password, even when their address is also a Google identity.
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
@@ -36,35 +40,50 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL(`${ROUTES.signIn}?error=auth`, url.origin));
   }
 
-  if (!user.email.toLowerCase().endsWith(`@${publicEnv.NEXT_PUBLIC_GOOGLE_WORKSPACE_DOMAIN}`)) {
+  // Read through the service role: this runs before the domain decision below, so it has to
+  // work even for a session that's about to be rejected and signed out.
+  const admin = createAdminClient();
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("id, role")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  // Supabase links a Google identity onto an existing account with the same confirmed email,
+  // so an external user who clicks "Sign in with Google" lands here as their own account.
+  // Rejecting the Google path must never destroy that account.
+  const isExternalAccount = profile?.role === ROLE.EXTERNAL;
+
+  if (isExternalAccount || !isWorkspaceEmail(user.email)) {
     await supabase.auth.signOut();
-    // exchangeCodeForSession above already created the auth.users row (and, via
-    // on_auth_user_created, a profiles row with status 'active') before this domain check
-    // ever ran. Left alone, that stray profile shows up in every owner/assignee picker —
-    // listAssignableProfiles() filters on status, not domain — even though this person can
-    // never sign back in. Delete it now; profiles.id has `on delete cascade` (migration
-    // 0001) so one call clears both rows.
-    const admin = createAdminClient();
+
+    if (profile) {
+      // An account an admin deliberately created. Reject the login method, keep the account,
+      // and point them at the one that works for them.
+      return NextResponse.redirect(new URL(`${ROUTES.signIn}?error=external_account`, url.origin));
+    }
+
+    // No profile means exchangeCodeForSession above just created this account moments ago
+    // for someone outside the Workspace with no business here. Left alone, that stray
+    // profile shows up in every owner/assignee picker — listAssignableProfiles() filters on
+    // status, not domain — even though this person can never sign back in. Delete it now;
+    // profiles.id has `on delete cascade` (migration 0001) so one call clears both rows.
     await admin.auth.admin.deleteUser(user.id);
     return NextResponse.redirect(new URL(`${ROUTES.signIn}?error=domain`, url.origin));
   }
 
-  // Service-role write, deliberately bypassing the self-role-change guard on `profiles`
-  // (see migration 0001) — a brand-new user is very often not an admin yet, which is
-  // exactly why their role needs to come from an authoritative external source (Google
-  // Groups) instead of the profiles row they don't get to edit themselves.
-  const resolvedRole = await resolveUserRole(user.email);
-  if (resolvedRole) {
-    const admin = createAdminClient();
-    await admin.from("profiles").update({ role: resolvedRole }).eq("id", user.id);
-  }
+  // Workspace accounts only from here down, so role resolution from Google Groups always
+  // applies. reconcileProfileRole additionally refuses to touch an external profile — see
+  // lib/google/role-sync.ts for why that guard has to exist rather than being implied.
+  await reconcileProfileRole(user.id, user.email, profile?.role ?? null);
 
   // TEMPORARY — per-user OAuth token capture for Calendar sync, the dev-friendly stopgap
   // for domain-wide delegation not reaching personal @gmail.com test accounts (see
-  // google-button.tsx's scopes comment and lib/google/calendar.ts). provider_token is only
-  // present when the sign-in actually requested the calendar.events scope; older sessions
-  // re-authenticating without a fresh consent may come back without one, which is fine —
-  // saveGoogleTokens is simply skipped that run.
+  // google-button.tsx's scopes comment and lib/google/calendar.ts). Only ever reached by a
+  // Workspace account, which is what keeps external users tokenless by construction.
+  // provider_token is only present when the sign-in actually requested the calendar.events
+  // scope; older sessions re-authenticating without a fresh consent may come back without
+  // one, which is fine — saveGoogleTokens is simply skipped that run.
   const providerToken = exchangeData.session?.provider_token;
   if (providerToken) {
     await saveGoogleTokens(user.id, {

@@ -6,10 +6,15 @@ import { getGroupRoleMap } from "@/constants/google-groups";
 
 const DIRECTORY_SCOPES = ["https://www.googleapis.com/auth/admin.directory.group.readonly"];
 
-// Called from the OAuth callback (immediate) and the nightly group-sync cron (safety net
-// for users who don't log in often). Returns null when the service account isn't
-// configured, or when no GOOGLE_GROUP_*_EMAIL is set — callers keep the profile's
-// existing role in that case rather than overwriting it with a guess.
+// Reached only through reconcileProfileRole() (lib/google/role-sync.ts) — the OAuth callback
+// today, the nightly group-sync cron when it lands. Do NOT call this directly.
+//
+// It returns null when the service account isn't configured or no GOOGLE_GROUP_*_EMAIL is set
+// (callers keep the profile's existing role rather than overwriting it with a guess), BUT it
+// returns ROLE.VIEWER — not null — for an account that simply belongs to no group. An
+// admin-created `external` user belongs to no group by definition, so calling this directly
+// for one would demote them to `viewer` and hand them the whole organisation's data. Skipping
+// external profiles is exactly what reconcileProfileRole() exists to do.
 export async function resolveUserRole(email: string): Promise<Role | null> {
   const auth = createGoogleAuthClient(DIRECTORY_SCOPES);
   if (!auth) return null;

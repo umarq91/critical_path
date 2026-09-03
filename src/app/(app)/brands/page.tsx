@@ -7,6 +7,7 @@ import { listBrands, listBrandSummary } from "@/data/brands";
 import { listSeasonOptions } from "@/data/seasons";
 import { getCurrentProfile } from "@/data/profiles";
 import { can } from "@/lib/permissions";
+import { requirePageAccess } from "@/lib/require-page-access";
 import { loadDataTableSearchParams } from "@/components/data-table/data-table-search-params";
 
 const QUERY_STATE_OPTIONS = { defaultPageSize: 10, defaultSort: { id: "brand_name", desc: false } };
@@ -16,6 +17,9 @@ export default async function BrandsPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  // External users have no business on an organisation-wide lookup list; the sidebar
+  // hides the link, and this is what makes typing the URL equally ineffective.
+  await requirePageAccess("brand.view");
   const queryState = await loadDataTableSearchParams(searchParams, QUERY_STATE_OPTIONS);
 
   const [{ data: brands, rowCount }, summary, seasons, profile] = await Promise.all([

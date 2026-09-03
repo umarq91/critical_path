@@ -9,5 +9,9 @@ export function getGroupRoleMap(): Record<Role, string | undefined> {
     [ROLE.ADMIN]: process.env.GOOGLE_GROUP_ADMIN_EMAIL,
     [ROLE.STANDARD_USER]: process.env.GOOGLE_GROUP_STANDARD_USER_EMAIL,
     [ROLE.VIEWER]: undefined,
+    // Never mapped to a Google Group, and this must stay undefined. External users are
+    // platform-managed: they have no Workspace identity to be a member of anything, and
+    // reconcileProfileRole() skips them entirely (lib/google/role-sync.ts).
+    [ROLE.EXTERNAL]: undefined,
   };
 }

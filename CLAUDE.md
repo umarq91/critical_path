@@ -56,7 +56,7 @@ npx tsc --noEmit # Type check
 
 ### Do NOT install
 - Any ORM (Prisma, Drizzle) — use SQL migrations + supabase-js + generated types
-- NextAuth — Supabase Auth handles Google Workspace OAuth
+- NextAuth — Supabase Auth handles both sign-in paths (Google Workspace OAuth, and email+password for external users)
 - Resend/SendGrid/Postmark — Nodemailer through the client's own Workspace SMTP relay is the confirmed requirement; only revisit if send volume genuinely exceeds relay limits, and treat that as a deliberate decision, not a default
 - Redux/Zustand or any client state library — filter/sort/view state lives in the URL (`nuqs`); everything else is server state re-fetched via Server Components
 - A third-party Gantt library — the timeline requirement (rows grouped by Key Stage, bars positioned by working-timeline dates) is simple enough to build as a lightweight CSS-grid component reusing the same task data and date helpers as the calendar view. Don't pull in a heavyweight scheduling library for this.
@@ -109,7 +109,12 @@ npx tsc --noEmit # Type check
 │   │   │   │   └── page.tsx              # data/sales-toolkit.ts (public read, admin-managed)
 │   │   │   └── admin/                    # Admin-only route group (role-gated in layout)
 │   │   │       ├── layout.tsx            # Redirects non-admins
-│   │   │       ├── users/                # Google Group sync status + role overrides
+│   │   │       ├── users/                # BUILT, at (app)/management/users — lists every account,
+│   │   │       │                         #   creates external users, sets passwords/roles/
+│   │   │       │                         #   departments, activates/deactivates
+│   │   │       ├── teams/                # BUILT, at (app)/management/teams — "Teams / Departments".
+│   │   │       │                         #   Department CRUD + member add/remove. Membership is
+│   │   │       │                         #   profiles.department_id, so one department per person
 │   │   │       ├── seasons/              # ┐
 │   │   │       ├── brands/               # │ Each is: page.tsx (<DataTable> + columns.tsx) +
 │   │   │       ├── key-stages/           # │ _actions.ts + a <FormDialog> composing the same
@@ -121,9 +126,13 @@ npx tsc --noEmit # Type check
 │   │   │       └── audit-log/            # Read-only — <DataTable> with no <FormDialog>, no _actions.ts
 │   │   ├── auth/
 │   │   │   ├── layout.tsx
-│   │   │   ├── sign-in/page.tsx          # Single "Continue with Google" — no email/password path
+│   │   │   ├── sign-in/page.tsx          # TWO paths: "Continue with Google" for Workspace staff,
+│   │   │   │                             #   email+password for admin-created `external` users
 │   │   │   ├── google-button.tsx
-│   │   │   └── callback/route.ts         # exchangeCodeForSession → resolveUserRole → redirect
+│   │   │   ├── password-form.tsx         # signInWithPassword — external users only in practice
+│   │   │   └── callback/route.ts         # exchangeCodeForSession → reconcileProfileRole → redirect.
+│   │   │                                 #   Rejects non-Workspace emails, but NEVER deletes an
+│   │   │                                 #   account that already has a profile row
 │   │   ├── api/
 │   │   │   └── cron/                     # Legitimate /api/* use: external scheduler trigger, not internal mutation
 │   │   │       ├── reminders/route.ts        # Overdue/upcoming email dispatch
@@ -389,11 +398,23 @@ export async function updateTask(taskId: string, input: unknown) {
 
 ## Auth flow
 
-1. **Sign-in** — single "Continue with Google" button. `signInWithOAuth` with `hd` (hosted domain) parameter locked to the client's Workspace domain — no email/password path exists in this app.
-2. **Callback** — `src/app/auth/callback/route.ts` exchanges the code, then calls `resolveUserRole()` (`lib/google/admin-directory.ts`) to read the user's Google Group membership and upsert their role on `profiles`, before redirecting to `/dashboard`.
-3. **Proxy** (`src/proxy.ts`) refreshes the session on every request and redirects unauthenticated requests for `PROTECTED_PREFIXES` to `/auth/sign-in`.
-4. **Per-page guard** — `(app)/layout.tsx` calls `auth.getUser()` once for the whole authenticated shell; `admin/layout.tsx` additionally checks role. Individual pages don't re-check auth, only capability (`can(role, action)`) where relevant.
-5. **Nightly reconciliation** — `api/cron/group-sync` re-runs `resolveUserRole()` for every profile, so a role change in Google Groups takes effect even for users who don't log out/in.
+There are **two** sign-in paths, and an account only ever has one of them:
+
+| | Google Workspace staff | External platform users |
+|---|---|---|
+| Sign in with | "Continue with Google" | Email + password |
+| Account created by | First sign-in (`on_auth_user_created`) | An admin, at `/management/users` |
+| Role | Resolved from Google Groups | Always `external`, fixed at creation |
+| Google Calendar sync | Yes (one-way push) | Never |
+
+There is deliberately **no third category** of "external user who happens to have a Google account". If an admin-created account's address is also a Google identity, that person still signs in with their password.
+
+1. **Google sign-in** — `signInWithOAuth` with `hd` (hosted domain) locked to the client's Workspace domain. The domain is re-verified server-side in the callback; `hd` narrows the account chooser, it is not a boundary.
+2. **Password sign-in** — `auth/password-form.tsx` calls `signInWithPassword` from the browser client. Supabase Auth owns the credential; no password is ever stored in, or passes through, our own tables.
+3. **Callback** — `src/app/auth/callback/route.ts` exchanges the code, then calls `reconcileProfileRole()` (`lib/google/role-sync.ts`) to resolve the role from Google Group membership. **It must never delete an account that already has a `profiles` row** — Supabase links a Google identity onto an existing account with the same confirmed email, so an external user clicking the Google button arrives here as themselves; the reject path signs them out and points them at the password form instead.
+4. **Proxy** (`src/proxy.ts`) refreshes the session on every request and redirects unauthenticated requests for `PROTECTED_PREFIXES` to `/auth/sign-in`.
+5. **Per-page guard** — `(app)/layout.tsx` calls `auth.getUser()` once for the whole authenticated shell, and renders `DeactivatedNotice` (not a redirect — that ping-pongs against `proxy.ts`, whose session is still valid) when `status !== 'active'`. Pages whose whole purpose is off-limits to a role call `requirePageAccess(action)` (`lib/require-page-access.ts`) first: hiding a sidebar link is presentation, not authorization.
+6. **Nightly reconciliation** — `api/cron/group-sync`, when it lands, must call `reconcileProfileRole()`, **never `resolveUserRole()` directly**. `resolveUserRole()` returns `viewer` — not null — for an account in no Google Group, and an external user is in no group by definition, so calling it directly would silently promote every external user to `viewer` and hand them the whole organisation's data.
 
 `profiles` rows are created by an `on_auth_user_created` trigger — never insert manually.
 
@@ -405,7 +426,7 @@ One capability matrix, imported everywhere a permission decision is made — UI,
 
 ```ts
 // src/lib/permissions.ts
-export const ROLE = { ADMIN: 'admin', STANDARD_USER: 'standard_user', VIEWER: 'viewer' } as const;
+export const ROLE = { ADMIN: 'admin', STANDARD_USER: 'standard_user', VIEWER: 'viewer', EXTERNAL: 'external' } as const;
 export type Role = (typeof ROLE)[keyof typeof ROLE];
 
 // Illustrative shape only — the real Action union and per-role allow-lists are the source
@@ -419,12 +440,15 @@ type Action =
 export function can(role: Role, action: Action, resource?: { isLocked?: boolean }): boolean {
   if (role === ROLE.ADMIN) return true;
   if (action === 'task.edit_due_date_when_locked') return !resource?.isLocked;
-  if (action.startsWith('admin.')) return false;
-  if (action === 'task.lock') return false;
-  if (role === ROLE.VIEWER) return false;
-  return true; // standard_user: create/update unlocked tasks, no delete/lock/admin
+  return ROLE_ALLOWED[role]?.has(action) ?? false; // one explicit allow-set per role
 }
 ```
+
+**`external` is a first-class role, not "viewer with fewer rows".** Its allow-set is written
+out in full rather than derived from `VIEWER_ALLOWED`, so a future grant to `viewer` can't
+silently reach people outside the company. It gets `task.view` (scoped by RLS to tasks they
+participate in), `dashboard.view` (rendered from that same scoped set) and
+`profile.update_own` — no writes, no lookup/admin pages, no Google Calendar sync.
 
 RLS policies encode the same rules server-side (defense in depth) — when the matrix above changes, update the matching migration in the same PR.
 

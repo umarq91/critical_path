@@ -11,7 +11,94 @@ disagree: `supabase/schema.md` (as-built DB) > this file (as-built behaviour) > 
 
 ---
 
-## Departments
+## Accounts, roles & authentication
+
+**Two sign-in paths, one per account, never both.** Google Workspace staff use OAuth; external
+users (people outside the client's Workspace) are created by an admin at `/management/users` and
+use email + password. There is no "external user who happens to have Google" — that was ruled
+out explicitly, not overlooked.
+
+**The OAuth callback must never delete an account that already has a `profiles` row.** Supabase
+links a Google identity onto an existing account with the same confirmed email, so an external
+user who clicks "Continue with Google" arrives in `auth/callback/route.ts` as *themselves*, with
+a non-Workspace email. The pre-existing code deleted any non-Workspace user it saw
+(`auth.admin.deleteUser`, cascading the profile) — correct while every account was internal, a
+data-loss path the moment admin-created accounts exist. The profile lookup before that delete is
+load-bearing; don't "simplify" it away.
+
+**`resolveUserRole()` returns `viewer`, not null, for an account in no Google Group.** An
+external user is in no group by definition, so any code path that reconciles roles must skip
+them. Always go through `reconcileProfileRole()` (`lib/google/role-sync.ts`), never
+`resolveUserRole()` directly — the nightly `group-sync` cron included, whenever it's built.
+Calling it directly would promote every external user to `viewer`, which under the `0018` RLS
+means the entire organisation's tasks and staff directory.
+
+**Account type is fixed at creation and there is no conversion path.** `updateUser` refuses to
+change an external user's role, and `userUpdateSchema` excludes `external` from the roles an
+admin may assign. The reason is that role and authentication method are the same decision here:
+an external account has a password and no Workspace identity, so promoting it would leave a
+password-holder with internal access, and demoting a staff member to `external` would leave them
+unable to sign in at all.
+
+**`external` gets its own allow-set in `lib/permissions.ts`, written out in full.** It is
+deliberately not derived from `VIEWER_ALLOWED`, even though it's currently a subset — the point
+is that a future grant to `viewer` must not silently reach outside the company. Note the
+direction of the containment: `external` sees *less* than `viewer` (only its own tasks), which
+is also why `handle_new_user`'s `app_role` metadata hint can safely honour `external` and
+nothing else — a forged hint can only lower privilege.
+
+**`profiles.status` was decorative before `0018`.** Nothing read it outside pickers, so
+"deactivating" a user changed a badge. It is now enforced in three places that must stay
+consistent: `is_active_user()` in every task/participant/profile RLS policy, the status check in
+`requirePermission()`, and the `DeactivatedNotice` branch in `(app)/layout.tsx`.
+
+**Why deactivation renders a notice instead of redirecting.** A deactivated user still holds a
+valid session, so redirecting to `/auth/sign-in` gets bounced straight back to `/dashboard` by
+`proxy.ts` — an infinite loop. The self-read leg of the `profiles` select policy
+(`id = auth.uid()`, outside the `is_active_user()` gate) exists purely so the layout can read
+its own row and tell "deactivated" from "signed out".
+
+**Creating an auth user is the one sanctioned service-role call inside a Server Action.**
+`supabase.auth.admin.createUser` has no per-user equivalent. `createExternalUser` gates on
+`admin.manage_users` first, and deletes the auth user again if the follow-up profile write
+fails, rather than leaving an account of indeterminate role behind.
+
+---
+
+## Google Calendar sync
+
+**One-way, and that's a product rule, not an implementation detail.** Platform task → Google
+Calendar. Nothing reads events back. `lib/google/calendar.ts` deliberately has no list/read
+function; if you find yourself adding one, that's the rule being broken, not a gap being filled.
+`0011` originally pulled two ways — a Google event whose `updated` beat `google_synced_at`
+overwrote the task's name and due date, which made anyone's phone a writer to org-wide data —
+and cached every unrelated calendar event in `external_calendar_events` for display. Both were
+removed in `0019`.
+
+**`google_synced_at` no longer means what its name suggests.** It is the last time we *pushed*,
+full stop. It is not compared against anything Google reports, because there is no conflict to
+resolve when only one side writes.
+
+**One task = one Google event, so joint ownership is first-claim-wins.** A task carries a single
+`google_event_id`/`google_calendar_owner_id` pair, but owners are 1..n (34% of the client's rows
+have two). Whoever syncs first claims the event; other owners skip that task rather than minting
+a duplicate and orphaning the original — `syncGoogleCalendar` reports those as `skippedCount`.
+If per-owner calendar copies are ever wanted, that's a `task_calendar_events(task_id, profile_id,
+event_id)` table, not a tweak to these two columns.
+
+**Push scope is owners resolved through `task_participant_profiles`, not `tasks.assignee_id`.**
+Department-owned tasks are the overwhelming majority (832 of 833 rows), and `assignee_id` is null
+for all of them, so scoping by that superseded column would push almost nothing.
+
+**Calendar eligibility is a property of the account, not of token presence.**
+`isGoogleCalendarEligible()` requires a non-`external` role, `calendar.sync_google`, and a
+Workspace email. Checking "is there a `google_oauth_tokens` row" instead would be wrong in both
+directions: a token outlives a role change, and an absent token is indistinguishable from an
+expired one.
+
+---
+
+## Teams / Departments (`/management/teams`)
 
 **The seed list is the client's own dropdown, not sample data.** `supabase/seed-departments.sql`
 mirrors the `Department` column of the `Lists` sheet in
@@ -24,6 +111,31 @@ export matches on exact string.
 people the spreadsheet had nowhere else to put. They're excluded from the seed and belong in
 `profiles` instead. If a task import hits either as an owner, map it to a person, not a new
 department row.
+
+**Lives at `/management/teams`, not `/departments`.** Moved under Management alongside Users and
+renamed "Teams / Departments" — it's admin-only now (`admin.manage_lookups`) rather than visible
+to every internal role, because managing a team means editing user records. Department *names*
+still resolve for everyone through the table's own open read policy, so task rows keep their
+labels.
+
+**A person belongs to exactly one department.** Membership is `profiles.department_id`, a single
+nullable FK (0009) — not a join table. So "add to team" is an UPDATE on the person, and adding
+someone already on another team **moves** them rather than granting a second membership. The
+members dialog labels those candidates "Move" instead of "Add" for that reason. If multi-team
+membership is ever needed, that's a `department_members` join table plus a rewrite of the
+`task_participant_profiles` view and the two RLS helper functions that flatten department
+membership — not a small change.
+
+**Member add/remove is gated on `admin.manage_users`, not `admin.manage_lookups`.** It writes
+`profiles.department_id`, which the privileged-column guard trigger (0001/0009) restricts to
+admins regardless — a lookup-only permission would be rejected by the database anyway, so the
+app-layer gate matches what the DB actually enforces.
+
+**The member count is a second query, not a column.** `countMembersFor()` selects one column for
+the current page's department ids and tallies in memory — PostgREST can't return a grouped count
+alongside rows, and a per-row `head: true` count would be one round trip per department. It is
+therefore **not sortable**; the column has `enableSorting: false` because there's nothing for
+Postgres to ORDER BY.
 
 **Departments are assignable parties, not just a label on a user.** `OWNER` and `PEOPLE INVOLVED`
 in the export both hold *department* names, not people (832 of 833 owner rows). Since

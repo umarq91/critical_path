@@ -27,6 +27,7 @@ interface CalendarToolbarProps {
   brandOptions: DataTableFilterOption[];
   statusOptions: DataTableFilterOption[];
   taskCount: number;
+  canSyncGoogleCalendar: boolean;
   isSyncing: boolean;
   onSyncingChange: (isSyncing: boolean) => void;
 }
@@ -37,6 +38,7 @@ export const CalendarToolbar = ({
   brandOptions,
   statusOptions,
   taskCount,
+  canSyncGoogleCalendar,
   isSyncing,
   onSyncingChange,
 }: CalendarToolbarProps) => {
@@ -60,12 +62,14 @@ export const CalendarToolbar = ({
       toast.error(result.error);
       return;
     }
-    const parts = [
-      result.pushedCount > 0 ? `${result.pushedCount} pushed` : null,
-      result.pulledCount > 0 ? `${result.pulledCount} pulled` : null,
-      result.importedCount > 0 ? `${result.importedCount} imported` : null,
-    ].filter(Boolean);
-    toast.success(parts.length > 0 ? `Synced with Google Calendar — ${parts.join(", ")}` : "Already up to date with Google Calendar");
+    if (result.pushedCount === 0) {
+      toast.success("Google Calendar is already up to date");
+      return;
+    }
+    // Skipped tasks aren't a failure: a task already lives on a co-owner's calendar, and one
+    // task maps to exactly one event (see _actions.ts). Reported so the count adds up.
+    const skipped = result.skippedCount > 0 ? `, ${result.skippedCount} already on a co-owner's calendar` : "";
+    toast.success(`Pushed ${result.pushedCount} ${result.pushedCount === 1 ? "task" : "tasks"} to Google Calendar${skipped}`);
   }
 
   return (
@@ -119,10 +123,20 @@ export const CalendarToolbar = ({
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-3">
-        <Button type="button" size="sm" variant="outline" className="transition-colors duration-150" onClick={handleSync} disabled={isSyncing}>
-          <RefreshCw className={cn("size-4", isSyncing && "animate-spin")} />
-          {isSyncing ? "Syncing…" : "Sync"}
-        </Button>
+        {canSyncGoogleCalendar ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="transition-colors duration-150"
+            onClick={handleSync}
+            disabled={isSyncing}
+            title="Push your tasks to Google Calendar"
+          >
+            <RefreshCw className={cn("size-4", isSyncing && "animate-spin")} />
+            {isSyncing ? "Syncing…" : "Sync to Google"}
+          </Button>
+        ) : null}
         <CalendarFilterSelect
           label="Season"
           value={state.seasonId}

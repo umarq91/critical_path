@@ -7,21 +7,24 @@ import {
   Tag,
   Leaf,
   Milestone,
-  Building2,
   FileBarChart2,
   User,
-  Users,
-  ShieldCheck,
+  Building2,
   Bell,
   Puzzle,
   Settings,
   type LucideIcon,
 } from "lucide-react";
+import { can, type Action } from "@/lib/permissions";
+import type { Role } from "@/constants/roles";
 
 export type NavItem = {
   title: string;
   href: string;
   icon: LucideIcon;
+  /** Capability required to see this link. Omitted means every signed-in role sees it.
+   *  Hiding a link is presentation only — the page itself guards with requirePageAccess(). */
+  requiredAction?: Action;
 };
 
 export type NavGroup = {
@@ -39,27 +42,34 @@ export const NAV_GROUPS: NavGroup[] = [
       { title: "Tasks", href: "/tasks", icon: ListChecks },
       { title: "Calendar", href: "/calendar", icon: Calendar },
       { title: "Timeline", href: "/timeline", icon: GanttChartSquare },
-      { title: "Brands", href: "/brands", icon: Tag },
-      { title: "Seasons", href: "/seasons", icon: Leaf },
-      { title: "Key Stages", href: "/key-stages", icon: Milestone },
-      { title: "Departments", href: "/departments", icon: Building2 },
-      { title: "Reports", href: "/reports", icon: FileBarChart2 },
+      { title: "Brands", href: "/brands", icon: Tag, requiredAction: "brand.view" },
+      { title: "Seasons", href: "/seasons", icon: Leaf, requiredAction: "lookups.view" },
+      { title: "Key Stages", href: "/key-stages", icon: Milestone, requiredAction: "lookups.view" },
+      { title: "Reports", href: "/reports", icon: FileBarChart2, requiredAction: "dashboard.export_reports" },
     ],
   },
   {
     label: "Management",
     items: [
-      { title: "Users", href: "/management/users", icon: User },
-      { title: "Teams", href: "/management/teams", icon: Users },
-      { title: "Roles & Permissions", href: "/management/roles", icon: ShieldCheck },
+      { title: "Users", href: "/management/users", icon: User, requiredAction: "admin.manage_users" },
+      { title: "Teams / Departments", href: "/management/teams", icon: Building2, requiredAction: "admin.manage_lookups" },
     ],
   },
   {
     label: "Settings",
     items: [
-      { title: "Notifications", href: "/settings/notifications", icon: Bell },
-      { title: "Integrations", href: "/settings/integrations", icon: Puzzle },
-      { title: "General Settings", href: "/settings/general", icon: Settings },
+      { title: "Notifications", href: "/settings/notifications", icon: Bell, requiredAction: "admin.manage_lookups" },
+      { title: "Integrations", href: "/settings/integrations", icon: Puzzle, requiredAction: "admin.manage_lookups" },
+      { title: "General Settings", href: "/settings/general", icon: Settings, requiredAction: "admin.manage_lookups" },
     ],
   },
 ];
+
+// Groups whose every item is hidden are dropped entirely, so a role never sees an empty
+// "Management" heading with nothing under it.
+export function navGroupsForRole(role: Role): NavGroup[] {
+  return NAV_GROUPS.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => !item.requiredAction || can(role, item.requiredAction)),
+  })).filter((group) => group.items.length > 0);
+}

@@ -6,15 +6,23 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
-import { deleteDepartment } from "@/app/(app)/departments/_actions";
+import { deleteDepartment } from "@/app/(app)/management/teams/_actions";
+
+interface DepartmentRowActionsProps {
+  departmentId: string;
+  departmentName: string;
+  canManageMembers: boolean;
+  canDelete: boolean;
+  onManageMembers: () => void;
+}
 
 export const DepartmentRowActions = ({
   departmentId,
   departmentName,
-}: {
-  departmentId: string;
-  departmentName: string;
-}) => {
+  canManageMembers,
+  canDelete,
+  onManageMembers,
+}: DepartmentRowActionsProps) => {
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   async function handleDelete() {
@@ -33,11 +41,17 @@ export const DepartmentRowActions = ({
           <MoreVertical />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem variant="destructive" onClick={() => setConfirmOpen(true)}>
-            Delete
-          </DropdownMenuItem>
+          {canManageMembers ? (
+            <DropdownMenuItem onClick={onManageMembers}>Manage members</DropdownMenuItem>
+          ) : null}
+          {canDelete ? (
+            <DropdownMenuItem variant="destructive" onClick={() => setConfirmOpen(true)}>
+              Delete
+            </DropdownMenuItem>
+          ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
+
       <ConfirmDialog
         title="Delete department"
         description={`This removes "${departmentName}" from the list. Any tasks or users assigned to it will be left with no department. It can be recovered from the database if needed.`}

@@ -17,10 +17,23 @@ export async function requirePermission(action: Action, resource?: { isLocked?: 
   } = await supabase.auth.getUser();
   if (!user) return { ok: false as const, error: "Not authenticated" };
 
-  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
-  if (!profile || !can(profile.role, action, resource)) {
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role, status, email")
+    .eq("id", user.id)
+    .single();
+  if (!profile) return { ok: false as const, error: "Not authenticated" };
+
+  // Deactivation has to revoke capability, not just hide UI. RLS enforces the same rule
+  // (is_active_user() in 0018), but a deactivated account must fail here with a clear
+  // message rather than reaching the database and coming back as an opaque empty result.
+  if (profile.status !== "active") {
+    return { ok: false as const, error: "This account has been deactivated" };
+  }
+
+  if (!can(profile.role, action, resource)) {
     return { ok: false as const, error: "You don't have permission to do this" };
   }
 
-  return { ok: true as const, supabase, userId: user.id, role: profile.role };
+  return { ok: true as const, supabase, userId: user.id, role: profile.role, email: profile.email };
 }

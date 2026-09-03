@@ -15,10 +15,12 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar";
-import { NAV_GROUPS } from "@/constants/nav";
+import { navGroupsForRole } from "@/constants/nav";
+import type { Role } from "@/constants/roles";
 
-export function AppSidebar() {
+export function AppSidebar({ role }: { role: Role }) {
   const pathname = usePathname();
+  const navGroups = navGroupsForRole(role);
 
   return (
     <Sidebar collapsible="icon">
@@ -31,7 +33,7 @@ export function AppSidebar() {
         </div>
       </SidebarHeader>
       <SidebarContent className="gap-6 px-1 py-2">
-        {NAV_GROUPS.map((group) => (
+        {navGroups.map((group) => (
           <SidebarGroup key={group.label ?? "root"} className="px-1">
             {group.label ? (
               <SidebarGroupLabel className="text-overline mb-1 px-3">

@@ -1,39 +1,30 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { addDays, format, isAfter, parseISO, subDays } from "date-fns";
-import { createClient } from "@/lib/supabase/server";
+import { addDays, format, subDays } from "date-fns";
+import { requirePermission } from "@/lib/require-permission";
 import { getGoogleOAuthEnv } from "@/lib/env.server";
-import { listCalendarEvents, upsertTaskCalendarEvent, type GoogleCalendarEvent } from "@/lib/google/calendar";
 import { hasGoogleCalendarToken } from "@/lib/google/oauth-tokens";
-import { can } from "@/lib/permissions";
+import { pushTaskToGoogleCalendar } from "@/lib/google/task-calendar-sync";
+import { isGoogleCalendarEligible } from "@/lib/calendar-eligibility";
 
-// Manual, button-triggered two-way sync (see calendar-toolbar.tsx's Sync button) — not a
-// background poller. Bounded to a fixed window around today rather than the page's current
-// view, so the result doesn't depend on which month the user happened to be looking at.
+// Manual, button-triggered ONE-WAY push (see calendar-toolbar.tsx's Sync button) — not a
+// background poller, and not a two-way reconcile. Bounded to a fixed window around today
+// rather than the page's current view, so the result doesn't depend on which month the user
+// happened to be looking at.
 const SYNC_WINDOW_DAYS_PAST = 90;
 const SYNC_WINDOW_DAYS_FUTURE = 180;
 
-function toEventTimestamp(event: GoogleCalendarEvent) {
-  if (event.allDay && event.startDate) {
-    return { starts_at: `${event.startDate}T00:00:00Z`, ends_at: null as string | null, all_day: true };
-  }
-  return {
-    starts_at: event.startDateTime ?? new Date().toISOString(),
-    ends_at: event.endDateTime ?? null,
-    all_day: false,
-  };
-}
-
 export async function syncGoogleCalendar() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false as const, error: "Not authenticated" };
+  const auth = await requirePermission("calendar.sync_google");
+  if (!auth.ok) return auth;
 
-  const { data: profile } = await supabase.from("profiles").select("id, role").eq("id", user.id).single();
-  if (!profile) return { ok: false as const, error: "Not authenticated" };
+  // Account-level eligibility on top of the capability check: external users have no
+  // Workspace Google account at all, so this must never be reachable for them regardless of
+  // token state. See lib/calendar-eligibility.ts.
+  if (!isGoogleCalendarEligible({ role: auth.role, email: auth.email })) {
+    return { ok: false as const, error: "Google Calendar sync is only available for Google Workspace accounts." };
+  }
 
   // TEMPORARY — per-user OAuth (google_oauth_tokens), the dev-friendly stopgap for personal
   // @gmail.com test accounts that domain-wide delegation can't reach. See lib/google/
@@ -42,126 +33,59 @@ export async function syncGoogleCalendar() {
   if (!getGoogleOAuthEnv()) {
     return { ok: false as const, error: "Google Calendar sync isn't configured yet — ask an admin to set it up." };
   }
-  if (!(await hasGoogleCalendarToken(profile.id))) {
+  if (!(await hasGoogleCalendarToken(auth.userId))) {
     return {
       ok: false as const,
       error: "Google Calendar isn't connected yet — sign out and sign back in to grant access.",
     };
   }
 
-  // Task writes below go through the RLS-scoped client, which requires task.update — a
-  // viewer's write would just be silently dropped by RLS otherwise, still reporting success.
-  // Viewers still get the read-only "everything else" pull further down.
-  const canWriteTasks = can(profile.role, "task.update");
-
   const today = new Date();
-  const windowStart = subDays(today, SYNC_WINDOW_DAYS_PAST);
-  const windowEnd = addDays(today, SYNC_WINDOW_DAYS_FUTURE);
-  const from = format(windowStart, "yyyy-MM-dd");
-  const to = format(windowEnd, "yyyy-MM-dd");
+  const from = format(subDays(today, SYNC_WINDOW_DAYS_PAST), "yyyy-MM-dd");
+  const to = format(addDays(today, SYNC_WINDOW_DAYS_FUTURE), "yyyy-MM-dd");
 
-  const [{ data: assignedTasks }, googleEvents] = await Promise.all([
-    canWriteTasks
-      ? supabase
-          .from("tasks")
-          .select("id, task_name, due_date, google_event_id, google_synced_at")
-          .is("deleted_at", null)
-          .eq("assignee_id", profile.id)
-          .gte("due_date", from)
-          .lte("due_date", to)
-      : Promise.resolve({ data: [] }),
-    listCalendarEvents(profile.id, `${from}T00:00:00Z`, `${to}T23:59:59Z`),
-  ]);
+  // Tasks this user OWNS, read from task_participants via the task_participant_profiles view
+  // (0015) — so a task owned by their department counts, not only one where they're named
+  // personally. Deliberately not tasks.assignee_id, which 0015 superseded and which is null
+  // for the department-owned tasks that make up almost the whole dataset.
+  const { data: ownerRows, error: ownerError } = await auth.supabase
+    .from("task_participant_profiles")
+    .select("task_id")
+    .eq("profile_id", auth.userId)
+    .eq("role", "owner");
+  if (ownerError) return { ok: false as const, error: ownerError.message };
 
-  const googleEventsById = new Map(googleEvents.map((event) => [event.id, event]));
-  const handledEventIds = new Set<string>();
+  const ownedTaskIds = (ownerRows ?? []).flatMap((row) => (row.task_id ? [row.task_id] : []));
+  if (ownedTaskIds.length === 0) {
+    return { ok: true as const, pushedCount: 0, skippedCount: 0 };
+  }
+
+  const { data: tasks, error: tasksError } = await auth.supabase
+    .from("tasks")
+    .select("id, task_name, due_date, google_event_id, google_calendar_owner_id")
+    .in("id", ownedTaskIds)
+    .is("deleted_at", null)
+    .gte("due_date", from)
+    .lte("due_date", to);
+  if (tasksError) return { ok: false as const, error: tasksError.message };
+
   let pushedCount = 0;
-  let pulledCount = 0;
+  let skippedCount = 0;
 
-  // Only the assignee's own tasks are pushed — a task has exactly one Google Calendar event,
-  // so it can only live on one person's calendar, and "the person responsible for it" is the
-  // one unambiguous choice. Tasks you only created or are involved in still show in the app's
-  // calendar (data/tasks.ts's involvesProfileId scope), they just aren't pushed to your
-  // personal Google Calendar too — that would double up the same task across everyone's
-  // calendars against a single google_event_id column.
-  for (const task of assignedTasks ?? []) {
-    const remoteEvent = task.google_event_id ? googleEventsById.get(task.google_event_id) : undefined;
-    const remoteChangedSinceLastSync =
-      remoteEvent && task.google_synced_at && isAfter(parseISO(remoteEvent.updatedAt), parseISO(task.google_synced_at));
-
-    if (remoteChangedSinceLastSync && remoteEvent) {
-      handledEventIds.add(remoteEvent.id);
-      const nextDueDate = remoteEvent.allDay && remoteEvent.startDate ? remoteEvent.startDate : task.due_date;
-      await supabase
-        .from("tasks")
-        .update({
-          task_name: remoteEvent.title,
-          due_date: nextDueDate,
-          google_synced_at: remoteEvent.updatedAt,
-          last_edited_by: profile.id,
-        })
-        .eq("id", task.id);
-      pulledCount++;
+  for (const task of tasks ?? []) {
+    // A task maps to exactly one google_event_id, so it can only live on one calendar. Joint
+    // ownership is the norm here (the client's export has two owners on a third of all rows),
+    // so the rule is first-claim-wins: whoever syncs first owns the event, and everyone else
+    // skips it rather than minting a duplicate event and orphaning the original.
+    if (task.google_calendar_owner_id && task.google_calendar_owner_id !== auth.userId) {
+      skippedCount++;
       continue;
     }
 
-    const result = await upsertTaskCalendarEvent(profile.id, {
-      eventId: task.google_event_id,
-      title: task.task_name,
-      date: task.due_date,
-    });
-    if (!result) continue;
-
-    handledEventIds.add(result.id);
-    await supabase
-      .from("tasks")
-      .update({
-        google_event_id: result.id,
-        google_calendar_owner_id: profile.id,
-        google_synced_at: result.updatedAt,
-      })
-      .eq("id", task.id);
-    pushedCount++;
-  }
-
-  // Everything else on the calendar (not linked to one of this user's tasks) is a read-only
-  // overlay — cached so the app's calendar can show it without calling Google on every page
-  // load.
-  const externalEvents = googleEvents.filter((event) => !handledEventIds.has(event.id));
-  if (externalEvents.length > 0) {
-    await supabase.from("external_calendar_events").upsert(
-      externalEvents.map((event) => ({
-        profile_id: profile.id,
-        google_event_id: event.id,
-        title: event.title,
-        last_synced_at: new Date().toISOString(),
-        ...toEventTimestamp(event),
-      })),
-      { onConflict: "profile_id,google_event_id" }
-    );
-  }
-
-  // Anything cached in this window that Google no longer returned (and isn't one of this
-  // run's task-linked events) was deleted upstream since the last sync — drop it too.
-  const freshExternalIds = new Set(externalEvents.map((event) => event.id));
-  const { data: cachedInWindow } = await supabase
-    .from("external_calendar_events")
-    .select("id, google_event_id")
-    .eq("profile_id", profile.id)
-    .gte("starts_at", `${from}T00:00:00Z`)
-    .lte("starts_at", `${to}T23:59:59Z`);
-  const staleIds = (cachedInWindow ?? [])
-    .filter((row) => !freshExternalIds.has(row.google_event_id) && !handledEventIds.has(row.google_event_id))
-    .map((row) => row.id);
-  if (staleIds.length > 0) {
-    await supabase.from("external_calendar_events").delete().in("id", staleIds);
+    const pushed = await pushTaskToGoogleCalendar(auth.supabase, task, auth.userId);
+    if (pushed) pushedCount++;
   }
 
   revalidatePath("/calendar");
-  return {
-    ok: true as const,
-    pushedCount,
-    pulledCount,
-    importedCount: externalEvents.length,
-  };
+  return { ok: true as const, pushedCount, skippedCount };
 }

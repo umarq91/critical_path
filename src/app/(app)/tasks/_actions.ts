@@ -7,6 +7,7 @@ import { listTasks, type ListTasksParams } from "@/data/tasks";
 import { searchParties, type SearchPartiesParams } from "@/data/parties";
 import { parsePartyKey, partyColumns, type ParticipantRole } from "@/lib/party";
 import { deleteTaskCalendarEvent } from "@/lib/google/calendar";
+import { resyncTaskCalendarEvent } from "@/lib/google/task-calendar-sync";
 
 // Powers the isolated "Refresh" icon on the tasks table (see useRefreshableData). A plain
 // read, not a mutation — router.refresh() can't scope a reload to just this table (it
@@ -120,7 +121,16 @@ export async function updateTask(id: string, patch: unknown) {
     .eq("id", id);
   if (error) return { ok: false as const, error: error.message };
 
+  // Keeps an already-pushed Google Calendar event in step with the task it came from — on
+  // whichever account holds it, which needn't be the editor's. Sync is one-way, so this is
+  // the only way an event ever changes: the platform writes, Google never writes back.
+  // Best-effort by design; a Google failure must not fail an otherwise valid task edit.
+  if ("task_name" in parsed.data || "due_date" in parsed.data) {
+    await resyncTaskCalendarEvent(auth.supabase, id).catch(() => undefined);
+  }
+
   revalidatePath("/tasks");
+  revalidatePath("/calendar");
   return { ok: true as const };
 }
 

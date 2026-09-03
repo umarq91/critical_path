@@ -7,6 +7,7 @@ import { SeasonsBoard } from "@/app/(app)/seasons/seasons-board";
 import { listSeasons, listSeasonSummary, listSeasonTaskStats, listUpcomingSeasons } from "@/data/seasons";
 import { getCurrentProfile } from "@/data/profiles";
 import { can } from "@/lib/permissions";
+import { requirePageAccess } from "@/lib/require-page-access";
 import { loadDataTableSearchParams } from "@/components/data-table/data-table-search-params";
 
 const QUERY_STATE_OPTIONS = { defaultPageSize: 10, defaultSort: { id: "start_date", desc: false } };
@@ -16,6 +17,9 @@ export default async function SeasonsPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  // External users have no business on an organisation-wide lookup list; the sidebar
+  // hides the link, and this is what makes typing the URL equally ineffective.
+  await requirePageAccess("lookups.view");
   const queryState = await loadDataTableSearchParams(searchParams, QUERY_STATE_OPTIONS);
 
   const [{ data: seasons, rowCount }, summary, upcomingSeasons, profile] = await Promise.all([

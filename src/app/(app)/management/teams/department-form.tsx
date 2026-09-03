@@ -8,8 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Form } from "@/components/ui/form";
 import { TextField } from "@/components/form-fields/text-field";
 import { TextareaField } from "@/components/form-fields/textarea-field";
-import { departmentSchema, type DepartmentInput } from "@/app/(app)/departments/schema";
-import { createDepartment } from "@/app/(app)/departments/_actions";
+import { departmentSchema, type DepartmentInput } from "@/app/(app)/management/teams/schema";
+import { createDepartment } from "@/app/(app)/management/teams/_actions";
 
 interface DepartmentFormProps {
   onSuccess: () => void;
