@@ -45,7 +45,7 @@ export async function GET(request: Request) {
   const admin = createAdminClient();
   const { data: profile } = await admin
     .from("profiles")
-    .select("id, role")
+    .select("id, role, status")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -70,6 +70,14 @@ export async function GET(request: Request) {
     // profiles.id has `on delete cascade` (migration 0001) so one call clears both rows.
     await admin.auth.admin.deleteUser(user.id);
     return NextResponse.redirect(new URL(`${ROUTES.signIn}?error=domain`, url.origin));
+  }
+
+  // Deactivation bans the account (management/users/_actions.ts), so Supabase normally refuses
+  // to complete the exchange at all. This is the backstop for accounts deactivated before that
+  // was true: no session survives this route, rather than one that only fails later at RLS.
+  if (profile && profile.status !== "active") {
+    await supabase.auth.signOut();
+    return NextResponse.redirect(new URL(`${ROUTES.signIn}?error=deactivated`, url.origin));
   }
 
   // Workspace accounts only from here down, so role resolution from Google Groups always

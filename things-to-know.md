@@ -48,9 +48,25 @@ is also why `handle_new_user`'s `app_role` metadata hint can safely honour `exte
 nothing else — a forged hint can only lower privilege.
 
 **`profiles.status` was decorative before `0018`.** Nothing read it outside pickers, so
-"deactivating" a user changed a badge. It is now enforced in three places that must stay
-consistent: `is_active_user()` in every task/participant/profile RLS policy, the status check in
-`requirePermission()`, and the `DeactivatedNotice` branch in `(app)/layout.tsx`.
+"deactivating" a user changed a badge. It is now enforced in **five** places that must stay
+consistent — change one, check the rest:
+1. `updateUser` bans the account in Supabase Auth (`ban_duration`), so no token is issued at all.
+2. `password-form.tsx` maps a banned-user error to the deactivated message, and re-checks status
+   after a successful sign-in.
+3. `auth/callback/route.ts` refuses the Google path for a non-active profile.
+4. `is_active_user()` in every task/participant/profile RLS policy.
+5. `requirePermission()` in every Server Action, plus the `DeactivatedNotice` branch in
+   `(app)/layout.tsx`.
+
+**Why the ban AND the app-layer checks.** `profiles.status` is ours; Supabase Auth has never
+heard of it, so status alone cannot stop a token being issued — only the ban does that. But
+accounts deactivated before the ban existed aren't banned, so both sign-in routes keep their own
+status check as a backstop. If the ban write fails, `updateUser` rolls the status back rather
+than leaving a profile that says "inactive" next to an account that can still sign in.
+
+**A session already open when someone is deactivated survives until its access token expires**
+(~1h). It can read and write nothing — RLS and `requirePermission` see to that — but it is not
+forcibly terminated. Banning blocks new tokens and refreshes, not tokens already issued.
 
 **Why deactivation renders a notice instead of redirecting.** A deactivated user still holds a
 valid session, so redirecting to `/auth/sign-in` gets bounced straight back to `/dashboard` by

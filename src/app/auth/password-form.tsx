@@ -10,6 +10,12 @@ import { TextField } from "@/components/form-fields/text-field";
 import { createClient } from "@/lib/supabase/client";
 import { passwordSignInSchema, type PasswordSignInInput } from "@/app/auth/schema";
 
+const DEACTIVATED_MESSAGE = "This account has been deactivated. Contact an administrator.";
+
+function isBannedError(error: { code?: string; message: string }): boolean {
+  return error.code === "user_banned" || error.message.toLowerCase().includes("banned");
+}
+
 // Email + password sign-in, for external platform users an admin created (see
 // management/users). Google Workspace staff use the Google button above this and never have
 // a password set at all.
@@ -31,13 +37,35 @@ export const PasswordForm = ({ next }: { next: string }) => {
     setError(null);
 
     const supabase = createClient();
-    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
 
     if (signInError) {
       setIsSubmitting(false);
-      // Deliberately not echoing Supabase's message: it distinguishes "no such user" from
-      // "wrong password", which turns the form into an account-enumeration oracle.
-      setError("That email and password combination doesn't match an account.");
+      // A banned account is a deactivated one, and saying so is not an enumeration leak: the
+      // person already proved they know the password. Everything else gets the vague message
+      // on purpose — Supabase distinguishes "no such user" from "wrong password", which would
+      // otherwise turn this form into an account-enumeration oracle.
+      setError(
+        isBannedError(signInError)
+          ? DEACTIVATED_MESSAGE
+          : "That email and password combination doesn't match an account."
+      );
+      return;
+    }
+
+    // Backstop for accounts deactivated before deactivation started banning them at the auth
+    // layer — those still authenticate successfully, so the session has to be thrown away
+    // here. Reading your own profile is always permitted, deactivated or not.
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("status")
+      .eq("id", data.user.id)
+      .single();
+
+    if (profile?.status !== "active") {
+      await supabase.auth.signOut();
+      setIsSubmitting(false);
+      setError(DEACTIVATED_MESSAGE);
       return;
     }
 

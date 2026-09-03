@@ -15,6 +15,13 @@ function normaliseDepartmentId(value: string | null | undefined): string | null 
   return value && value !== "none" ? value : null;
 }
 
+// Supabase expresses a ban as a Go duration string; there is no "forever", so this is a
+// hundred years. "none" lifts it. Deactivating bans the account so Supabase Auth refuses to
+// issue a token at all — status alone can't do that, because Auth knows nothing about our
+// profiles table.
+const PERMANENT_BAN_DURATION = "876000h";
+const NO_BAN = "none";
+
 // Creating an auth identity is the one operation with no per-user equivalent — supabase-js
 // exposes it only on the service-role admin API, so this is a deliberate, documented
 // exception to "no service-role client inside a Server Action" (CLAUDE.md). It is gated on
@@ -94,7 +101,7 @@ export async function updateUser(userId: string, patch: unknown) {
 
   const { data: target } = await auth.supabase
     .from("profiles")
-    .select("id, role")
+    .select("id, role, status")
     .eq("id", userId)
     .single();
   if (!target) return { ok: false as const, error: "That user no longer exists" };
@@ -125,15 +132,35 @@ export async function updateUser(userId: string, patch: unknown) {
   const { error } = await auth.supabase.from("profiles").update(updateData).eq("id", userId);
   if (error) return { ok: false as const, error: error.message };
 
+  // Sign-in is blocked at the auth layer, not just the app layer. profiles.status is ours;
+  // Supabase Auth has never heard of it, so without this a deactivated user still gets a
+  // valid session and is only stopped afterwards by RLS. Banning makes the token request
+  // itself fail.
+  //
+  // Rolled back if it doesn't take: a profile that says "inactive" while the account can
+  // still sign in is the exact inconsistency this is meant to remove, so failing loudly
+  // beats leaving the two halves disagreeing.
+  if (parsed.data.status && parsed.data.status !== target.status) {
+    const admin = createAdminClient();
+    const { error: banError } = await admin.auth.admin.updateUserById(userId, {
+      ban_duration: parsed.data.status === "inactive" ? PERMANENT_BAN_DURATION : NO_BAN,
+    });
+    if (banError) {
+      await auth.supabase.from("profiles").update({ status: target.status }).eq("id", userId);
+      return { ok: false as const, error: `Could not update sign-in access: ${banError.message}` };
+    }
+  }
+
   revalidatePath("/management/users");
+  revalidatePath("/management/teams");
   return { ok: true as const };
 }
 
-// Deactivation is a real revocation, not a label: is_active_user() (0018) gates every task,
-// participant and profile read policy, and requirePermission() refuses every Server Action
-// for an inactive account. An existing session stays technically valid until it expires but
-// can no longer read or write anything, and (app)/layout.tsx renders a deactivated notice
-// instead of the app.
+// Deactivation is a real revocation at four layers: updateUser bans the account so Supabase
+// Auth won't issue a token, both sign-in routes refuse it, is_active_user() (0018) gates every
+// task/participant/profile policy, and requirePermission() refuses every Server Action. A
+// session that was already open keeps its unexpired access token but can read and write
+// nothing, and (app)/layout.tsx shows a deactivated notice instead of the app.
 export async function setUserStatus(userId: string, status: "active" | "inactive") {
   return updateUser(userId, { status });
 }
