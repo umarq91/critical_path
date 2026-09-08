@@ -244,6 +244,31 @@ Exists so "tasks relevant to me" stays one query rather than the three hops (me 
 
 **RLS:** same matrix as `tasks` itself, and scoped in `0018` alongside `task_participants` — leaving this superseded table on `using (true)` would have been a read-around for the whole people-involved graph.
 
+### `audit_log`
+*Migration: `0020_audit_log.sql`. Append-only record of key user actions — the table behind Management → Logs (`/management/logs`).*
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid, PK | |
+| `actor_id` | uuid, FK → `profiles.id`, nullable, `on delete set null` | who did it. Never cascade — deleting a person must not erase what they did |
+| `actor_email` | text, nullable | snapshot taken at write time; what keeps the row attributable once the profile is gone |
+| `action` | text, not null | `task.create` \| `task.update` \| `task.delete` \| `task.participants_change` today. One participant verb, not one per role — the detail drawer confirms owners and people involved in a single save, and that must read as one entry. **Text, not an enum** — the vocabulary grows with the app (`src/constants/audit.ts` is the app-side list), and an enum would mean a migration per new verb |
+| `entity_type` | text, not null | `task` today |
+| `entity_id` | uuid, nullable | **no FK** — the row it points at is routinely soft-deleted, and a hard delete must not take its history with it |
+| `entity_label` | text, nullable | the entity's name *at the time*, so a renamed or deleted task still reads correctly |
+| `changes` | jsonb, default `{}` | shape depends on `action` — see `src/types/audit.ts`. Field-level diffs for updates, added/removed party names for participant changes, `{ backfilled: true }` for rows this migration generated |
+| `created_at` | timestamptz | |
+
+**Append-only by policy.** There is a select policy and an insert policy, and deliberately **no update or delete policy** — nothing holding `authenticated` can rewrite history; only the service-role client or a DB admin can. That's what makes the log worth reading.
+
+**RLS:** select is **admin-only** (`is_admin()`), mirroring `admin.view_audit_log` in `lib/permissions.ts` — the table holds every task title and every actor's email organisation-wide, so the usual `using (true)` read policy would hand an external user the lot. Insert is `is_active_user() and actor_id = auth.uid()`: a `standard_user` writes their own `task.create` entry through their own client, and no row can be attributed to someone else.
+
+**Why this exists when `tasks` already has `created_by`/`last_edited_by`/`deleted_by`:** those hold the *latest* actor only. "Who moved the due date on 12 Aug, and what was it before" isn't answerable from them, and an owner change leaves no trace on `tasks` at all (it writes `task_participants`). Those columns stay as they are; this is the history.
+
+**Values in `changes` are resolved to display labels at write time** — a season FK is stored as `Winter 2026`, not a uuid. Reading the log never needs a second round trip, and a label captured then still tells the truth after the thing it named is renamed or deleted.
+
+**Backfilled on install** from `tasks`' own tracking columns, so the page opens with the history that already existed. Those rows carry `{ backfilled: true }` and no field detail (`tasks` records *that* a row was edited, not what changed) — the UI says so rather than rendering an empty diff. Each backfill block is guarded by a not-exists on `(entity_id, action)`, so re-running the file adds nothing.
+
 ### `google_oauth_tokens`
 *Migration: `0012_google_oauth_tokens.sql`. Per-user Google OAuth access/refresh tokens, used only to call the Calendar API as that specific user.*
 
@@ -286,7 +311,8 @@ Exists so "tasks relevant to me" stays one query rather than the three hops (me 
 | `0017_external_user_role.sql` | Adds `external` to the `user_role` enum, and **nothing else**. Postgres won't let a newly added enum label be *used* in the transaction that adds it, and Supabase runs each file in one transaction — so `0018` has to be a separate file. Do not merge them. |
 | `0018_external_user_access.sql` | `is_active_user()`, `is_external_user()`, `task_involves_current_user()`, `profile_shares_task_with_current_user()`; rewrites the SELECT policies on `tasks`, `task_participants`, `task_people` and `profiles` to scope external users to their own tasks; adds an active-account requirement to those tables' read *and* write policies; updates `handle_new_user()` to honour a `user_metadata.app_role` hint of `external` (only that value — it can lower privilege, never raise it) so an admin-created external user's profile is born with the right role. |
 | `0019_one_way_calendar_sync.sql` | Drops `external_calendar_events` and its RLS; re-comments `tasks.google_synced_at`/`google_calendar_owner_id` for one-way push semantics. Google Calendar can no longer write to a task. |
+| `0020_audit_log.sql` | `audit_log` table (actor / action / entity / jsonb `changes`), four indexes, admin-only select + own-row insert and **no update or delete policy** (append-only), plus a rerun-safe backfill of create/update/delete events from `tasks`' tracking columns. Backs Management → Logs. |
 
 ## Not built yet
 
-Templates, holidays, leave, reminder rules, notifications log, sales toolkit links, audit log — see `plan.md` §4 for the original full sketch. Add each here as its migration lands.
+Templates, holidays, leave, reminder rules, notifications log, sales toolkit links — see `plan.md` §4 for the original full sketch. Add each here as its migration lands.

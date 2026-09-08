@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ChartCard } from "@/components/charts/chart-card";
 import { TaskDetailDrawer } from "@/app/(app)/tasks/task-detail-drawer";
@@ -53,6 +54,9 @@ export const TimelineGanttCard = ({
   brandOptions,
   canAssignPeople,
 }: TimelineGanttCardProps) => {
+  // No isolated refresh on this surface — a saved reassignment re-runs the page's
+  // Server Components so the owners shown here match what was just confirmed.
+  const router = useRouter();
   const [controls, setControls] = useState<TimelineControls>(INITIAL_CONTROLS);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
@@ -144,12 +148,16 @@ export const TimelineGanttCard = ({
         />
       </div>
 
-      <TaskDetailDrawer
-        task={selectedTask}
-        open={!!selectedTask}
-        onOpenChange={(open) => !open && setSelectedTask(null)}
-        canAssignPeople={canAssignPeople}
-      />
+      {selectedTask ? (
+        <TaskDetailDrawer
+          key={selectedTask.id}
+          task={selectedTask}
+          open
+          onOpenChange={(open) => !open && setSelectedTask(null)}
+          canAssignPeople={canAssignPeople}
+          onSaved={() => router.refresh()}
+        />
+      ) : null}
     </>
   );
 };

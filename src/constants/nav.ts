@@ -8,6 +8,7 @@ import {
   Leaf,
   Milestone,
   FileBarChart2,
+  ScrollText,
   User,
   Building2,
   Bell,
@@ -53,6 +54,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { title: "Users", href: "/management/users", icon: User, requiredAction: "admin.manage_users" },
       { title: "Teams / Departments", href: "/management/teams", icon: Building2, requiredAction: "admin.manage_lookups" },
+      { title: "Logs", href: "/management/logs", icon: ScrollText, requiredAction: "admin.view_audit_log" },
     ],
   },
   {

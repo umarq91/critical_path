@@ -2,12 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { requirePermission } from "@/lib/require-permission";
-import { taskCreateSchema, taskUpdateSchema, taskParticipantsSchema } from "@/app/(app)/tasks/schema";
+import { taskCreateSchema, taskUpdateSchema } from "@/app/(app)/tasks/schema";
 import { listTasks, type ListTasksParams } from "@/data/tasks";
-import { searchParties, type SearchPartiesParams } from "@/data/parties";
-import { parsePartyKey, partyColumns, type ParticipantRole } from "@/lib/party";
+import { parsePartyKey, participantRows } from "@/lib/party";
 import { deleteTaskCalendarEvent } from "@/lib/google/calendar";
 import { resyncTaskCalendarEvent } from "@/lib/google/task-calendar-sync";
+import { logTaskCreated, logTaskUpdated, logTaskDeleted } from "@/app/(app)/tasks/_audit";
 
 // Powers the isolated "Refresh" icon on the tasks table (see useRefreshableData). A plain
 // read, not a mutation — router.refresh() can't scope a reload to just this table (it
@@ -30,16 +30,6 @@ function normaliseOptionalId(value: string | undefined): string | null {
 // reasoning as normaliseOptionalId above.
 function normaliseDate(value: string | undefined): string | null {
   return value ? value : null;
-}
-
-// Turns the form's `kind:uuid` keys into task_participants rows. Unparseable keys are dropped
-// rather than failing the whole write — the zod schema already rejected them upstream, so
-// anything reaching here is a bug, not user input worth surfacing an error for.
-function participantRows(taskId: string, keys: string[], role: ParticipantRole) {
-  return keys.flatMap((key) => {
-    const party = parsePartyKey(key);
-    return party ? [{ task_id: taskId, role, ...partyColumns(party) }] : [];
-  });
 }
 
 export async function createTask(input: unknown) {
@@ -83,6 +73,8 @@ export async function createTask(input: unknown) {
     return { ok: false as const, error: participantsError.message };
   }
 
+  await logTaskCreated(auth.supabase, { userId: auth.userId, email: auth.email }, data, owners);
+
   revalidatePath("/tasks");
   return { ok: true as const, data };
 }
@@ -94,6 +86,11 @@ function firstIndividualOwnerId(owners: string[]) {
   }
   return null;
 }
+
+// The columns a task edit is audited on — every user-editable column, and nothing else (the
+// google_*/locking/tracking columns are stamped by the system, not chosen by a person).
+const AUDITED_TASK_COLUMNS =
+  "id, task_name, season_id, brand_id, key_stage_id, gender, due_date, start_date, end_date, status, priority, notes";
 
 export async function updateTask(id: string, patch: unknown) {
   const auth = await requirePermission("task.update");
@@ -115,11 +112,18 @@ export async function updateTask(id: string, patch: unknown) {
     ...("end_date" in parsed.data ? { end_date: normaliseDate(parsed.data.end_date) } : {}),
   };
 
+  // Read before the write, for the audit log's field-level diff — `tasks.last_edited_by`
+  // records that someone edited the row, never what it used to say. One extra round trip per
+  // task edit, which is the price of "who changed the due date, and from what".
+  const { data: before } = await auth.supabase.from("tasks").select(AUDITED_TASK_COLUMNS).eq("id", id).maybeSingle();
+
   const { error } = await auth.supabase
     .from("tasks")
     .update({ ...updateData, last_edited_by: auth.userId })
     .eq("id", id);
   if (error) return { ok: false as const, error: error.message };
+
+  if (before) await logTaskUpdated(auth.supabase, { userId: auth.userId, email: auth.email }, before, updateData);
 
   // Keeps an already-pushed Google Calendar event in step with the task it came from — on
   // whichever account holds it, which needn't be the editor's. Sync is one-way, so this is
@@ -143,7 +147,7 @@ export async function deleteTask(id: string) {
   // deleting the task (see tasks.google_calendar_owner_id).
   const { data: task } = await auth.supabase
     .from("tasks")
-    .select("google_event_id, google_calendar_owner_id")
+    .select("task_name, google_event_id, google_calendar_owner_id")
     .eq("id", id)
     .single();
 
@@ -153,6 +157,8 @@ export async function deleteTask(id: string) {
     .eq("id", id);
   if (error) return { ok: false as const, error: error.message };
 
+  await logTaskDeleted(auth.supabase, { userId: auth.userId, email: auth.email }, { id, task_name: task?.task_name ?? null });
+
   if (task?.google_event_id && task.google_calendar_owner_id) {
     // Best-effort — a failed calendar cleanup shouldn't undo an already-successful task
     // delete, so this is deliberately not awaited into the error path above.
@@ -161,97 +167,5 @@ export async function deleteTask(id: string) {
 
   revalidatePath("/tasks");
   revalidatePath("/calendar");
-  return { ok: true as const };
-}
-
-// Powers the Owners / People Involved search dropdown (tasks/party-search-dropdown.tsx) —
-// gated on task.assign since that's the same permission add/remove below require, and only
-// people who can assign have any reason to search.
-export async function searchAssignableParties(params: SearchPartiesParams) {
-  const auth = await requirePermission("task.assign");
-  if (!auth.ok) return auth;
-
-  const result = await searchParties(params);
-  return { ok: true as const, data: result.data, truncated: result.truncated };
-}
-
-export async function addTaskParticipant(taskId: string, partyKey: string, role: ParticipantRole) {
-  const auth = await requirePermission("task.assign");
-  if (!auth.ok) return auth;
-
-  const party = parsePartyKey(partyKey);
-  if (!party) return { ok: false as const, error: "Invalid selection" };
-
-  // The uniqueness guard is two partial indexes rather than one constraint (see
-  // 0015_task_participants.sql), so there's no single `onConflict` target to upsert against —
-  // idempotency comes from checking first instead. Re-adding someone already on the task (a
-  // stale dropdown, a retried click) is a no-op rather than a surfaced error.
-  const columns = partyColumns(party);
-  const { data: existing } = await auth.supabase
-    .from("task_participants")
-    .select("id")
-    .eq("task_id", taskId)
-    .eq("role", role)
-    .eq(party.kind === "user" ? "profile_id" : "department_id", party.id)
-    .maybeSingle();
-  if (existing) return { ok: true as const };
-
-  const { error } = await auth.supabase.from("task_participants").insert({ task_id: taskId, role, ...columns });
-  if (error) return { ok: false as const, error: error.message };
-
-  revalidatePath("/tasks");
-  return { ok: true as const };
-}
-
-export async function removeTaskParticipant(taskId: string, partyKey: string, role: ParticipantRole) {
-  const auth = await requirePermission("task.assign");
-  if (!auth.ok) return auth;
-
-  const party = parsePartyKey(partyKey);
-  if (!party) return { ok: false as const, error: "Invalid selection" };
-
-  // A task with no owner isn't a valid state — the create form enforces owners.min(1), and the
-  // same rule has to hold when removing from an existing task.
-  if (role === "owner") {
-    const { count } = await auth.supabase
-      .from("task_participants")
-      .select("id", { count: "exact", head: true })
-      .eq("task_id", taskId)
-      .eq("role", "owner");
-    if ((count ?? 0) <= 1) return { ok: false as const, error: "A task must have at least one owner" };
-  }
-
-  const { error } = await auth.supabase
-    .from("task_participants")
-    .delete()
-    .eq("task_id", taskId)
-    .eq("role", role)
-    .eq(party.kind === "user" ? "profile_id" : "department_id", party.id);
-  if (error) return { ok: false as const, error: error.message };
-
-  revalidatePath("/tasks");
-  return { ok: true as const };
-}
-
-// Replaces a task's entire participant set in one call — the whole-set write the admin forms
-// use for brand_seasons, rather than diffing adds and removes.
-export async function setTaskParticipants(taskId: string, input: unknown) {
-  const auth = await requirePermission("task.assign");
-  if (!auth.ok) return auth;
-
-  const parsed = taskParticipantsSchema.safeParse(input);
-  if (!parsed.success) return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid input" };
-
-  const { error: deleteError } = await auth.supabase.from("task_participants").delete().eq("task_id", taskId);
-  if (deleteError) return { ok: false as const, error: deleteError.message };
-
-  const rows = [
-    ...participantRows(taskId, parsed.data.owners, "owner"),
-    ...participantRows(taskId, parsed.data.people_involved, "involved"),
-  ];
-  const { error } = await auth.supabase.from("task_participants").insert(rows);
-  if (error) return { ok: false as const, error: error.message };
-
-  revalidatePath("/tasks");
   return { ok: true as const };
 }

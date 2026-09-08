@@ -187,10 +187,17 @@ rather than `union all`.
 ## Tasks — Owners & People Involved
 
 **One picker stack serves both fields, and both accept departments and people.**
-`party-row.tsx` → `party-search-dropdown.tsx` → `party-list-field.tsx`, with
-`task-participants-section.tsx` as the server-backed wrapper the drawer uses and the create
-form buffering locally. Owners and People Involved differ only by their `role` value and their
-labels — don't fork a second stack for one of them.
+`party-row.tsx` → `party-search-dropdown.tsx` → `party-list-field.tsx`, buffered locally by the
+create form and by the detail drawer alike. Owners and People Involved differ only by their
+`role` value and their labels — don't fork a second stack for one of them.
+
+**The drawer buffers and confirms; it does not write per click.** Adds and removes change local
+state only (`use-participants-draft.ts`); nothing reaches the database until Save, which writes
+both roles through `setTaskParticipants` in one call. Closing with pending edits asks before
+discarding. This replaced an optimistic per-click write (`addTaskParticipant` /
+`removeTaskParticipant`, both deleted) — that version wrote on every click, so a single editing
+session produced a scatter of audit-log rows instead of one entry saying what changed. There is
+now exactly one write path for participants; don't add a second.
 
 **A party is addressed as a `kind:uuid` string** (`lib/party.ts`) everywhere on the client —
 form values, option values, React keys — and split back into `profile_id`/`department_id` on
@@ -389,3 +396,68 @@ tasks, a range and a view as props, which is what makes that possible. Keep it t
   many rows is a lot of DOM to buy a 1px line.
 - **No drag-to-reschedule.** Read-only by design; writing dates back would need a mutation path
   and conflict rules that don't exist yet.
+
+---
+
+## Logs / audit trail (`/management/logs`)
+
+**The `tasks` tracking columns are not an audit trail and never were.** `created_by`,
+`last_edited_by` and `deleted_by` hold the *latest* actor per row — they can't answer "who moved
+this due date on 12 Aug, and what was it before", and an owner change doesn't touch `tasks` at
+all (it writes `task_participants`). `audit_log` (0020) is the history; those columns stay
+exactly as they are and are still what the task grid reads.
+
+**Values in `changes` are display labels resolved at WRITE time, not ids.** A season change is
+stored as `Winter 2026 → SS26`, not two uuids. Two reasons: reading a log row never needs a
+second round trip to become legible, and a label captured then still tells the truth after that
+season is renamed or the brand it named is deleted. The cost is one lookup per changed FK field
+per edit (`formatTaskValue` in `tasks/_audit.ts`) — only for fields the patch actually changed,
+so a typical single-cell inline edit pays nothing extra.
+
+**One confirmed save is one log row, across both participant roles.** The drawer's Save writes
+owners and people involved together (`setTaskParticipants`), and `logParticipantsChanged` records
+a single `task.participants_change` entry whose `changes.parties` holds one section per role
+touched. Splitting it back into `task.owner_change` + `task.people_change` — or logging per
+add/remove — is exactly the confusion this replaced.
+
+**`updateTask` reads the task before writing it.** That extra round trip exists solely for the
+diff; if you're tempted to remove it, the log loses every "from" value. Nothing else needs it.
+
+**A patch that changes nothing writes no entry.** `diffFields` compares before formatting, and
+treats `null`/`""`/`undefined` as the same "not set" (form fields submit `""` where columns store
+`null` — see `normaliseDate`/`normaliseOptionalId`). Re-saving an untouched form is not an event.
+
+**Logging is best-effort and must stay that way.** `recordAuditEvent` swallows its own failures:
+a log insert must never fail or roll back a mutation the user already saw succeed. The log can
+therefore under-record; it can't over-record, and it can't misattribute — 0020's insert policy
+pins `actor_id` to `auth.uid()`, and the write goes through the caller's own RLS-scoped client.
+
+**Append-only is enforced in the database, not the UI.** 0020 grants select and insert policies
+and deliberately no update or delete policy, so nothing holding `authenticated` can rewrite
+history. Don't "fix" that by adding one — the detail dialog is read-only for the same reason.
+
+**`admin.view_audit_log` is its own capability, not part of `admin.manage_users`.** The log spans
+every entity and every actor in the organisation, so granting it is a deliberate decision rather
+than something that rides along with editing a user's department. RLS mirrors it: select is
+`is_admin()`-only, unlike the usual `using (true)` read policy.
+
+**The Period filter stores a keyword, not a date.** `today`/`7d`/`30d` are resolved to a cutoff
+server-side in `data/audit-log.ts`, so a shared or bookmarked URL keeps meaning "the last 7 days"
+instead of freezing the range it was copied at.
+
+**The Person filter lists every profile, not just actors present in the log.** PostgREST has no
+`DISTINCT`, so the alternative is pulling every log row back to populate a dropdown. Someone with
+no entries filters to an empty list, which reads fine.
+
+**Rows created by the 0020 backfill carry `{ backfilled: true }` and no field detail** — `tasks`
+records that an edit happened, not what changed. The UI says so explicitly rather than rendering
+an empty diff, which would imply nothing was touched. Backfilled update entries are also one per
+task at most: `updated_at` only remembers the last edit.
+
+**`entity_id` has no FK, on purpose.** Tasks are soft-deleted today, but a hard delete must not
+cascade away its own history. Log rows resolve by `entity_label` (the name at the time), not by
+join — which is also why a renamed task's older entries show the old name, and should.
+
+**Participant actions live in `tasks/_participant-actions.ts`, not `_actions.ts`.** Same feature,
+but the split keeps both files readable; `participantRows()` moved to `lib/party.ts` because a
+`"use server"` module can only export Server Actions, so the two files can't share a helper.

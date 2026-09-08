@@ -1,14 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Loader2, Plus, Search } from "lucide-react";
+import { Loader2, Plus, Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
-import { searchAssignableParties } from "@/app/(app)/tasks/_actions";
+import { searchAssignableParties } from "@/app/(app)/tasks/_participant-actions";
 import { PartyRow } from "@/app/(app)/tasks/party-row";
 import type { PartySummary } from "@/lib/party";
+import { cn } from "@/lib/utils";
 
 const SEARCH_DEBOUNCE_MS = 200;
 
@@ -77,14 +78,36 @@ export const PartySearchDropdown = ({ excludeKeys, onAdd, disabled, placeholder 
   // it. Either way the results on hand answer an older term than what's in the box, and showing
   // them as if they were current is what makes a search feel wrong.
   const isLoading = state.status === "pending" || state.forQuery !== query;
+  // Offered whenever there is something to dismiss — a typed term, an open panel, or both.
+  const showClear = !disabled && (open || query.length > 0);
   // Already-picked parties disappear the moment they're added, without refetching.
   const results = state.status === "ready" ? state.results.filter((party) => !excludeKeys.includes(party.key)) : [];
 
   // Rendered in flow rather than in a popover: this sits inside a scrollable sheet, where a
-  // portalled panel needs anchor tracking and its own outside-press handling to behave. Closing
-  // on focus leaving the whole container is the only dismissal logic needed here.
+  // portalled panel needs anchor tracking to behave. The trade is that dismissal is ours to
+  // handle, and it takes both of the below — focus-out alone misses a click on anything
+  // non-focusable (the drawer's own body text, a heading, the backdrop), which never blurs the
+  // input in every browser, leaving the panel open over the page.
+  useEffect(() => {
+    if (!open) return;
+
+    function handlePointerDown(event: PointerEvent) {
+      if (!containerRef.current?.contains(event.target as Node)) setOpen(false);
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [open]);
+
+  // Still needed alongside the above for keyboard dismissal — tabbing out of the last result
+  // moves focus without a pointer ever being pressed.
   function handleBlur(event: React.FocusEvent<HTMLDivElement>) {
     if (!containerRef.current?.contains(event.relatedTarget)) setOpen(false);
+  }
+
+  function clearSearch() {
+    setQuery("");
+    setOpen(false);
   }
 
   return (
@@ -107,8 +130,26 @@ export const PartySearchDropdown = ({ excludeKeys, onAdd, disabled, placeholder 
           }}
           placeholder={placeholder ?? "Search departments and people..."}
           disabled={disabled}
-          className="pl-8"
+          className={cn("pl-8", showClear && "pr-9")}
         />
+        {showClear ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Clear search"
+            // onMouseDown, not onClick: the pointerdown dismissal above would otherwise have
+            // already closed the panel, and the input's blur would fire first — this way one
+            // press both clears the term and closes, which is the point of the button.
+            onMouseDown={(event) => {
+              event.preventDefault();
+              clearSearch();
+            }}
+            className="absolute top-1/2 right-1.5 -translate-y-1/2 text-muted-foreground"
+          >
+            <X className="size-4" />
+          </Button>
+        ) : null}
       </div>
 
       {open ? (

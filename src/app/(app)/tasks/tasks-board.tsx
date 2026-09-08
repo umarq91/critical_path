@@ -140,12 +140,18 @@ export const TasksBoard = ({
           searchPlaceholder: "Search in tasks...",
         }}
       />
-      <TaskDetailDrawer
-        task={selectedTask}
-        open={!!selectedTask}
-        onOpenChange={(open) => !open && setSelectedTask(null)}
-        canAssignPeople={canAssignPeople}
-      />
+      {/* Mounted per selected task, so the drawer's participants draft starts from that
+          task's own owners without a reset-on-prop-change path. */}
+      {selectedTask ? (
+        <TaskDetailDrawer
+          key={selectedTask.id}
+          task={selectedTask}
+          open
+          onOpenChange={(open) => !open && setSelectedTask(null)}
+          canAssignPeople={canAssignPeople}
+          onSaved={refresh}
+        />
+      ) : null}
     </>
   );
 };

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { eachDayOfInterval, format, isSameDay, isSameMonth, isToday, isWeekend } from "date-fns";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -44,6 +45,9 @@ export const CalendarBoard = ({
   hasActiveFilters,
   onNavigateToDate,
 }: CalendarBoardProps) => {
+  // No isolated refresh on this surface — a saved reassignment re-runs the page's
+  // Server Components so the owners shown here match what was just confirmed.
+  const router = useRouter();
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
   const tasksByDate = useMemo(() => groupByDate(tasks, (task) => toDateKey(task.due_date)), [tasks]);
@@ -99,12 +103,16 @@ export const CalendarBoard = ({
         ) : null}
       </div>
       <CalendarLegend />
-      <TaskDetailDrawer
-        task={selectedTask}
-        open={!!selectedTask}
-        onOpenChange={(open) => !open && setSelectedTask(null)}
-        canAssignPeople={canAssignPeople}
-      />
+      {selectedTask ? (
+        <TaskDetailDrawer
+          key={selectedTask.id}
+          task={selectedTask}
+          open
+          onOpenChange={(open) => !open && setSelectedTask(null)}
+          canAssignPeople={canAssignPeople}
+          onSaved={() => router.refresh()}
+        />
+      ) : null}
     </div>
   );
 };

@@ -18,3 +18,16 @@ export function formatDate(value: string) {
     year: "numeric",
   });
 }
+
+// For `timestamptz` columns (audit_log.created_at, created_at/updated_at), where the time of
+// day is the point — NOT for date columns: parseDateOnly exists precisely because those must
+// not go through `new Date()`, and this deliberately does.
+export function formatDateTime(value: string) {
+  return new Date(value).toLocaleString(DATE_LOCALE, {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}

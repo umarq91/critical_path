@@ -29,7 +29,11 @@ export type Action =
   | "lookups.view"
   | "calendar.sync_google"
   | "admin.manage_users"
-  | "admin.manage_lookups";
+  | "admin.manage_lookups"
+  // Reading the audit log is its own capability, not part of admin.manage_users: it spans
+  // every entity and every actor in the organisation, so granting it should be a deliberate
+  // decision rather than something that rides along with editing a user's department.
+  | "admin.view_audit_log";
 
 const STANDARD_USER_ALLOWED: ReadonlySet<Action> = new Set<Action>([
   "profile.update_own",

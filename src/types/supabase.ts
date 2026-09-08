@@ -15,6 +15,50 @@ export type Database = {
   }
   public: {
     Tables: {
+      audit_log: {
+        Row: {
+          action: string
+          actor_email: string | null
+          actor_id: string | null
+          changes: Json
+          created_at: string
+          entity_id: string | null
+          entity_label: string | null
+          entity_type: string
+          id: string
+        }
+        Insert: {
+          action: string
+          actor_email?: string | null
+          actor_id?: string | null
+          changes?: Json
+          created_at?: string
+          entity_id?: string | null
+          entity_label?: string | null
+          entity_type: string
+          id?: string
+        }
+        Update: {
+          action?: string
+          actor_email?: string | null
+          actor_id?: string | null
+          changes?: Json
+          created_at?: string
+          entity_id?: string | null
+          entity_label?: string | null
+          entity_type?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_log_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brand_seasons: {
         Row: {
           brand_id: string

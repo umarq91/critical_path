@@ -167,12 +167,16 @@ export const UpcomingTasksBoard = ({
           searchPlaceholder: "Search in upcoming tasks...",
         }}
       />
-      <TaskDetailDrawer
-        task={selectedTask}
-        open={!!selectedTask}
-        onOpenChange={(open) => !open && setSelectedTask(null)}
-        canAssignPeople={canAssignPeople}
-      />
+      {selectedTask ? (
+        <TaskDetailDrawer
+          key={selectedTask.id}
+          task={selectedTask}
+          open
+          onOpenChange={(open) => !open && setSelectedTask(null)}
+          canAssignPeople={canAssignPeople}
+          onSaved={refresh}
+        />
+      ) : null}
     </>
   );
 };

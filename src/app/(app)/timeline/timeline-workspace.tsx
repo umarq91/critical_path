@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { TaskDetailDrawer } from "@/app/(app)/tasks/task-detail-drawer";
 import { TimelineToolbar } from "@/app/(app)/timeline/timeline-toolbar";
@@ -28,6 +29,9 @@ export const TimelineWorkspace = ({
   seasonOptions,
   brandOptions,
 }: TimelineWorkspaceProps) => {
+  // The timeline has no isolated refresh action of its own (unlike the grid's refresh button),
+  // so a saved reassignment re-runs the page's Server Components to pick up the new owners.
+  const router = useRouter();
   const queryState = useTimelineQueryState();
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
@@ -65,12 +69,16 @@ export const TimelineWorkspace = ({
 
       {/* The shared drawer — same component the Tasks grid, Calendar and Upcoming pages open,
           receiving the same full Task shape, so there is exactly one task-detail implementation. */}
-      <TaskDetailDrawer
-        task={selectedTask}
-        open={!!selectedTask}
-        onOpenChange={(open) => !open && setSelectedTask(null)}
-        canAssignPeople={canAssignPeople}
-      />
+      {selectedTask ? (
+        <TaskDetailDrawer
+          key={selectedTask.id}
+          task={selectedTask}
+          open
+          onOpenChange={(open) => !open && setSelectedTask(null)}
+          canAssignPeople={canAssignPeople}
+          onSaved={() => router.refresh()}
+        />
+      ) : null}
     </div>
   );
 };

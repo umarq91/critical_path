@@ -36,6 +36,19 @@ export function partyColumns({ kind, id }: PartyRef) {
   return kind === "user" ? { profile_id: id, department_id: null } : { profile_id: null, department_id: id };
 }
 
+// Turns the form's `kind:uuid` keys into task_participants rows. Unparseable keys are dropped
+// rather than failing the whole write — the zod schema already rejected them upstream, so
+// anything reaching here is a bug, not user input worth surfacing an error for.
+//
+// Lives here rather than in a `_actions.ts` because both createTask and the participant
+// actions build these, and a "use server" module can only export Server Actions.
+export function participantRows(taskId: string, keys: string[], role: ParticipantRole) {
+  return keys.flatMap((key) => {
+    const party = parsePartyKey(key);
+    return party ? [{ task_id: taskId, role, ...partyColumns(party) }] : [];
+  });
+}
+
 // One row in a party picker or party list — a department or a person, rendered by the same
 // component. The optional fields are the ones only one kind has; the UI branches on `kind`,
 // not on presence. Lives here rather than in data/parties.ts so Client Components can import
