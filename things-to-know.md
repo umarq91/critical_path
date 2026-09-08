@@ -47,6 +47,13 @@ direction of the containment: `external` sees *less* than `viewer` (only its own
 is also why `handle_new_user`'s `app_role` metadata hint can safely honour `external` and
 nothing else — a forged hint can only lower privilege.
 
+**The "Role Permissions" dialog on `/management/users` computes every cell by calling `can()`,**
+not by re-listing the matrix. `constants/permission-catalog.ts` supplies only labels, grouping and
+ordering, so a grant added in `lib/permissions.ts` shows up correctly with no edit here — a *new*
+`Action` just goes unlisted until someone adds a row. The one entry carrying a `resource` is
+`task.edit_due_date_when_locked`: without `{ isLocked: true }` that check answers "yes" for every
+role, which is true but meaningless, since the action only bites once a task is actually locked.
+
 **`profiles.status` was decorative before `0018`.** Nothing read it outside pickers, so
 "deactivating" a user changed a badge. It is now enforced in **five** places that must stay
 consistent — change one, check the rest:
