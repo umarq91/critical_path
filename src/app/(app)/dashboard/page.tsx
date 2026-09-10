@@ -20,6 +20,17 @@ import { getDashboardMetrics } from "@/data/dashboard";
 import { listOverdueTasks, listTasksForTimeline } from "@/data/tasks";
 import { getCurrentProfile } from "@/data/profiles";
 import { can } from "@/lib/permissions";
+import { ROUTES } from "@/constants/routes";
+import { dataTableSearchParamsHref } from "@/components/data-table/data-table-search-params";
+import { TASKS_QUERY_STATE } from "@/app/(app)/tasks/query-state";
+
+// The tasks grid already filters by status; the tile just links into it pre-filtered rather
+// than the page growing a second, overdue-only list.
+const OVERDUE_TASKS_HREF = dataTableSearchParamsHref(
+  ROUTES.tasks,
+  { filters: { status: "overdue" } },
+  TASKS_QUERY_STATE
+);
 
 function firstName(fullName: string | null | undefined, email: string | undefined) {
   const name = fullName?.trim().split(/\s+/)[0];
@@ -86,6 +97,8 @@ export default async function DashboardPage() {
             label="Overdue"
             value={metrics.statusCounts.overdue.toLocaleString()}
             description={shareOfTotal(metrics.statusCounts.overdue)}
+            href={OVERDUE_TASKS_HREF}
+            linkLabel="View overdue tasks"
           />
         </div>
 

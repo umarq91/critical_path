@@ -42,7 +42,7 @@ export function createBrandColumns({
   return [
     columnHelper.accessor("brand_name", {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Brand Name" />,
-      meta: { label: "Brand Name" },
+      meta: { label: "Brand Name", width: "md" },
       cell: ({ row, getValue }) => (
         <EditableCell
           value={getValue()}
@@ -67,11 +67,11 @@ export function createBrandColumns({
     // off (Databricks spec's brand_code), same reasoning as seasons.season_code.
     columnHelper.accessor("brand_code", {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Code" />,
-      meta: { label: "Code" },
+      meta: { label: "Code", width: "xs" },
     }),
     columnHelper.accessor("description", {
       header: "Description",
-      meta: { label: "Description" },
+      meta: { label: "Description", width: "lg" },
       enableSorting: false,
       cell: ({ row, getValue }) => (
         <EditableCell
@@ -84,7 +84,7 @@ export function createBrandColumns({
     }),
     columnHelper.accessor("status", {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
-      meta: { label: "Status" },
+      meta: { label: "Status", width: "sm" },
       filterFn: "weakEquals",
       cell: ({ row, getValue }) => (
         <EditableCell
@@ -101,7 +101,7 @@ export function createBrandColumns({
     columnHelper.accessor((row) => row.seasons.map((season) => season.id), {
       id: "season_id",
       header: ({ column }) => <DataTableColumnHeader column={column} title="Seasons" />,
-      meta: { label: "Seasons" },
+      meta: { label: "Seasons", width: "md" },
       filterFn: "arrIncludesSome",
       cell: ({ row }) => {
         const seasons = row.original.seasons;
@@ -133,19 +133,19 @@ export function createBrandColumns({
     columnHelper.display({
       id: "tasks",
       header: "Tasks",
-      meta: { label: "Tasks" },
+      meta: { label: "Tasks", width: "xs" },
       cell: () => <span className="text-muted-foreground">—</span>,
     }),
     columnHelper.accessor("created_at", {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Created On" />,
-      meta: { label: "Created On" },
+      meta: { label: "Created On", width: "sm" },
       sortFn: "datetime",
       cell: ({ getValue }) => formatDate(getValue()),
     }),
     columnHelper.display({
       id: "actions",
       header: "Actions",
-      meta: { label: "Actions", sticky: "right" },
+      meta: { label: "Actions", sticky: "right", width: "xs" },
       cell: ({ row }) => {
         if (!canManage && !canDelete) return null;
         const brand = row.original;

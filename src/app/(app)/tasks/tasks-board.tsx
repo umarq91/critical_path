@@ -7,6 +7,7 @@ import { useDataTableQueryState } from "@/components/data-table/use-data-table-q
 import { useRowEditing } from "@/components/data-table/use-row-editing";
 import { useRefreshableData } from "@/components/shared/use-refreshable-data";
 import { createTaskColumns } from "@/app/(app)/tasks/columns";
+import { TASKS_QUERY_STATE } from "@/app/(app)/tasks/query-state";
 import { updateTask, refreshTasks } from "@/app/(app)/tasks/_actions";
 import { TaskDetailDrawer } from "@/app/(app)/tasks/task-detail-drawer";
 import { TASK_STATUS_CONFIG } from "@/constants/task-status";
@@ -38,7 +39,7 @@ export const TasksBoard = ({
   keyStageOptions,
   ownerOptions,
 }: TasksBoardProps) => {
-  const queryState = useDataTableQueryState({ defaultPageSize: 15, defaultSort: { id: "due_date", desc: false } });
+  const queryState = useDataTableQueryState(TASKS_QUERY_STATE);
   const rowEditing = useRowEditing();
   const [isSaving, setIsSaving] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -104,7 +105,7 @@ export const TasksBoard = ({
         onRowClick={(task) => {
           if (!rowEditing.isEditing(task.id)) setSelectedTask(task);
         }}
-        getRowClassName={(task) => (task.status === "overdue" ? "bg-status-overdue-soft/40" : undefined)}
+        getRowClassName={(task) => (task.status === "overdue" ? "bg-surface-overdue" : undefined)}
         toolbar={{
           filters: [
             { columnId: "season_id", title: "Season", placeholder: "All Seasons", options: seasonOptions },

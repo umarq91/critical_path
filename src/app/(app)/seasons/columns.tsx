@@ -48,12 +48,12 @@ export function createSeasonColumns({
     // friction than a click — left for a future dedicated edit flow.
     columnHelper.accessor("season_code", {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Season Code" />,
-      meta: { label: "Season Code" },
+      meta: { label: "Season Code", width: "sm" },
       filterFn: "includesString",
     }),
     columnHelper.accessor("season_name", {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Season Name" />,
-      meta: { label: "Season Name" },
+      meta: { label: "Season Name", width: "md" },
       cell: ({ row, getValue }) => (
         <EditableCell
           value={getValue()}
@@ -65,7 +65,7 @@ export function createSeasonColumns({
     }),
     columnHelper.accessor("status", {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
-      meta: { label: "Status" },
+      meta: { label: "Status", width: "sm" },
       filterFn: "weakEquals",
       cell: ({ row, getValue }) => (
         <EditableCell
@@ -81,7 +81,7 @@ export function createSeasonColumns({
     }),
     columnHelper.accessor("start_date", {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Start Date" />,
-      meta: { label: "Start Date" },
+      meta: { label: "Start Date", width: "sm" },
       sortFn: "datetime",
       // Doubles as the Year filter's target column — matches the year portion of the date
       // rather than the raw string, since there's no separate `year` column to filter on.
@@ -100,7 +100,7 @@ export function createSeasonColumns({
     }),
     columnHelper.accessor("end_date", {
       header: "End Date",
-      meta: { label: "End Date" },
+      meta: { label: "End Date", width: "sm" },
       enableSorting: false,
       cell: ({ row, getValue }) => (
         <EditableCell
@@ -116,19 +116,19 @@ export function createSeasonColumns({
     columnHelper.display({
       id: "brands",
       header: "Brands",
-      meta: { label: "Brands" },
+      meta: { label: "Brands", width: "xs" },
       cell: ({ row }) => seasonStats[row.original.id]?.brandsCount ?? 0,
     }),
     columnHelper.display({
       id: "tasks",
       header: "Tasks",
-      meta: { label: "Tasks" },
+      meta: { label: "Tasks", width: "xs" },
       cell: ({ row }) => seasonStats[row.original.id]?.tasksCount ?? 0,
     }),
     columnHelper.display({
       id: "completion",
       header: "Completion %",
-      meta: { label: "Completion %" },
+      meta: { label: "Completion %", width: "sm" },
       cell: ({ row }) => {
         const stats = seasonStats[row.original.id];
         const pct = stats && stats.tasksCount > 0 ? Math.round((stats.completedCount / stats.tasksCount) * 100) : 0;
@@ -149,7 +149,7 @@ export function createSeasonColumns({
     columnHelper.accessor((row) => row.owner_id ?? "", {
       id: "owner_id",
       header: "Owner",
-      meta: { label: "Owner" },
+      meta: { label: "Owner", width: "md" },
       enableSorting: false,
       cell: ({ row }) => {
         const owner = row.original.owner;
@@ -166,7 +166,7 @@ export function createSeasonColumns({
     columnHelper.display({
       id: "actions",
       header: "Actions",
-      meta: { label: "Actions", sticky: "right" },
+      meta: { label: "Actions", sticky: "right", width: "xs" },
       cell: ({ row }) => {
         if (!canManage) return null;
         const season = row.original;

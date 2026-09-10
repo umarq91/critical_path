@@ -20,19 +20,17 @@ import { DataTableToolbar, type DataTableToolbarConfig } from "@/components/data
 import { DataTableFilterRow } from "@/components/data-table/data-table-filter-row";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
 import { dataTableFeatures, type DataTableColumnMeta } from "@/components/data-table/table-features";
+import { getStickyCellClassName } from "@/components/data-table/sticky-column";
+import { columnWidthPx } from "@/components/data-table/column-widths";
+import { showTitleWhenTruncated } from "@/components/data-table/truncation-title";
+import { useTableScrollEdges } from "@/components/data-table/use-table-scroll-edges";
 import type { DataTableQueryState } from "@/components/data-table/use-data-table-query-state";
 import { cn } from "@/lib/utils";
 
-// Pins a column (e.g. Actions) to an edge during horizontal scroll, with a border and an
-// opaque background matching its row so scrolled-away columns don't show through underneath.
-function getStickyCellClassName(meta: DataTableColumnMeta | undefined, background: string) {
-  if (!meta?.sticky) return undefined;
-  return cn(
-    "sticky z-10 border-border",
-    background,
-    meta.sticky === "right" ? "right-0 border-l" : "left-0 border-r"
-  );
-}
+// Every body row carries an opaque background (`bg-card`, or an opaque tint from
+// getRowClassName), so a sticky cell can just inherit it and stay in step with per-row
+// colouring. Hover/selected live on the row, not the cell, so those are re-stated here.
+const STICKY_BODY_BACKGROUND = "bg-inherit group-hover:bg-surface-hover group-data-[state=selected]:bg-muted";
 
 function createSelectionColumn<TData extends Record<string, unknown>>(): ColumnDef<
   typeof dataTableFeatures,
@@ -60,6 +58,7 @@ function createSelectionColumn<TData extends Record<string, unknown>>(): ColumnD
     enableSorting: false,
     enableHiding: false,
     enableColumnFilter: false,
+    meta: { label: "Select", width: "icon" },
   };
 }
 
@@ -161,6 +160,13 @@ export const DataTable = <TData extends Record<string, unknown>>({
   // the lighter-weight "something's updating" treatment for that window instead of nothing.
   const isPending = queryState?.isPending ?? false;
   const isBusy = isPending || !!isRefreshing;
+  const [scrollRef, scrollEdges] = useTableScrollEdges<HTMLDivElement>();
+  // Widths are declared once, on <col>, rather than repeated on every header and body cell.
+  const visibleColumns = table.getVisibleLeafColumns();
+  const columnWidths = visibleColumns.map((column) =>
+    columnWidthPx((column.columnDef.meta as DataTableColumnMeta | undefined)?.width)
+  );
+  const tableMinWidth = columnWidths.reduce((total, width) => total + width, 0);
 
   return (
     <Card className="gap-5 py-6">
@@ -172,25 +178,38 @@ export const DataTable = <TData extends Record<string, unknown>>({
           {onRefresh ? <RefreshButton onRefresh={onRefresh} isRefreshing={!!isRefreshing} /> : null}
         </div>
       ) : null}
-      <div className="relative">
-        <Table className={cn("transition-opacity", isBusy && "pointer-events-none opacity-50")}>
+      <div ref={scrollRef} className="relative">
+        <Table
+          className={cn("table-fixed transition-opacity", isBusy && "pointer-events-none opacity-50")}
+          style={{ minWidth: tableMinWidth }}
+        >
+          <colgroup>
+            {visibleColumns.map((column, index) => (
+              <col key={column.id} style={{ width: columnWidths[index] }} />
+            ))}
+          </colgroup>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id} className="bg-muted/40 hover:bg-muted/40">
+              <TableRow key={headerGroup.id} className="bg-surface-header hover:bg-surface-header">
                 {headerGroup.headers.map((header) => (
                   <TableHead
                     key={header.id}
                     className={cn(
-                      "px-4 py-3.5",
-                      getStickyCellClassName(header.column.columnDef.meta as DataTableColumnMeta | undefined, "bg-muted/40")
+                      "truncate px-4 py-3.5",
+                      getStickyCellClassName(
+                        header.column.columnDef.meta as DataTableColumnMeta | undefined,
+                        "bg-surface-header",
+                        scrollEdges
+                      )
                     )}
+                    onMouseEnter={showTitleWhenTruncated}
                   >
                     {header.isPlaceholder ? null : <FlexRender header={header} />}
                   </TableHead>
                 ))}
               </TableRow>
             ))}
-            {showFilterRow ? <DataTableFilterRow table={table} /> : null}
+            {showFilterRow ? <DataTableFilterRow table={table} scrollEdges={scrollEdges} /> : null}
           </TableHeader>
           <TableBody>
             {rows.length === 0 ? (
@@ -205,15 +224,24 @@ export const DataTable = <TData extends Record<string, unknown>>({
                   key={row.id}
                   data-state={row.getIsSelected() ? "selected" : undefined}
                   onClick={onRowClick ? () => onRowClick(row.original) : undefined}
-                  className={cn(onRowClick && "cursor-pointer", getRowClassName?.(row.original))}
+                  className={cn(
+                    "group bg-card",
+                    onRowClick && "cursor-pointer",
+                    getRowClassName?.(row.original)
+                  )}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell
                       key={cell.id}
                       className={cn(
-                        "px-4 py-3.5",
-                        getStickyCellClassName(cell.column.columnDef.meta as DataTableColumnMeta | undefined, "bg-card")
+                        "truncate px-4 py-3.5",
+                        getStickyCellClassName(
+                          cell.column.columnDef.meta as DataTableColumnMeta | undefined,
+                          STICKY_BODY_BACKGROUND,
+                          scrollEdges
+                        )
                       )}
+                      onMouseEnter={showTitleWhenTruncated}
                     >
                       <FlexRender cell={cell} />
                     </TableCell>

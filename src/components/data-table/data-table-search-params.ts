@@ -5,7 +5,7 @@
 // every export into an inert client-reference proxy (parseAsInteger.withDefault stops being
 // a function). "nuqs/server" re-exports the same underlying parsers with no such boundary,
 // safe in both server and client code.
-import { createLoader, parseAsInteger, parseAsJson, parseAsString } from "nuqs/server";
+import { createLoader, createSerializer, parseAsInteger, parseAsJson, parseAsString } from "nuqs/server";
 import { z } from "zod";
 
 const filtersSchema = z.record(z.string(), z.string());
@@ -34,6 +34,24 @@ export type DataTableSearchParams = ReturnType<typeof dataTableSearchParams>;
 
 // Server Components: `const state = await loadDataTableSearchParams(searchParams, opts)`.
 // Accepts the raw (still-a-promise) `searchParams` page prop directly — nuqs resolves it.
+// Builds a link into a table page with its filters (or sort/page) already applied — e.g. the
+// dashboard's Overdue tile pointing at /tasks filtered to overdue. Serialising through the same
+// parser definition the page loads with is the point: the `filters` param is JSON, and a
+// hand-written query string would be one encoding change away from silently arriving empty.
+export function dataTableSearchParamsHref(
+  pathname: string,
+  values: Partial<{
+    page: number;
+    pageSize: number;
+    sortBy: string;
+    sortDir: string;
+    filters: Record<string, string>;
+  }>,
+  options?: DataTableSearchParamsOptions
+) {
+  return createSerializer(dataTableSearchParams(options))(pathname, values);
+}
+
 export function loadDataTableSearchParams(
   searchParams: Promise<Record<string, string | string[] | undefined>>,
   options?: DataTableSearchParamsOptions

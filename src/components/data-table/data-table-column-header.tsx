@@ -18,7 +18,7 @@ export const DataTableColumnHeader = <TData extends Record<string, unknown>, TVa
   className,
 }: DataTableColumnHeaderProps<TData, TValue>) => {
   if (!column.getCanSort()) {
-    return <span className={cn("text-sm font-medium text-foreground", className)}>{title}</span>;
+    return <span className={cn("block truncate text-sm font-medium text-foreground", className)}>{title}</span>;
   }
 
   const sorted = column.getIsSorted();
@@ -28,9 +28,10 @@ export const DataTableColumnHeader = <TData extends Record<string, unknown>, TVa
       variant="ghost"
       size="sm"
       onClick={column.getToggleSortingHandler()}
-      className={cn("-ml-2 gap-1 px-2 text-sm font-medium text-foreground hover:bg-muted", className)}
+      className={cn("-ml-2 max-w-full gap-1 px-2 text-sm font-medium text-foreground hover:bg-muted", className)}
     >
-      {title}
+      {/* The sort arrow keeps its size; a title too long for the column ellipsises instead. */}
+      <span className="truncate">{title}</span>
       {sorted === "asc" ? (
         <ArrowUp className="size-3.5 text-muted-foreground" />
       ) : sorted === "desc" ? (

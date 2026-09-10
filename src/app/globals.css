@@ -49,6 +49,14 @@
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
 
+  /* Opaque equivalents of the table's translucent header/hover row tints. Sticky columns
+     have to paint a solid colour or the cells scrolling under them show through, so these
+     are the flattened-over-card versions of bg-muted/40 and bg-muted/50. */
+  --color-surface-header: color-mix(in oklab, var(--muted) 40%, var(--card));
+  --color-surface-hover: color-mix(in oklab, var(--muted) 50%, var(--card));
+  --color-surface-overdue: color-mix(in oklab, var(--status-overdue-soft) 40%, var(--card));
+  --color-surface-selected: color-mix(in oklab, var(--primary-tint) 40%, var(--card));
+
   /* brand green — not one of shadcn's default semantic slots */
   --color-brand: var(--brand);
   --color-brand-hover: var(--brand-hover);

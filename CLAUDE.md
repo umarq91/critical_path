@@ -483,7 +483,7 @@ Source of truth: `Design and color palette.md` (client-provided). Every color/ty
 | `--border-default` | `border` / `border-border` | `--text-disabled` | `text-text-disabled` |
 | `--color-primary` | `bg-primary` / `text-primary` | `--text-inverse` | `text-text-inverse` |
 
-Tokens with **no shadcn equivalent** keep the doc's own name as a generated Tailwind utility (defined in `globals.css`'s `@theme inline`): `bg-primary-hover`, `bg-primary-tint`, `bg-brand`, `bg-brand-hover`, `bg-brand-tint`, `text-accent-teal`, `bg-status-{notstarted,progress,complete,overdue}-{base,soft,text}`, `bg-prio-{high,med,low}(-soft)`, `bg-viz-{1..7}`, `bg-viz-track`, `border-border-subtle`, `border-border-strong`.
+Tokens with **no shadcn equivalent** keep the doc's own name as a generated Tailwind utility (defined in `globals.css`'s `@theme inline`): `bg-primary-hover`, `bg-primary-tint`, `bg-brand`, `bg-brand-hover`, `bg-brand-tint`, `text-accent-teal`, `bg-status-{notstarted,progress,complete,overdue}-{base,soft,text}`, `bg-prio-{high,med,low}(-soft)`, `bg-viz-{1..7}`, `bg-viz-track`, `border-border-subtle`, `border-border-strong`, `bg-surface-{header,hover,overdue,selected}` (opaque `color-mix` flattenings of translucent table-row tints, needed because sticky columns can't be see-through — see `things-to-know.md` § Data tables).
 
 **Typography** — the doc bundles size+line-height+weight per named style (`text-h1`, `text-body`, …), which Tailwind's default `text-*` scale can't express in one class. These are defined as custom `@utility` rules in `globals.css` — use `text-h1`, `text-body`, `text-label`, etc. directly; don't compose `text-[22px] leading-[30px] font-semibold` by hand.
 

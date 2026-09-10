@@ -16,6 +16,7 @@ import {
   sortFn_datetime,
   tableFeatures,
 } from "@tanstack/react-table";
+import type { DataTableColumnWidth } from "@/components/data-table/column-widths";
 
 export type DataTableFilterVariant = "text" | "select" | "date";
 
@@ -32,6 +33,8 @@ export interface DataTableColumnMeta {
   align?: "left" | "center" | "right";
   /** Pins the column to the given edge during horizontal scroll (e.g. an Actions column). */
   sticky?: "left" | "right";
+  /** Fixed width for the column; defaults to "md". See column-widths.ts. */
+  width?: DataTableColumnWidth;
 }
 
 export const dataTableFeatures = tableFeatures({

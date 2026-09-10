@@ -23,7 +23,7 @@ export function createAuditLogColumns() {
   return [
     columnHelper.accessor("created_at", {
       header: ({ column }) => <DataTableColumnHeader column={column} title="When" />,
-      meta: { label: "When" },
+      meta: { label: "When", width: "sm" },
       sortFn: "datetime",
       cell: ({ getValue }) => <span className="whitespace-nowrap text-body">{formatDateTime(getValue())}</span>,
     }),
@@ -33,7 +33,7 @@ export function createAuditLogColumns() {
     columnHelper.accessor("actor_id", {
       id: "actor",
       header: "Person",
-      meta: { label: "Person" },
+      meta: { label: "Person", width: "md" },
       enableSorting: false,
       cell: ({ row }) => {
         const { actor, actor_email } = row.original;
@@ -63,12 +63,12 @@ export function createAuditLogColumns() {
     }),
     columnHelper.accessor("action", {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Action" />,
-      meta: { label: "Action" },
+      meta: { label: "Action", width: "sm" },
       cell: ({ getValue }) => <StatusBadge value={getValue()} config={AUDIT_ACTION_CONFIG} />,
     }),
     columnHelper.accessor("entity_label", {
       header: "Task",
-      meta: { label: "Task" },
+      meta: { label: "Task", width: "md" },
       // Not sortable: entity_label is a snapshot of the name at the time, so ordering by it
       // groups nothing meaningful — the log is read chronologically.
       enableSorting: false,
@@ -82,7 +82,7 @@ export function createAuditLogColumns() {
     columnHelper.display({
       id: "details",
       header: "Details",
-      meta: { label: "Details" },
+      meta: { label: "Details", width: "lg" },
       cell: ({ row }) => <AuditChangeSummary changes={row.original.changes} limit={INLINE_CHANGE_LIMIT} />,
     }),
   ];

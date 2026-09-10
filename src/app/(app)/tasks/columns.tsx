@@ -68,7 +68,7 @@ export function createTaskColumns({
   return [
     columnHelper.accessor("task_name", {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Task Name" />,
-      meta: { label: "Task Name" },
+      meta: { label: "Task Name", width: "lg" },
       cell: ({ row, getValue }) => (
         <EditableCell
           value={getValue()}
@@ -80,7 +80,7 @@ export function createTaskColumns({
     }),
     columnHelper.accessor("season_id", {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Season" />,
-      meta: { label: "Season" },
+      meta: { label: "Season", width: "md" },
       filterFn: "weakEquals",
       cell: ({ row }) => {
         const season = row.original.season;
@@ -99,7 +99,7 @@ export function createTaskColumns({
     }),
     columnHelper.accessor("brand_id", {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Brand" />,
-      meta: { label: "Brand" },
+      meta: { label: "Brand", width: "md" },
       filterFn: "weakEquals",
       cell: ({ row }) => (
         <EditableCell
@@ -115,7 +115,7 @@ export function createTaskColumns({
     }),
     columnHelper.accessor("key_stage_id", {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Key Stage" />,
-      meta: { label: "Key Stage" },
+      meta: { label: "Key Stage", width: "md" },
       filterFn: "weakEquals",
       cell: ({ row }) => (
         <EditableCell
@@ -131,7 +131,7 @@ export function createTaskColumns({
     }),
     columnHelper.accessor("gender", {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Gender" />,
-      meta: { label: "Gender" },
+      meta: { label: "Gender", width: "xs" },
       filterFn: "weakEquals",
       cell: ({ row, getValue }) => (
         <EditableCell
@@ -147,7 +147,7 @@ export function createTaskColumns({
     }),
     columnHelper.accessor("due_date", {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Due Date" />,
-      meta: { label: "Due Date" },
+      meta: { label: "Due Date", width: "md" },
       sortFn: "datetime",
       cell: ({ row, getValue }) => (
         <EditableCell
@@ -170,18 +170,18 @@ export function createTaskColumns({
     columnHelper.display({
       id: "owners",
       header: "Owners",
-      meta: { label: "Owners" },
+      meta: { label: "Owners", width: "sm" },
       cell: ({ row }) => <PartyStack parties={taskOwners(row.original)} showSoleName />,
     }),
     columnHelper.display({
       id: "people",
       header: "People Involved",
-      meta: { label: "People Involved" },
+      meta: { label: "People Involved", width: "sm" },
       cell: ({ row }) => <PartyStack parties={taskPeopleInvolved(row.original)} />,
     }),
     columnHelper.accessor("status", {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
-      meta: { label: "Status" },
+      meta: { label: "Status", width: "sm" },
       filterFn: "weakEquals",
       cell: ({ row, getValue }) => (
         <EditableCell
@@ -197,7 +197,7 @@ export function createTaskColumns({
     }),
     columnHelper.accessor("priority", {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Priority" />,
-      meta: { label: "Priority" },
+      meta: { label: "Priority", width: "sm" },
       filterFn: "weakEquals",
       cell: ({ row, getValue }) => (
         <EditableCell
@@ -215,7 +215,7 @@ export function createTaskColumns({
     // shown as a truncated preview rather than a fabricated count.
     columnHelper.accessor("notes", {
       header: "Comments",
-      meta: { label: "Comments" },
+      meta: { label: "Comments", width: "lg" },
       enableSorting: false,
       cell: ({ row, getValue }) => (
         <EditableCell
@@ -239,7 +239,7 @@ export function createTaskColumns({
     columnHelper.display({
       id: "actions",
       header: "Actions",
-      meta: { label: "Actions", sticky: "right" },
+      meta: { label: "Actions", sticky: "right", width: "xs" },
       cell: ({ row }) => {
         if (!canManage && !canDelete) return null;
         const task = row.original;

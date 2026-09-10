@@ -32,7 +32,7 @@ export function createKeyStageColumns({
   return [
     columnHelper.accessor("name", {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Name" />,
-      meta: { label: "Name" },
+      meta: { label: "Name", width: "md" },
       cell: ({ row, getValue }) => (
         <EditableCell
           value={getValue()}
@@ -44,7 +44,7 @@ export function createKeyStageColumns({
     }),
     columnHelper.accessor("description", {
       header: "Description",
-      meta: { label: "Description" },
+      meta: { label: "Description", width: "lg" },
       enableSorting: false,
       cell: ({ row, getValue }) => (
         <EditableCell
@@ -57,14 +57,14 @@ export function createKeyStageColumns({
     }),
     columnHelper.accessor("created_at", {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Created On" />,
-      meta: { label: "Created On" },
+      meta: { label: "Created On", width: "sm" },
       sortFn: "datetime",
       cell: ({ getValue }) => formatDate(getValue()),
     }),
     columnHelper.display({
       id: "actions",
       header: "Actions",
-      meta: { label: "Actions", sticky: "right" },
+      meta: { label: "Actions", sticky: "right", width: "xs" },
       cell: ({ row }) => {
         if (!canManage && !canDelete) return null;
         const keyStage = row.original;

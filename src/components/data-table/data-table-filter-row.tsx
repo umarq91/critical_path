@@ -5,28 +5,34 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TableCell, TableRow } from "@/components/ui/table";
 import type { dataTableFeatures, DataTableColumnMeta } from "@/components/data-table/table-features";
+import { getStickyCellClassName } from "@/components/data-table/sticky-column";
+import type { TableScrollEdges } from "@/components/data-table/use-table-scroll-edges";
+import { cn } from "@/lib/utils";
 
 const ALL_VALUE = "__all__";
 
 interface DataTableFilterRowProps<TData extends Record<string, unknown>> {
   table: ReactTable<typeof dataTableFeatures, TData>;
+  scrollEdges: TableScrollEdges;
 }
 
 export const DataTableFilterRow = <TData extends Record<string, unknown>>({
   table,
+  scrollEdges,
 }: DataTableFilterRowProps<TData>) => {
   const headerGroups = table.getHeaderGroups();
   const leafHeaders = headerGroups[headerGroups.length - 1]?.headers ?? [];
 
   return (
-    <TableRow className="hover:bg-transparent">
+    <TableRow className="bg-card hover:bg-card">
       {leafHeaders.map((header) => {
         const column = header.column;
         const meta = column.columnDef.meta as DataTableColumnMeta | undefined;
         const variant = meta?.filterVariant;
+        const cellClassName = cn("py-1.5", getStickyCellClassName(meta, "bg-card", scrollEdges));
 
         if (header.isPlaceholder || !column.getCanFilter() || !variant) {
-          return <TableCell key={header.id} className="py-1.5" />;
+          return <TableCell key={header.id} className={cellClassName} />;
         }
 
         if (variant === "select") {
@@ -35,7 +41,7 @@ export const DataTableFilterRow = <TData extends Record<string, unknown>>({
           const value = (column.getFilterValue() as string | undefined) ?? ALL_VALUE;
           const allLabel = meta?.filterPlaceholder ?? "All";
           return (
-            <TableCell key={header.id} className="py-1.5">
+            <TableCell key={header.id} className={cellClassName}>
               <Select
                 value={value}
                 onValueChange={(next) => column.setFilterValue(next === ALL_VALUE ? undefined : next)}
@@ -63,7 +69,7 @@ export const DataTableFilterRow = <TData extends Record<string, unknown>>({
         }
 
         return (
-          <TableCell key={header.id} className="py-1.5">
+          <TableCell key={header.id} className={cellClassName}>
             <Input
               type={variant === "date" ? "date" : "text"}
               value={(column.getFilterValue() as string | undefined) ?? ""}

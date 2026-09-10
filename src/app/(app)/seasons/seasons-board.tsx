@@ -68,7 +68,7 @@ export const SeasonsBoard = ({
         queryState={queryState}
         rowCount={rowCount}
         onRowClick={(season) => setSelectedId(season.id)}
-        getRowClassName={(season) => (season.id === selectedId ? "bg-primary-tint/40" : undefined)}
+        getRowClassName={(season) => (season.id === selectedId ? "bg-surface-selected" : undefined)}
         enableColumnFilterRow={false}
         paginationLabel="seasons"
         toolbar={{

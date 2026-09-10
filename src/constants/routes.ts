@@ -2,6 +2,7 @@ export const ROUTES = {
   signIn: "/auth/sign-in",
   authCallback: "/auth/callback",
   dashboard: "/dashboard",
+  tasks: "/tasks",
 } as const;
 
 // Checked by src/proxy.ts — any request under these prefixes requires a session.

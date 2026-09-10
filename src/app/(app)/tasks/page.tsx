@@ -9,15 +9,14 @@ import { getCurrentProfile } from "@/data/profiles";
 import { listPartyOptions } from "@/data/parties";
 import { can } from "@/lib/permissions";
 import { loadDataTableSearchParams } from "@/components/data-table/data-table-search-params";
-
-const QUERY_STATE_OPTIONS = { defaultPageSize: 15, defaultSort: { id: "due_date", desc: false } };
+import { TASKS_QUERY_STATE } from "@/app/(app)/tasks/query-state";
 
 export default async function TasksPage({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const queryState = await loadDataTableSearchParams(searchParams, QUERY_STATE_OPTIONS);
+  const queryState = await loadDataTableSearchParams(searchParams, TASKS_QUERY_STATE);
 
   const [{ data: tasks, rowCount }, seasons, brands, keyStages, ownerOptions, profile] = await Promise.all([
     listTasks(queryState),

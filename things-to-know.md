@@ -323,6 +323,12 @@ card — **still 0 requests on interaction**.
   synthetic "Other" bar would outrank real brands. Both dropdowns list *every* entity.
 - **Export is client-side CSV** from data already rendered — no second fetch, no Route Handler.
   It emits the **full** breakdowns, not the charts' trimmed top-N.
+- **The Overdue tile links into `/tasks` pre-filtered, rather than the dashboard owning a
+  second overdue list.** The href is built with `dataTableSearchParamsHref` off the *same*
+  parser definition and the *same* defaults (`TASKS_QUERY_STATE`) the tasks page loads with —
+  `filters` is a JSON search param, and nuqs omits values matching the defaults, so a
+  hand-written query string or a mismatched `defaultPageSize` is how such a link silently
+  arrives unfiltered.
 - **Scaling:** 1 request per 1000 live tasks (guard at 20 pages). Past ~20k tasks this belongs
   in a SQL view or RPC.
 - Proxy and layout both validate the same token (calls #1 and #2). Inherent to the Supabase SSR
@@ -461,3 +467,49 @@ join — which is also why a renamed task's older entries show the old name, and
 **Participant actions live in `tasks/_participant-actions.ts`, not `_actions.ts`.** Same feature,
 but the split keeps both files readable; `participantRows()` moved to `lib/party.ts` because a
 `"use server"` module can only export Server Actions, so the two files can't share a helper.
+
+---
+
+## Data tables (`components/data-table/`)
+
+**Columns are fixed-width, not content-sized.** Each one declares `meta.width` from the five-step
+scale in `column-widths.ts` (defaulting to `md`), `DataTable` emits those as a `<colgroup>`, and
+the table lays out `table-fixed` with `min-width` set to their sum. Below that width it scrolls;
+above it, the columns share the slack proportionally rather than leaving a gutter. This is what
+stops one long task name or description from dragging a column — and the whole page — sideways.
+Adding a column without a `width` silently gets `md` (176px), which is usually wrong for a badge
+or a count.
+
+**Cells clip, so pick the width for the typical value, not the longest one.** `td`/`th` carry
+`truncate`; anything that doesn't fit ellipsises. `showTitleWhenTruncated` (on `onMouseEnter`)
+puts the cell's *rendered* text in a native `title` when, and only when, it's actually clipped —
+rendered text rather than `cell.getValue()`, because the value behind a formatted date or a badge
+is an ISO string or an id and would be worse than useless in a tooltip.
+
+**Every body row must keep an opaque background.** Sticky columns (`meta.sticky`, currently the
+Actions column on tasks/seasons/brands/key-stages/users/teams) paint `bg-inherit`, so they take
+the row's colour — which only hides the cells scrolling underneath if that colour is fully
+opaque. `DataTable` sets `bg-card` on every row for this; a `getRowClassName` tint replaces it
+via tailwind-merge and so must also be opaque. That's what `bg-surface-overdue` /
+`bg-surface-selected` in `globals.css` are: `color-mix`ed, pre-flattened-over-card versions of
+what used to be `bg-status-overdue-soft/40` and `bg-primary-tint/40`. Same reason the header row
+uses `bg-surface-header` instead of `bg-muted/40`.
+
+**Hover and selected are re-stated on the sticky cell.** They live on the `<tr>`, which paints
+*below* the sticky `<td>`, so `bg-inherit` alone would freeze the pinned column at the row's
+resting colour. `DataTable`'s rows carry `group` and the sticky cell carries
+`group-hover:bg-surface-hover group-data-[state=selected]:bg-muted` to follow along.
+
+**The filter row is a separate component (`data-table-filter-row.tsx`) and needs the sticky
+classes applied by hand.** It doesn't go through the header/body cell paths, so it calls the
+shared `getStickyCellClassName` itself — forget it and the Actions filter cell scrolls away
+while the rest of the row slides under the pinned header above it.
+
+**The sticky divider is scroll-state-driven, which is why `DataTable` measures the scroll
+container.** A column parked at its own edge (or a table with no overflow) sits flush with the
+row, where a border reads as a stray line — so `useTableScrollEdges` watches `scrollLeft` and
+the border only colours in once cells are actually passing underneath. Two consequences: the
+border is always present but `border-transparent` at rest, so toggling it can't shift the layout
+by a pixel; and the hook finds the scroll container by `data-slot="table-container"` because
+that element belongs to the shadcn `<Table>` primitive, not to us. Renaming that slot silently
+disables the effect — there's nothing to throw.

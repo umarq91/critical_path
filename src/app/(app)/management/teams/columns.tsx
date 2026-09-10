@@ -36,7 +36,7 @@ export function createDepartmentColumns({
   return [
     columnHelper.accessor("name", {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Name" />,
-      meta: { label: "Name" },
+      meta: { label: "Name", width: "md" },
       cell: ({ row, getValue }) => (
         <EditableCell
           value={getValue()}
@@ -48,7 +48,7 @@ export function createDepartmentColumns({
     }),
     columnHelper.accessor("description", {
       header: "Description",
-      meta: { label: "Description" },
+      meta: { label: "Description", width: "lg" },
       enableSorting: false,
       cell: ({ row, getValue }) => (
         <EditableCell
@@ -61,7 +61,7 @@ export function createDepartmentColumns({
     }),
     columnHelper.accessor("member_count", {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Members" />,
-      meta: { label: "Members" },
+      meta: { label: "Members", width: "md" },
       // Not sortable server-side: member_count is tallied per page from a second query (see
       // countMembersFor in data/departments.ts), not a column Postgres can ORDER BY.
       enableSorting: false,
@@ -84,14 +84,14 @@ export function createDepartmentColumns({
     }),
     columnHelper.accessor("created_at", {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Created On" />,
-      meta: { label: "Created On" },
+      meta: { label: "Created On", width: "sm" },
       sortFn: "datetime",
       cell: ({ getValue }) => formatDate(getValue()),
     }),
     columnHelper.display({
       id: "actions",
       header: "Actions",
-      meta: { label: "Actions", sticky: "right" },
+      meta: { label: "Actions", sticky: "right", width: "xs" },
       cell: ({ row }) => {
         if (!canManage && !canDelete && !canManageMembers) return null;
         const department = row.original;
