@@ -454,13 +454,17 @@ or the filters, the page would be sliced from a different set than it was fetche
   year: 540 distinct rows over 22 pages, no gaps, no duplicates.
 - **Two `.or()` calls on one query AND together** — the overlap filter and (where used) any
   second disjunction. Confirmed against the live database, not assumed.
-- **Search matches task name, key stage, owners and people involved** — the four fields the
-  client named. Season/brand are excluded on purpose: they have their own dropdowns, and folding
-  them in would make a season code match everything in that season.
+- **Search matches task name, season (name or code), brand, key stage, owners and people
+  involved** — `resolveTaskSearchMatcher()` in `data/task-search.ts`, the same matcher `/tasks`
+  uses. It started as the four fields the client named for the Timeline (name, key stage,
+  owners, people) and picked up season/brand when the Tasks grid asked for them: one matcher for
+  both surfaces beats two that quietly diverge. Season and brand still have their own dropdowns
+  here — the search is the broad tool, the dropdowns the precise one.
 - **Name lookups are capped at 100 parties** (`NAME_MATCH_LIMIT`). Past that a term isn't
   identifying anyone, it's the directory — same reasoning as `searchParties`' own limit.
-- **Only ids ever reach an `.or()` string.** A raw term containing a comma or a paren would
-  corrupt PostgREST's filter syntax; terms go exclusively through `.ilike()` bindings.
+- **Terms are sanitised before they reach an `.or()` string** (`sanitiseOrSearchTerm`,
+  `lib/utils.ts`). Commas and parens are PostgREST filter syntax; everything else binds through
+  `.ilike()`, and id lists are the only interpolated values.
 - **Typing is debounced 400ms at the CALL, not on the parser.** nuqs rate-limits per key, so a
   parser-level debounce would flush the accompanying `page: null` reset immediately and the term
   400ms later — two navigations and a flash of unfiltered results per keystroke. Dropdowns and
@@ -563,6 +567,50 @@ work in manual mode; only the toolbar is absent, not the contract.
 **Mutations are not audit-logged.** `audit_log` (0020) covers tasks; lookup entities — seasons,
 key stages, departments — have never been logged, and this follows them rather than becoming the
 one lookup that is. If lookups should be logged, that is one decision applied to all of them.
+
+---
+
+## Task grid search (`/tasks`)
+
+**The search box is one term against the task AND everything it relates to** — its own name, its
+season (name *or* code), brand, key stage, and the names of its owners and people involved. It
+runs server-side in `listTasks`, so it searches the whole table, not the page on screen.
+
+- **`filters.search` is not a column.** `DataTableToolbar`'s `searchColumnId` is a *filter key*:
+  a server-paginated table runs `manualFiltering`, so the key is just a name in the URL's
+  `filters` object that the data function interprets. Every other table still passes a real
+  column id (`brand_name`, `full_name`, …) and behaves exactly as before. The toolbar reads and
+  writes it through `columnFilters` state rather than `table.getColumn()`, which is what allows
+  a key with no column behind it.
+- **A term takes a two-pass route; no term stays a single query.** The owner/people leg resolves
+  to a task-id set that can run to hundreds of uuids, and inlining one into the query's filter
+  builds a URL the endpoint rejects — **measured against this project: ~500 ids pass, ~800
+  fail** (~18KB works, ~29KB doesn't). So a search reads a narrow
+  `id, task_name, season_id, brand_id, key_stage_id` projection, matches in memory, then fetches
+  the page's ~15 rows in full. An ordinary page load pays none of that.
+- **`taskScope()` is synchronous, and must stay that way.** A PostgREST builder is itself
+  thenable, so `await`ing an async function that returned one *runs the query* instead of handing
+  it back. That is why the id lookups are resolved up front by `resolveTaskScopeIds()` and passed
+  in — which also stops a search resolving them twice.
+- **`.order("id")` is a correctness fix, not decoration.** Due dates repeat heavily across 794
+  tasks; without a total order, tied rows can come back in a different sequence per query, which
+  lets a row appear on two pages or on none — for ordinary pagination as much as for the search's
+  two passes. Verified by paging a 364-row result set: 364 distinct rows, no gaps, no duplicates.
+- **Terms are sanitised before they touch an `.or()` string** (`sanitiseOrSearchTerm` in
+  `lib/utils.ts`, shared with `data/parties.ts` and `data/task-participants.ts`). Commas and
+  parens are PostgREST filter syntax; a term containing them would corrupt the query or smuggle
+  an extra condition into it. `.ilike()` binds its argument and needs no such treatment.
+- **The brand leg deliberately ignores `status`.** `listBrandOptions` returns active brands only,
+  but a task can belong to a brand since deactivated and must still be findable by its name.
+- **One matcher serves both search boxes.** `data/task-search.ts` owns the projection
+  (`TASK_SEARCH_SELECT`) and `resolveTaskSearchMatcher()`; `/tasks` and `/timeline` both run it,
+  so the two can't drift into matching different fields. Adding a leg is one edit there.
+- **The narrow pass is unbounded.** It reads every row matching the dropdown filters (794 today)
+  and would hit PostgREST's 1000-row ceiling **silently** past that. If the table grows, move the
+  matching into SQL — a view with a concatenated search column, or an RPC — rather than letting
+  the ceiling truncate results.
+- **`filters.task_name` still works** as a plain name-only `ilike`, so any existing deep link
+  keeps its meaning. `/upcoming` still uses it; only `/tasks` was switched to `search`.
 
 ---
 

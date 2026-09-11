@@ -1,6 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { partyKey, type PartySummary } from "@/lib/party";
+import { sanitiseOrSearchTerm } from "@/lib/utils";
 
 export interface SearchPartiesParams {
   query?: string;
@@ -10,13 +11,6 @@ export interface SearchPartiesParams {
 // not another round trip — the picker exists to find a known department or person, not to
 // browse the directory.
 const SEARCH_RESULT_LIMIT = 50;
-
-// PostgREST's `.or()` filter string uses commas to separate conditions and parentheses for
-// grouping — a raw search term containing either would corrupt the filter syntax (or smuggle
-// an extra condition in), so strip them before building the OR clause.
-function sanitiseOrSearchTerm(value: string) {
-  return value.replace(/[,()]/g, "").trim();
-}
 
 // Powers the Owners and People Involved pickers on tasks. Plain case-insensitive substring
 // match — departments on name, people on name or email.

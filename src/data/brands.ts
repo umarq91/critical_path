@@ -81,6 +81,20 @@ export async function listBrandSummary() {
   return { total: rows.length, statusCounts, addedThisYear };
 }
 
+// The brand leg of the task grid's search box: ids whose name matches a free-text term.
+// Unlike listBrandOptions this does NOT filter to active brands — a task can belong to a brand
+// that has since been deactivated, and it should still be findable by that brand's name.
+export async function listBrandIdsMatching(term: string) {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("brands")
+    .select("id")
+    .is("deleted_at", null)
+    .ilike("brand_name", `%${term}%`);
+  if (error) throw error;
+  return new Set((data ?? []).map((row) => row.id));
+}
+
 // Options for pickers that link another entity to a brand (e.g. the task form/filters) —
 // id/name only, every non-deleted, active brand.
 export async function listBrandOptions() {

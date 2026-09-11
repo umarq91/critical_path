@@ -33,6 +33,10 @@ export interface DataTableToolbarSortOption {
 
 export interface DataTableToolbarConfig {
   filters?: DataTableToolbarFilter[];
+  /** Filter key the search box writes. Usually a column id, and in local (client-filtered)
+   *  mode it must be one. A server-paginated table runs `manualFiltering`, so the key is just
+   *  a name in the URL's `filters` object that its data/*.ts function interprets — which is how
+   *  the tasks grid searches across relations (`"search"`) rather than one column. */
   searchColumnId?: string;
   searchPlaceholder?: string;
   /** A labeled alternative to clicking column headers — same sorting state either way. */
@@ -63,8 +67,20 @@ export const DataTableToolbar = <TData extends Record<string, unknown>>({
   enableColumnVisibility = false,
   enableResetFilters,
 }: DataTableToolbarProps<TData>) => {
-  const searchColumn = searchColumnId ? table.getColumn(searchColumnId) : undefined;
-  const hasSearchValue = !!(searchColumn?.getFilterValue() as string | undefined);
+  // Read and written through columnFilters state rather than table.getColumn(), so the key
+  // does not have to name a real column — see searchColumnId's note above.
+  const columnFilters = table.options.state?.columnFilters ?? [];
+  const searchValue = searchColumnId
+    ? ((columnFilters.find((filter) => filter.id === searchColumnId)?.value as string | undefined) ?? "")
+    : "";
+  const setSearchValue = (next: string) => {
+    if (!searchColumnId) return;
+    table.setColumnFilters([
+      ...columnFilters.filter((filter) => filter.id !== searchColumnId),
+      ...(next ? [{ id: searchColumnId, value: next }] : []),
+    ]);
+  };
+  const hasSearchValue = !!searchValue;
   const hasFilterValue = !!filters?.some((filter) => table.getColumn(filter.columnId)?.getFilterValue() !== undefined);
   const showResetFilters = enableResetFilters ?? (hasSearchValue || hasFilterValue);
 
@@ -75,10 +91,10 @@ export const DataTableToolbar = <TData extends Record<string, unknown>>({
 
   return (
     <div className="flex flex-wrap items-center gap-3">
-      {searchColumn ? (
+      {searchColumnId ? (
         <Input
-          value={(searchColumn.getFilterValue() as string | undefined) ?? ""}
-          onChange={(event) => searchColumn.setFilterValue(event.target.value || undefined)}
+          value={searchValue}
+          onChange={(event) => setSearchValue(event.target.value)}
           placeholder={searchPlaceholder ?? "Search..."}
           className="h-10 w-64"
         />

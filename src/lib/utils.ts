@@ -15,3 +15,11 @@ export function initials(name: string | null | undefined, email: string) {
     .map((part) => part[0]?.toUpperCase())
     .join("");
 }
+
+// PostgREST's `.or()` filter string uses commas to separate conditions and parentheses for
+// grouping, so a raw search term containing either would corrupt the filter syntax — or smuggle
+// an extra condition into the query. Strip them before interpolating a term into one.
+// `.ilike()` and friends bind their argument and need no such treatment.
+export function sanitiseOrSearchTerm(value: string) {
+  return value.replace(/[,()]/g, "").trim();
+}

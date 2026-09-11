@@ -1,6 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { parsePartyKey, type ParticipantRole } from "@/lib/party";
+import { sanitiseOrSearchTerm } from "@/lib/utils";
 
 export type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -44,17 +45,19 @@ const NAME_MATCH_LIMIT = 100;
 
 /**
  * Task ids whose owner or person-involved NAME matches a free-text term — the participant leg
- * of the Timeline's search box. Resolved in two hops (parties by name, then their participant
+ * of the search box on both /tasks and /timeline. Resolved in two hops (parties by name, then their participant
  * rows) because the names live on `profiles`/`departments` while the link lives on
  * `task_participants`, and PostgREST can't reach across that in one filter.
  */
 export async function taskIdsMatchingPartyName(supabase: SupabaseClient, term: string) {
+  // Sanitised because the profiles leg is an .or() string, where commas and parens are syntax.
+  const safe = sanitiseOrSearchTerm(term);
   const [departments, profiles] = await Promise.all([
     supabase.from("departments").select("id").is("deleted_at", null).ilike("name", `%${term}%`).limit(NAME_MATCH_LIMIT),
     supabase
       .from("profiles")
       .select("id")
-      .or(`full_name.ilike.%${term}%,email.ilike.%${term}%`)
+      .or(`full_name.ilike.%${safe}%,email.ilike.%${safe}%`)
       .limit(NAME_MATCH_LIMIT),
   ]);
   if (departments.error) throw departments.error;

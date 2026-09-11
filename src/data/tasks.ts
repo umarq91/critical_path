@@ -5,10 +5,9 @@ import {
   EMPTY_RESULT_ID,
   participantTaskIds,
   taskIdsForProfile,
-  taskIdsMatchingPartyName,
   type SupabaseClient,
 } from "@/data/task-participants";
-import { listKeyStageIdsMatching } from "@/data/key-stages";
+import { TASK_SEARCH_SELECT, resolveTaskSearchMatcher, type TaskSearchRow } from "@/data/task-search";
 import { taskGenderValues, taskStatusValues, taskPriorityValues, type TaskInput } from "@/app/(app)/tasks/schema";
 
 export interface ListTasksParams {
@@ -47,19 +46,38 @@ function isTaskPriority(value: string | undefined): value is TaskInput["priority
   return !!value && (taskPriorityValues as readonly string[]).includes(value);
 }
 
-// The ONE query function behind the task grid, and every future view-specific list (Gantt
-// range, calendar range, dashboard aggregates, CSV export) — those extend this, not fork it.
-export async function listTasks({
-  page = 1,
-  pageSize = 15,
-  sortBy,
-  sortDir,
-  filters = {},
-  ownerOrInvolvedProfileId,
-  onlyUpcoming,
-}: ListTasksParams = {}) {
-  const supabase = await createClient();
-  let query = supabase.from("tasks").select(TASK_SELECT, { count: "exact" }).is("deleted_at", null);
+/** Task-id allow-lists that can't be expressed as inline PostgREST filters, resolved once per
+ *  call so the two passes of a search don't look them up twice. `null` = that scope isn't set. */
+interface TaskScopeIds {
+  participants: string[] | null;
+  profile: string[] | null;
+}
+
+async function resolveTaskScopeIds(supabase: SupabaseClient, params: ListTasksParams): Promise<TaskScopeIds> {
+  const { filters = {}, ownerOrInvolvedProfileId } = params;
+  return {
+    // "Owner" / "People Involved" toolbar filters — see participantTaskIds.
+    participants: await participantTaskIds(supabase, filters),
+    // Reads the task_participant_profiles view (0015_task_participants.sql), which flattens
+    // department membership down to individual profiles — so a task owned by Planning counts
+    // as "mine" when I'm in Planning, not only when I'm named on it directly.
+    profile: ownerOrInvolvedProfileId ? await taskIdsForProfile(supabase, ownerOrInvolvedProfileId) : null,
+  };
+}
+
+// Filters, scope and ordering, shared by the plain query and by both passes of a search — so
+// the narrow pass that decides WHICH tasks match and the wide pass that fetches them can never
+// disagree about anything else.
+//
+// Synchronous on purpose: a PostgREST builder is itself thenable, so `await`ing an async
+// function that returned one would RUN the query instead of handing it back. Hence the
+// pre-resolved ids.
+function taskScope(supabase: SupabaseClient, select: string, params: ListTasksParams, ids: TaskScopeIds, withCount: boolean) {
+  const { filters = {}, sortBy, sortDir, onlyUpcoming } = params;
+  let query = supabase
+    .from("tasks")
+    .select(select, withCount ? { count: "exact" } : undefined)
+    .is("deleted_at", null);
 
   if (filters.task_name) query = query.ilike("task_name", `%${filters.task_name}%`);
   if (filters.season_id) query = query.eq("season_id", filters.season_id);
@@ -68,12 +86,10 @@ export async function listTasks({
   if (isTaskGender(filters.gender)) query = query.eq("gender", filters.gender);
   if (isTaskStatus(filters.status)) query = query.eq("status", filters.status);
   if (isTaskPriority(filters.priority)) query = query.eq("priority", filters.priority);
-  // "Owner" / "People Involved" toolbar filters — see participantTaskIds. An unmatched party
-  // must yield zero rows, not every row, hence the impossible-id fallback rather than skipping
-  // the clause.
-  const participantIds = await participantTaskIds(supabase, filters);
-  if (participantIds) {
-    query = participantIds.length > 0 ? query.in("id", participantIds) : query.eq("id", EMPTY_RESULT_ID);
+  // An unmatched party must yield zero rows, not every row, hence the impossible-id fallback
+  // rather than skipping the clause.
+  if (ids.participants) {
+    query = ids.participants.length > 0 ? query.in("id", ids.participants) : query.eq("id", EMPTY_RESULT_ID);
   }
   // "Due" toolbar filter (Upcoming Tasks) — a day-count preset ("7"/"30"/"90"), not a literal
   // date; caps due_date at today + N days. Composes with onlyUpcoming's >= today floor below
@@ -87,26 +103,72 @@ export async function listTasks({
 
   if (onlyUpcoming) query = query.gte("due_date", format(new Date(), "yyyy-MM-dd"));
 
-  if (ownerOrInvolvedProfileId) {
-    // Reads the task_participant_profiles view (0015_task_participants.sql), which flattens
-    // department membership down to individual profiles — so a task owned by Planning counts
-    // as "mine" when I'm in Planning, not only when I'm named on it directly. Still resolved
-    // as its own lookup first because PostgREST can't express the subquery inline.
-    const taskIds = await taskIdsForProfile(supabase, ownerOrInvolvedProfileId);
-    query = taskIds.length > 0 ? query.in("id", taskIds) : query.eq("id", EMPTY_RESULT_ID);
+  if (ids.profile) {
+    query = ids.profile.length > 0 ? query.in("id", ids.profile) : query.eq("id", EMPTY_RESULT_ID);
   }
 
   const orderColumn = sortBy && SORTABLE_COLUMNS.has(sortBy) ? sortBy : "due_date";
-  query = query.order(orderColumn, { ascending: sortDir !== "desc" });
-
-  const from = (page - 1) * pageSize;
-  const { data, error, count } = await query.range(from, from + pageSize - 1);
-  if (error) throw error;
-
-  return { data: data ?? [], rowCount: count ?? 0 };
+  // `id` is the tiebreaker and is NOT decorative: due dates (and statuses, and priorities)
+  // repeat heavily, and without a total order Postgres may return tied rows in a different
+  // sequence per query — which lets a row appear on two pages, or on none, both for ordinary
+  // pagination and across the search's two passes.
+  return query.order(orderColumn, { ascending: sortDir !== "desc" }).order("id", { ascending: true });
 }
 
-export type Task = Awaited<ReturnType<typeof listTasks>>["data"][number];
+// The ONE query function behind the task grid, and every future view-specific list (Gantt
+// range, calendar range, dashboard aggregates, CSV export) — those extend this, not fork it.
+//
+// `filters.search` takes the two-pass route for the same reason listTasksForTimeline does: the
+// owner/people leg is a task-id set that can run to hundreds of uuids, and inlining one into
+// the query's filter builds a URL the endpoint rejects (measured: ~500 ids pass, ~800 fail).
+// Without a term this stays a single query — the ordinary page load pays nothing for the
+// feature.
+export async function listTasks(params: ListTasksParams = {}): Promise<{ data: Task[]; rowCount: number }> {
+  const supabase = await createClient();
+  const { page = 1, pageSize = 15, filters = {} } = params;
+  const term = (filters.search ?? "").trim();
+
+  const ids = await resolveTaskScopeIds(supabase, params);
+  const from = (page - 1) * pageSize;
+
+  if (!term) {
+    const { data, error, count } = await taskScope(supabase, TASK_SELECT, params, ids, true).range(
+      from,
+      from + pageSize - 1
+    );
+    if (error) throw error;
+    return { data: (data ?? []) as unknown as Task[], rowCount: count ?? 0 };
+  }
+
+  const { data: candidates, error: candidateError } = await taskScope(supabase, TASK_SEARCH_SELECT, params, ids, false);
+  if (candidateError) throw candidateError;
+
+  const matched = ((candidates ?? []) as unknown as TaskSearchRow[]).filter(
+    await resolveTaskSearchMatcher(supabase, term)
+  );
+
+  const pageIds = matched.slice(from, from + pageSize).map((row) => row.id);
+  if (pageIds.length === 0) return { data: [], rowCount: matched.length };
+
+  // Re-ordered by the same columns as the narrow pass, so the page reads in the sequence it was
+  // sliced in. The scope's filters are redundant here (these ids already passed them) but cost
+  // nothing and keep one definition of "how this list is ordered".
+  const { data, error } = await taskScope(supabase, TASK_SELECT, params, ids, false).in("id", pageIds);
+  if (error) throw error;
+
+  return { data: (data ?? []) as unknown as Task[], rowCount: matched.length };
+}
+
+// A type witness, never called. `Task` has to come from a `.select(TASK_SELECT)` where the
+// string's LITERAL type survives — supabase-js parses it to build the row shape, and passing
+// TASK_SELECT through taskScope's `select: string` parameter erases exactly that. Deriving from
+// listTasks() instead would be circular, since it now annotates its own return type.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function taskSelectQuery(supabase: SupabaseClient) {
+  return supabase.from("tasks").select(TASK_SELECT);
+}
+
+export type Task = NonNullable<Awaited<ReturnType<typeof taskSelectQuery>>["data"]>[number];
 
 // The Upcoming Tasks page's one query — a thin preset over listTasks(), same shape as
 // listUpcomingSeasons/listUpcomingBrands elsewhere: still fully paginated/sorted/filterable
@@ -225,23 +287,6 @@ async function timelineScope(supabase: SupabaseClient, select: string, { from, t
     .order("id", { ascending: true });
 }
 
-// The Timeline's search box. Task name and key stage are matched here; owners and people
-// involved arrive as a task-id set, since their names live two tables away (see
-// taskIdsMatchingPartyName). `ilike '%term%'` is a case-insensitive substring match, which is
-// exactly what `includes` on a lowercased string does — the two legs stay consistent.
-async function matchesSearchTerm(supabase: SupabaseClient, term: string) {
-  const [keyStageIds, participantTaskIdSet] = await Promise.all([
-    listKeyStageIdsMatching(term),
-    taskIdsMatchingPartyName(supabase, term),
-  ]);
-  const needle = term.toLowerCase();
-
-  return (row: { id: string; task_name: string; key_stage_id: string | null }) =>
-    row.task_name.toLowerCase().includes(needle) ||
-    (!!row.key_stage_id && keyStageIds.has(row.key_stage_id)) ||
-    participantTaskIdSet.has(row.id);
-}
-
 // Powers the Timeline/Gantt view. Bounded by the visible window like listTasksByDueDateRange,
 // and returns the full TASK_SELECT shape so a clicked bar can open the shared task detail
 // drawer without a second fetch.
@@ -263,15 +308,11 @@ export async function listTasksForTimeline(params: ListTasksForTimelineParams) {
     return { data: (data ?? []) as unknown as Task[], rowCount: data?.length ?? 0 };
   }
 
-  const { data: candidates, error: candidateError } = await timelineScope(
-    supabase,
-    "id, task_name, key_stage_id",
-    params
-  );
+  const { data: candidates, error: candidateError } = await timelineScope(supabase, TASK_SEARCH_SELECT, params);
   if (candidateError) throw candidateError;
 
-  const rows = (candidates ?? []) as unknown as { id: string; task_name: string; key_stage_id: string | null }[];
-  const matched = term ? rows.filter(await matchesSearchTerm(supabase, term)) : rows;
+  const rows = (candidates ?? []) as unknown as TaskSearchRow[];
+  const matched = term ? rows.filter(await resolveTaskSearchMatcher(supabase, term)) : rows;
 
   const start = pageSize === undefined ? 0 : (page - 1) * pageSize;
   const pageIds = (pageSize === undefined ? matched : matched.slice(start, start + pageSize)).map((row) => row.id);

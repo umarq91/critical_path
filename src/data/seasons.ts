@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { sanitiseOrSearchTerm } from "@/lib/utils";
 import { seasonStatusValues, type SeasonInput } from "@/app/(app)/seasons/schema";
 
 export interface ListSeasonsParams {
@@ -135,6 +136,22 @@ export async function listSeasonTaskStats(seasonIds: string[]): Promise<Record<s
   }
 
   return stats;
+}
+
+// The season leg of the task grid's search box: ids whose name OR code matches a free-text
+// term, so searching "SS26" reaches every task in that season and not only the ones naming it.
+// Both columns, because the client's data uses the code far more than the name.
+export async function listSeasonIdsMatching(term: string) {
+  const supabase = await createClient();
+  const safe = sanitiseOrSearchTerm(term);
+  const { data, error } = await supabase
+    .from("seasons")
+    .select("id")
+    .is("deleted_at", null)
+    // Sanitised because this goes into an .or() string, where commas and parens are syntax.
+    .or(`season_name.ilike.%${safe}%,season_code.ilike.%${safe}%`);
+  if (error) throw error;
+  return new Set((data ?? []).map((row) => row.id));
 }
 
 // Options for pickers that link another entity to a season (e.g. the brand form's Season

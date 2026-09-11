@@ -137,8 +137,10 @@ export const TasksBoard = ({
             { columnId: "due_date", desc: false, label: "Due Date (Earliest)" },
             { columnId: "due_date", desc: true, label: "Due Date (Latest)" },
           ],
-          searchColumnId: "task_name",
-          searchPlaceholder: "Search in tasks...",
+          // Not a column id: `search` is interpreted by listTasks as one term across the task
+          // name, its season, brand and key stage, and its owners and people involved.
+          searchColumnId: "search",
+          searchPlaceholder: "Search tasks, season, brand, key stage, people...",
         }}
       />
       {/* Mounted per selected task, so the drawer's participants draft starts from that
