@@ -524,6 +524,48 @@ or the filters, the page would be sliced from a different set than it was fetche
 
 ---
 
+## External Links (`/external-links`)
+
+**Cost: 2 Supabase calls** — the paginated link list and the current profile.
+
+**Admin-only writes, everyone-internal reads, enforced in three places that must agree:** the
+`admin.manage_lookups` check inside every Server Action (`requirePermission`), the `canManage`
+flag that decides whether the Add button and the row pencil/delete render at all, and
+`external_links_write_admin` in `0021`. Reads are `lookups.view` + `requirePageAccess` in the
+page, mirrored by `external_links_select_internal`.
+
+**Read access is deliberately narrower than the other lookup tables.** `key_stages`,
+`departments` and friends are readable by *any* active user because an external user's own task
+rows have to render their labels. Nothing renders an external link except this page, so its
+policy excludes `external` outright rather than relying on the app layer alone.
+
+**There is no `sort_order` column, so the list is ordered by title.** That is the only stable
+reading order the table can offer. If the client asks to arrange links by hand, that is a new
+column plus a reorder UI — not something to fake with `created_at`.
+
+**URLs are normalised on write, never on read.** `schema.ts` prefixes `https://` when the term
+has no scheme (people type `drive.google.com/…`) and then rejects anything whose host has no
+dot — otherwise a typo like `drive` becomes the perfectly parseable, perfectly useless
+`https://drive`. Because the normalising schema is also what `updateExternalLink` re-parses, an
+inline edit gets the same treatment as the create form. Anything downstream can assume the
+stored value is an absolute URL.
+
+**The link cell is an anchor in read mode and an input in edit mode** — `EditableCell`'s
+`display` prop, not a second cell component. It carries `rel="noopener noreferrer"` (the target
+document otherwise gets a handle on this window) and `stopPropagation` so following a link never
+also fires the row's own click handling.
+
+**No filter bar, on purpose** — it is a short curated list, and the client asked for none. The
+query still takes the standard `{ page, pageSize, sortBy, sortDir, filters }` shape and honours
+a `title` filter if one arrives in the URL, because that is what makes the shared `<DataTable>`
+work in manual mode; only the toolbar is absent, not the contract.
+
+**Mutations are not audit-logged.** `audit_log` (0020) covers tasks; lookup entities — seasons,
+key stages, departments — have never been logged, and this follows them rather than becoming the
+one lookup that is. If lookups should be logged, that is one decision applied to all of them.
+
+---
+
 ## Logs / audit trail (`/management/logs`)
 
 **The `tasks` tracking columns are not an audit trail and never were.** `created_by`,

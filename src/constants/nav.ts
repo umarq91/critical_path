@@ -8,6 +8,7 @@ import {
   Leaf,
   Milestone,
   FileBarChart2,
+  Link2,
   ScrollText,
   User,
   Building2,
@@ -47,6 +48,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { title: "Seasons", href: "/seasons", icon: Leaf, requiredAction: "lookups.view" },
       { title: "Key Stages", href: "/key-stages", icon: Milestone, requiredAction: "lookups.view" },
       { title: "Reports", href: "/reports", icon: FileBarChart2, requiredAction: "dashboard.export_reports" },
+      { title: "External Links", href: "/external-links", icon: Link2, requiredAction: "lookups.view" },
     ],
   },
   {

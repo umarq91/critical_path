@@ -141,6 +141,20 @@ policy — see `0006_tasks.sql`.
 
 **RLS:** any authenticated user reads; only admin writes — falls under the general `admin.manage_lookups` bucket in `lib/permissions.ts`, same as `seasons` (no dedicated `key_stage.*` row on the client's Role-Based Access screen).
 
+### `external_links`
+*Migration: `0021_external_links.sql`. Flat, admin-curated list of resources the team reaches from the platform (shared drives, reference sites, supplier portals). Title + description + url and nothing else — no category, no `sort_order`, no owner. This is the table `plan.md` §4 sketched as `sales_toolkit_links`; if the Sales Toolkit page is ever built it should read this rather than add a second one.*
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid, PK | |
+| `title` | text | |
+| `description` | text, nullable | |
+| `url` | text | absolute, normalised to `https://` on write by `external-links/schema.ts` — never stored scheme-less |
+| `created_at` / `updated_at` | timestamptz | |
+| `deleted_at` | timestamptz, nullable | soft delete |
+
+**RLS:** active **internal** users read (`is_active_user() and not is_external_user()`); only admin writes. Note this is *stricter* than `key_stages`/`departments`, which any active user reads: those carry labels an external user's own task rows have to render, whereas this table is an internal resource list that appears on no other screen. The read rule mirrors `lookups.view` in `lib/permissions.ts` — change one, change both.
+
 ### `departments`
 *Migration: `0009_departments.sql`. Lightweight lookup entity, same shape as `key_stages` — users can optionally belong to one.*
 
@@ -312,7 +326,8 @@ Exists so "tasks relevant to me" stays one query rather than the three hops (me 
 | `0018_external_user_access.sql` | `is_active_user()`, `is_external_user()`, `task_involves_current_user()`, `profile_shares_task_with_current_user()`; rewrites the SELECT policies on `tasks`, `task_participants`, `task_people` and `profiles` to scope external users to their own tasks; adds an active-account requirement to those tables' read *and* write policies; updates `handle_new_user()` to honour a `user_metadata.app_role` hint of `external` (only that value — it can lower privilege, never raise it) so an admin-created external user's profile is born with the right role. |
 | `0019_one_way_calendar_sync.sql` | Drops `external_calendar_events` and its RLS; re-comments `tasks.google_synced_at`/`google_calendar_owner_id` for one-way push semantics. Google Calendar can no longer write to a task. |
 | `0020_audit_log.sql` | `audit_log` table (actor / action / entity / jsonb `changes`), four indexes, admin-only select + own-row insert and **no update or delete policy** (append-only), plus a rerun-safe backfill of create/update/delete events from `tasks`' tracking columns. Backs Management → Logs. |
+| `0021_external_links.sql` | `external_links` table (title + description + url), internal-read/admin-write RLS, and a partial index on `title` for the default alphabetical ordering. Backs the External Links page. |
 
 ## Not built yet
 
-Templates, holidays, leave, reminder rules, notifications log, sales toolkit links — see `plan.md` §4 for the original full sketch. Add each here as its migration lands.
+Templates, holidays, leave, reminder rules, notifications log — see `plan.md` §4 for the original full sketch. Add each here as its migration lands. (`sales_toolkit_links` landed as `external_links` in `0021` under the client's own name for it.)

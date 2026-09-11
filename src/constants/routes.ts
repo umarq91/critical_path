@@ -20,6 +20,7 @@ export const PROTECTED_PREFIXES = [
   "/seasons",
   "/key-stages",
   "/reports",
+  "/external-links",
   "/sales-toolkit",
   "/management",
   "/settings",
