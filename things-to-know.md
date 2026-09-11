@@ -614,6 +614,43 @@ runs server-side in `listTasks`, so it searches the whole table, not the page on
 
 ---
 
+## Upcoming Tasks (`/upcoming`)
+
+**Every person sees only their own work, with no role exemption** — an admin scoped this way
+gets their own list, not the organisation's. The scope is `scopeToProfileId` on `listTasks()`,
+and "theirs" is the union of three things:
+
+1. tasks they **created** (`tasks.created_by`),
+2. tasks they are an **owner** of, and
+3. tasks they are **People Involved** on,
+
+where 2 and 3 count whether they are named directly **or through their department** — the
+`task_participant_profiles` view (0015) flattens department membership down to profiles. That
+last part is doing nearly all the work in practice: the client's export names a department as
+owner on 832 of 833 rows, so almost nobody is named individually. Measured on current data (378
+tasks due today or later): Brand Managers member → 190, Customer Service external user → 77,
+a profile with **no department** → 0–1. If someone reports an empty Upcoming page, check their
+department before looking at the query.
+
+**The scope is applied in memory, not as a filter, and that is a fix rather than a shortcut.**
+It is a union of a column check (`created_by = me`) and a join-table id set, which PostgREST
+can't express in one clause. The previous version inlined that id set as `.in("id", [...])` —
+already 391 uuids (~14.5KB of URL) for one real user here, against a measured ceiling of ~500
+ids / ~18KB on this project. It worked, but a larger department or a bigger table would have
+started failing the request outright. Now the narrow two-pass path (see the task grid section)
+carries it: match over a narrow projection, fetch only the page in full.
+
+**`created_by` earns its place even though it currently adds nothing.** No row in the seed data
+was created by someone who isn't also a participant on it, so the leg matches 0 extra tasks
+today — it exists so a task someone raises and then hands to another department doesn't vanish
+from the raiser's own list.
+
+**Its search box is still task-name-only** (`searchColumnId: "task_name"`), unlike `/tasks`,
+which searches across relations. Not an oversight — it was left alone deliberately; switching it
+is one line (`"search"`) if the same behaviour is wanted here.
+
+---
+
 ## Logs / audit trail (`/management/logs`)
 
 **The `tasks` tracking columns are not an audit trail and never were.** `created_by`,

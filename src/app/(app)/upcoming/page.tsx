@@ -39,7 +39,7 @@ export default async function UpcomingTasksPage({
     <div className="flex flex-col">
       <PageHeader
         title="Upcoming Tasks"
-        description="Tasks you own or are involved in, due soon — nearest first."
+        description="Tasks you created, own, or are involved in — due soon, nearest first."
       />
       <div className="flex flex-col gap-4 px-6 pb-6">
         <UpcomingTasksBoard

@@ -16,13 +16,16 @@ export interface ListTasksParams {
   sortBy?: string;
   sortDir?: string;
   filters?: Record<string, string>;
-  /** Scopes results to tasks this profile participates in — as an owner or as People
-   *  Involved, named directly or via their department (see the task_participant_profiles
-   *  view). The Upcoming Tasks page's "relevant to me" scope. Deliberately narrower than
-   *  listTasksByDueDateRange's `involvesProfileId`, which also matches created_by (the
-   *  calendar's broader "involves" concept). A dedicated param rather than a `filters` key
-   *  since it resolves through a join table, not a plain equality match. */
-  ownerOrInvolvedProfileId?: string;
+  /** Scopes the list to one person's own work — the Upcoming Tasks page's whole premise.
+   *  "Theirs" means any of: they created it, they are an owner, or they are People Involved —
+   *  in the last two cases whether named directly or through their department (see the
+   *  task_participant_profiles view). Role grants no exemption: an admin scoped this way sees
+   *  their own tasks, not everyone's.
+   *
+   *  Resolved in memory rather than as a filter, because neither leg can be an inline
+   *  PostgREST clause: participation lives in a join table, and the two legs are a union
+   *  (`created_by = me OR id IN (…)`) whose id side can run to hundreds of uuids. */
+  scopeToProfileId?: string;
   /** Hard floor of `due_date >= today` — not exposed via `filters` since callers shouldn't
    *  be able to relax it; it's the Upcoming Tasks page's core "upcoming" definition. */
   onlyUpcoming?: boolean;
@@ -47,21 +50,16 @@ function isTaskPriority(value: string | undefined): value is TaskInput["priority
 }
 
 /** Task-id allow-lists that can't be expressed as inline PostgREST filters, resolved once per
- *  call so the two passes of a search don't look them up twice. `null` = that scope isn't set. */
+ *  call so the two passes below don't look them up twice. `null` = that scope isn't set. */
 interface TaskScopeIds {
   participants: string[] | null;
-  profile: string[] | null;
 }
 
 async function resolveTaskScopeIds(supabase: SupabaseClient, params: ListTasksParams): Promise<TaskScopeIds> {
-  const { filters = {}, ownerOrInvolvedProfileId } = params;
+  const { filters = {} } = params;
   return {
     // "Owner" / "People Involved" toolbar filters — see participantTaskIds.
     participants: await participantTaskIds(supabase, filters),
-    // Reads the task_participant_profiles view (0015_task_participants.sql), which flattens
-    // department membership down to individual profiles — so a task owned by Planning counts
-    // as "mine" when I'm in Planning, not only when I'm named on it directly.
-    profile: ownerOrInvolvedProfileId ? await taskIdsForProfile(supabase, ownerOrInvolvedProfileId) : null,
   };
 }
 
@@ -103,10 +101,6 @@ function taskScope(supabase: SupabaseClient, select: string, params: ListTasksPa
 
   if (onlyUpcoming) query = query.gte("due_date", format(new Date(), "yyyy-MM-dd"));
 
-  if (ids.profile) {
-    query = ids.profile.length > 0 ? query.in("id", ids.profile) : query.eq("id", EMPTY_RESULT_ID);
-  }
-
   const orderColumn = sortBy && SORTABLE_COLUMNS.has(sortBy) ? sortBy : "due_date";
   // `id` is the tiebreaker and is NOT decorative: due dates (and statuses, and priorities)
   // repeat heavily, and without a total order Postgres may return tied rows in a different
@@ -115,23 +109,38 @@ function taskScope(supabase: SupabaseClient, select: string, params: ListTasksPa
   return query.order(orderColumn, { ascending: sortDir !== "desc" }).order("id", { ascending: true });
 }
 
+/** The narrow pass's projection: what a search matches against, plus the column the personal
+ *  scope needs. */
+const TASK_NARROW_SELECT = `${TASK_SEARCH_SELECT}, created_by`;
+
+type TaskNarrowRow = TaskSearchRow & { created_by: string | null };
+
+// "Their tasks": created by them, or owned by them, or involving them — the last two directly
+// or through their department. A union of a column check and a join-table id set, which is why
+// it is applied here and not as a filter.
+async function resolvePersonalScope(supabase: SupabaseClient, profileId: string) {
+  const participantIds = new Set(await taskIdsForProfile(supabase, profileId));
+  return (row: TaskNarrowRow) => row.created_by === profileId || participantIds.has(row.id);
+}
+
 // The ONE query function behind the task grid, and every future view-specific list (Gantt
 // range, calendar range, dashboard aggregates, CSV export) — those extend this, not fork it.
 //
-// `filters.search` takes the two-pass route for the same reason listTasksForTimeline does: the
-// owner/people leg is a task-id set that can run to hundreds of uuids, and inlining one into
-// the query's filter builds a URL the endpoint rejects (measured: ~500 ids pass, ~800 fail).
-// Without a term this stays a single query — the ordinary page load pays nothing for the
-// feature.
+// Two criteria can't be PostgREST filters — a search term and the personal scope — and either
+// one puts this on the two-pass route: match against a narrow projection of the whole scoped
+// set, then fetch only the page's rows in full. The alternative, inlining a task-id set into
+// the query, builds a URL the endpoint rejects once the set is big enough (measured on this
+// project: ~500 ids pass, ~800 fail). With neither, this stays a single query and the ordinary
+// page load pays nothing for the feature.
 export async function listTasks(params: ListTasksParams = {}): Promise<{ data: Task[]; rowCount: number }> {
   const supabase = await createClient();
-  const { page = 1, pageSize = 15, filters = {} } = params;
+  const { page = 1, pageSize = 15, filters = {}, scopeToProfileId } = params;
   const term = (filters.search ?? "").trim();
 
   const ids = await resolveTaskScopeIds(supabase, params);
   const from = (page - 1) * pageSize;
 
-  if (!term) {
+  if (!term && !scopeToProfileId) {
     const { data, error, count } = await taskScope(supabase, TASK_SELECT, params, ids, true).range(
       from,
       from + pageSize - 1
@@ -140,12 +149,12 @@ export async function listTasks(params: ListTasksParams = {}): Promise<{ data: T
     return { data: (data ?? []) as unknown as Task[], rowCount: count ?? 0 };
   }
 
-  const { data: candidates, error: candidateError } = await taskScope(supabase, TASK_SEARCH_SELECT, params, ids, false);
+  const { data: candidates, error: candidateError } = await taskScope(supabase, TASK_NARROW_SELECT, params, ids, false);
   if (candidateError) throw candidateError;
 
-  const matched = ((candidates ?? []) as unknown as TaskSearchRow[]).filter(
-    await resolveTaskSearchMatcher(supabase, term)
-  );
+  let matched = (candidates ?? []) as unknown as TaskNarrowRow[];
+  if (scopeToProfileId) matched = matched.filter(await resolvePersonalScope(supabase, scopeToProfileId));
+  if (term) matched = matched.filter(await resolveTaskSearchMatcher(supabase, term));
 
   const pageIds = matched.slice(from, from + pageSize).map((row) => row.id);
   if (pageIds.length === 0) return { data: [], rowCount: matched.length };
@@ -173,10 +182,10 @@ export type Task = NonNullable<Awaited<ReturnType<typeof taskSelectQuery>>["data
 // The Upcoming Tasks page's one query — a thin preset over listTasks(), same shape as
 // listUpcomingSeasons/listUpcomingBrands elsewhere: still fully paginated/sorted/filterable
 // (search, season/brand/status/priority/due-range all layer on top via `params.filters`),
-// just with two fixed constraints the caller can't relax: scoped to this profile's own
-// tasks (owner or People Involved), and due_date >= today.
+// just with two fixed constraints the caller can't relax: scoped to this person's own tasks
+// (see scopeToProfileId), and due_date >= today.
 export function listUpcomingTasksForProfile(profileId: string, params: ListTasksParams = {}) {
-  return listTasks({ ...params, ownerOrInvolvedProfileId: profileId, onlyUpcoming: true });
+  return listTasks({ ...params, scopeToProfileId: profileId, onlyUpcoming: true });
 }
 
 export interface ListTasksByDueDateRangeParams {
