@@ -1,19 +1,16 @@
 "use client";
 
 import { useMemo } from "react";
-import { format, isSameDay } from "date-fns";
 import { CalendarRange } from "lucide-react";
 import { EmptyState } from "@/components/shared/empty-state";
 import { TimelineTaskBar } from "@/app/(app)/timeline/timeline-task-bar";
+import { getTimelineHeader } from "@/app/(app)/timeline/timeline-header";
 import {
   DAY_WIDTH,
   ROW_HEIGHT,
   TASK_COLUMN_WIDTH,
   getBarGeometry,
-  getTimelineDays,
   getTodayOffset,
-  getWeekGroups,
-  toTimelineDays,
   type TimelineRange,
 } from "@/app/(app)/timeline/timeline-utils";
 import type { TimelineView } from "@/app/(app)/timeline/timeline-search-params";
@@ -22,27 +19,31 @@ import { cn } from "@/lib/utils";
 import type { Task } from "@/data/tasks";
 
 interface TimelineGridProps {
+  /** Exactly the rows to draw. Searching and paging happen in the caller (TimelineWorkspace);
+   *  the Dashboard preview hands over its own 12-row slice the same way. */
   tasks: Task[];
   range: TimelineRange;
   view: TimelineView;
   onSelectTask: (task: Task) => void;
+  emptyDescription?: string;
 }
 
 // One scroll container holds both halves, and the left column is `sticky left-0` inside it.
 // That is what keeps task rows and bars locked together: they are literally the same DOM row,
 // so vertical alignment can't drift, and horizontal scrolling moves only the timeline.
-export const TimelineGrid = ({ tasks, range, view, onSelectTask }: TimelineGridProps) => {
+export const TimelineGrid = ({
+  tasks,
+  range,
+  view,
+  onSelectTask,
+  emptyDescription = "Try a different period, or clear the filters above.",
+}: TimelineGridProps) => {
   const dayWidth = DAY_WIDTH[view];
 
-  const { days, weekGroups, timelineWidth, todayOffset } = useMemo(() => {
-    const rawDays = getTimelineDays(range);
-    return {
-      days: toTimelineDays(rawDays),
-      weekGroups: getWeekGroups(rawDays),
-      timelineWidth: rawDays.length * dayWidth,
-      todayOffset: getTodayOffset(range, dayWidth),
-    };
-  }, [range, dayWidth]);
+  const { groups, columns, gridlines, timelineWidth, todayOffset } = useMemo(() => {
+    const header = getTimelineHeader(view, range);
+    return { ...header, timelineWidth: header.totalDays * dayWidth, todayOffset: getTodayOffset(range, dayWidth) };
+  }, [range, view, dayWidth]);
 
   // Geometry recomputes only when the window or the task set actually changes — not on scroll,
   // and not when an unrelated bit of workspace state moves.
@@ -54,11 +55,7 @@ export const TimelineGrid = ({ tasks, range, view, onSelectTask }: TimelineGridP
   if (tasks.length === 0) {
     return (
       <div className="rounded-lg border border-border">
-        <EmptyState
-          icon={CalendarRange}
-          title="No tasks in this period"
-          description="Try a different month, or clear the season and brand filters."
-        />
+        <EmptyState icon={CalendarRange} title="No tasks in this period" description={emptyDescription} />
       </div>
     );
   }
@@ -78,7 +75,7 @@ export const TimelineGrid = ({ tasks, range, view, onSelectTask }: TimelineGridP
 
           <div style={{ width: timelineWidth }}>
             <div className="flex" style={{ height: ROW_HEIGHT }}>
-              {weekGroups.map((group) => (
+              {groups.map((group) => (
                 <div
                   key={group.key}
                   className="flex flex-col justify-center overflow-hidden border-r border-border px-2 last:border-r-0"
@@ -90,27 +87,36 @@ export const TimelineGrid = ({ tasks, range, view, onSelectTask }: TimelineGridP
               ))}
             </div>
             <div className="flex border-t border-border" style={{ height: ROW_HEIGHT }}>
-              {days.map((day) => {
-                const isToday = isSameDay(day.date, new Date());
-                return (
-                  <div
-                    key={day.key}
+              {columns.map((column) => (
+                <div
+                  key={column.key}
+                  className={cn(
+                    "flex flex-col items-center justify-center overflow-hidden border-r border-border/60 last:border-r-0",
+                    column.isWeekend && "bg-muted/50",
+                    column.isToday && "bg-primary-tint"
+                  )}
+                  style={{ width: column.dayCount * dayWidth }}
+                >
+                  <span
                     className={cn(
-                      "flex flex-col items-center justify-center border-r border-border/60 last:border-r-0",
-                      day.isWeekend && "bg-muted/50",
-                      isToday && "bg-primary-tint"
+                      "truncate text-[11px] leading-tight",
+                      column.isToday ? "font-semibold text-primary" : "text-muted-foreground"
                     )}
-                    style={{ width: dayWidth }}
                   >
-                    <span className={cn("text-[11px] leading-tight", isToday ? "font-semibold text-primary" : "text-muted-foreground")}>
-                      {format(day.date, view === "week" ? "EEE" : "EEEEE")}
+                    {column.label}
+                  </span>
+                  {column.subLabel ? (
+                    <span
+                      className={cn(
+                        "truncate text-xs leading-tight",
+                        column.isToday ? "font-semibold text-primary" : "text-foreground"
+                      )}
+                    >
+                      {column.subLabel}
                     </span>
-                    <span className={cn("text-xs leading-tight", isToday ? "font-semibold text-primary" : "text-foreground")}>
-                      {format(day.date, "d")}
-                    </span>
-                  </div>
-                );
-              })}
+                  ) : null}
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -146,9 +152,9 @@ export const TimelineGrid = ({ tasks, range, view, onSelectTask }: TimelineGridP
                 style={{
                   width: timelineWidth,
                   height: ROW_HEIGHT,
-                  // Day gridlines as a repeating gradient rather than one node per day — a
-                  // 42-day month across many rows is a lot of DOM to pay for a 1px line.
-                  backgroundImage: `repeating-linear-gradient(to right, var(--border) 0 1px, transparent 1px ${dayWidth}px)`,
+                  // Column gridlines as a gradient rather than one node per column — a 42-day
+                  // month across many rows is a lot of DOM to pay for a 1px line.
+                  backgroundImage: gridlines,
                 }}
               >
                 {geometry ? <TimelineTaskBar task={task} geometry={geometry} onSelect={onSelectTask} /> : null}

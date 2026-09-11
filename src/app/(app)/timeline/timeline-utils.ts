@@ -1,28 +1,37 @@
 import {
   addMonths,
+  addQuarters,
   addWeeks,
+  addYears,
   differenceInCalendarDays,
-  eachDayOfInterval,
   endOfMonth,
+  endOfQuarter,
   endOfWeek,
+  endOfYear,
   format,
-  getISOWeek,
-  isWeekend,
+  getQuarter,
   parseISO,
   startOfMonth,
+  startOfQuarter,
   startOfWeek,
+  startOfYear,
   subMonths,
+  subQuarters,
   subWeeks,
+  subYears,
 } from "date-fns";
 import { parseDateOnly } from "@/lib/dates";
 import type { TimelineView } from "@/app/(app)/timeline/timeline-search-params";
 
 // Monday-start weeks, matching how the rest of the app reads a working week.
-const WEEK_OPTIONS = { weekStartsOn: 1 } as const;
+export const WEEK_OPTIONS = { weekStartsOn: 1 } as const;
 
-// px per day. Month view fits ~6 weeks on screen at 40px; Week view spreads 7 days wide enough
-// to carry a weekday label and a readable bar caption.
-export const DAY_WIDTH: Record<TimelineView, number> = { month: 40, week: 150 };
+// px per day — the one scale every band, bar and gridline is derived from, so zooming out is a
+// change of this number plus a coarser header (see timeline-header.ts), not a second geometry.
+// Month fits ~6 weeks on screen at 40px; Week spreads 7 days wide enough to carry a weekday
+// label and a readable bar caption; Quarter lands a week column at 63px and Year a month column
+// at ~90px, both wide enough for their label and narrow enough to avoid a second scrollbar.
+export const DAY_WIDTH: Record<TimelineView, number> = { week: 150, month: 40, quarter: 9, year: 3 };
 export const ROW_HEIGHT = 44;
 export const TASK_COLUMN_WIDTH = 420;
 // A same-day task would otherwise be a sliver in Month view; never render narrower than this.
@@ -39,11 +48,21 @@ export function resolveAnchorDate(dateParam: string) {
   return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
 }
 
-// Month view pads out to whole weeks so the week-number header never shows a partial column;
-// week view is exactly the seven days.
+// Month and Quarter pad out to whole weeks so their week-based header band never shows a
+// partial column; Week is exactly the seven days, and Year is exactly Jan 1 – Dec 31 because
+// its columns are months, which week-padding would cut in half at both ends.
 export function getTimelineRange(view: TimelineView, anchorDate: Date): TimelineRange {
   if (view === "week") {
     return { start: startOfWeek(anchorDate, WEEK_OPTIONS), end: endOfWeek(anchorDate, WEEK_OPTIONS) };
+  }
+  if (view === "quarter") {
+    return {
+      start: startOfWeek(startOfQuarter(anchorDate), WEEK_OPTIONS),
+      end: endOfWeek(endOfQuarter(anchorDate), WEEK_OPTIONS),
+    };
+  }
+  if (view === "year") {
+    return { start: startOfYear(anchorDate), end: endOfYear(anchorDate) };
   }
   return {
     start: startOfWeek(startOfMonth(anchorDate), WEEK_OPTIONS),
@@ -52,60 +71,19 @@ export function getTimelineRange(view: TimelineView, anchorDate: Date): Timeline
 }
 
 export function shiftAnchorDate(view: TimelineView, anchorDate: Date, direction: 1 | -1): Date {
-  if (view === "week") return direction === 1 ? addWeeks(anchorDate, 1) : subWeeks(anchorDate, 1);
-  return direction === 1 ? addMonths(anchorDate, 1) : subMonths(anchorDate, 1);
+  const forward = direction === 1;
+  if (view === "week") return forward ? addWeeks(anchorDate, 1) : subWeeks(anchorDate, 1);
+  if (view === "quarter") return forward ? addQuarters(anchorDate, 1) : subQuarters(anchorDate, 1);
+  if (view === "year") return forward ? addYears(anchorDate, 1) : subYears(anchorDate, 1);
+  return forward ? addMonths(anchorDate, 1) : subMonths(anchorDate, 1);
 }
 
 export function toQueryDate(value: Date) {
   return format(value, "yyyy-MM-dd");
 }
 
-export function getTimelineDays(range: TimelineRange) {
-  return eachDayOfInterval({ start: range.start, end: range.end });
-}
-
-export interface TimelineDay {
-  date: Date;
-  key: string;
-  isWeekend: boolean;
-}
-
-export interface WeekGroup {
-  key: string;
-  /** e.g. "WK 18". */
-  label: string;
-  /** e.g. "27 Apr - 03 May". */
-  rangeLabel: string;
-  dayCount: number;
-}
-
-// The header's upper band. Groups the visible days by ISO week so a month window reads as
-// "WK 18 · 27 Apr – 03 May" columns rather than 42 undifferentiated day ticks.
-export function getWeekGroups(days: Date[]): WeekGroup[] {
-  const groups: { key: string; label: string; first: Date; last: Date; dayCount: number }[] = [];
-
-  for (const day of days) {
-    const key = format(startOfWeek(day, WEEK_OPTIONS), "yyyy-MM-dd");
-    const current = groups.at(-1);
-
-    if (current?.key === key) {
-      current.last = day;
-      current.dayCount++;
-      continue;
-    }
-    groups.push({ key, label: `WK ${getISOWeek(day)}`, first: day, last: day, dayCount: 1 });
-  }
-
-  return groups.map(({ key, label, first, last, dayCount }) => ({
-    key,
-    label,
-    rangeLabel: `${format(first, "dd MMM")} - ${format(last, "dd MMM")}`,
-    dayCount,
-  }));
-}
-
-export function toTimelineDays(days: Date[]): TimelineDay[] {
-  return days.map((date) => ({ date, key: format(date, "yyyy-MM-dd"), isWeekend: isWeekend(date) }));
+export function getTimelineDayCount(range: TimelineRange) {
+  return differenceInCalendarDays(range.end, range.start) + 1;
 }
 
 interface DatedTask {
@@ -201,5 +179,9 @@ export function periodLabel(view: TimelineView, range: TimelineRange, anchorDate
       ? `${format(range.start, "dd")} - ${format(range.end, "dd MMM yyyy")}`
       : `${format(range.start, "dd MMM")} - ${format(range.end, "dd MMM yyyy")}`;
   }
+  // The quarter/year labels read off the anchor, not the range: a quarter window is padded out
+  // to whole weeks, so its first day can belong to the previous quarter.
+  if (view === "quarter") return `Q${getQuarter(anchorDate)} ${format(anchorDate, "yyyy")}`;
+  if (view === "year") return format(anchorDate, "yyyy");
   return format(anchorDate, "MMMM yyyy");
 }

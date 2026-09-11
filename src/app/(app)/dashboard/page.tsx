@@ -132,7 +132,7 @@ export default async function DashboardPage() {
         <TaskCompletionCard monthly={metrics.monthly} weekly={metrics.weekly} />
 
         <TimelineGanttCard
-          tasks={timelineTasks}
+          tasks={timelineTasks.data}
           overdueTasks={overdueTasks}
           seasonOptions={toFilterOptions(metrics.bySeason)}
           brandOptions={toFilterOptions(metrics.byBrand)}

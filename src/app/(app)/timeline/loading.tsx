@@ -1,7 +1,9 @@
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { TIMELINE_PAGE_SIZE } from "@/app/(app)/timeline/timeline-search-params";
 
-const ROW_COUNT = 8;
+// A full page of rows, so the skeleton is the height the real chart lands at.
+const ROW_COUNT = TIMELINE_PAGE_SIZE;
 
 export default function TimelineLoading() {
   return (
@@ -13,15 +15,20 @@ export default function TimelineLoading() {
         </div>
       </div>
       <div className="flex flex-col gap-4 px-6 pb-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <Skeleton className="h-7 w-28" />
-            <Skeleton className="h-8 w-48" />
+        {/* Mirrors TimelineToolbar's two rows: navigation + period + zoom, then the filter bar. */}
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <Skeleton className="h-7 w-28" />
+              <Skeleton className="h-8 w-48" />
+            </div>
+            <Skeleton className="h-9 w-72" />
           </div>
-          <div className="flex items-center gap-2">
-            <Skeleton className="h-8 w-32" />
-            <Skeleton className="h-8 w-32" />
-            <Skeleton className="h-8 w-36" />
+          <div className="flex flex-wrap items-center gap-2">
+            <Skeleton className="h-8 w-80" />
+            {Array.from({ length: 5 }).map((_, index) => (
+              <Skeleton key={index} className="h-8 w-32" />
+            ))}
           </div>
         </div>
 
@@ -38,6 +45,11 @@ export default function TimelineLoading() {
                   <Skeleton className="ml-auto h-6 w-1/3 rounded-sm" />
                 </div>
               ))}
+            </div>
+            {/* Pagination row, then the status legend. */}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <Skeleton className="h-5 w-48" />
+              <Skeleton className="h-9 w-72" />
             </div>
             <div className="flex flex-wrap gap-3">
               {Array.from({ length: 5 }).map((_, index) => (

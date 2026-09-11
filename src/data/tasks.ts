@@ -1,38 +1,15 @@
 import "server-only";
 import { addDays, format } from "date-fns";
 import { createClient } from "@/lib/supabase/server";
-import { parsePartyKey } from "@/lib/party";
+import {
+  EMPTY_RESULT_ID,
+  participantTaskIds,
+  taskIdsForProfile,
+  taskIdsMatchingPartyName,
+  type SupabaseClient,
+} from "@/data/task-participants";
+import { listKeyStageIdsMatching } from "@/data/key-stages";
 import { taskGenderValues, taskStatusValues, taskPriorityValues, type TaskInput } from "@/app/(app)/tasks/schema";
-
-type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
-
-// A syntactically valid uuid that no row can hold, for filters that resolved to an empty set.
-// Dropping the clause instead would silently widen the query to "no filter at all".
-const EMPTY_RESULT_ID = "00000000-0000-0000-0000-000000000000";
-
-// Every task this profile participates in, whether named directly or via their department.
-// The view already collapses "both" to one row (it's a UNION), so no dedupe is needed here.
-async function taskIdsForProfile(supabase: SupabaseClient, profileId: string) {
-  const { data, error } = await supabase
-    .from("task_participant_profiles")
-    .select("task_id")
-    .eq("profile_id", profileId);
-  if (error) throw error;
-  return (data ?? []).flatMap((row) => (row.task_id ? [row.task_id] : []));
-}
-
-async function taskIdsForOwner(supabase: SupabaseClient, ownerKey: string) {
-  const party = parsePartyKey(ownerKey);
-  if (!party) return [];
-
-  const { data, error } = await supabase
-    .from("task_participants")
-    .select("task_id")
-    .eq("role", "owner")
-    .eq(party.kind === "user" ? "profile_id" : "department_id", party.id);
-  if (error) throw error;
-  return (data ?? []).map((row) => row.task_id);
-}
 
 export interface ListTasksParams {
   page?: number;
@@ -91,14 +68,12 @@ export async function listTasks({
   if (isTaskGender(filters.gender)) query = query.eq("gender", filters.gender);
   if (isTaskStatus(filters.status)) query = query.eq("status", filters.status);
   if (isTaskPriority(filters.priority)) query = query.eq("priority", filters.priority);
-  // "Owner" toolbar filter. A `kind:uuid` party key, not a profile id — owners live in
-  // task_participants now, so this resolves to a task-id set first for the same reason
-  // ownerOrInvolvedProfileId does below: PostgREST can't express the join-table subquery
-  // inline. An unmatched owner must yield zero rows, not every row, hence the impossible-id
-  // fallback rather than skipping the clause.
-  if (filters.owner) {
-    const taskIds = await taskIdsForOwner(supabase, filters.owner);
-    query = taskIds.length > 0 ? query.in("id", taskIds) : query.eq("id", EMPTY_RESULT_ID);
+  // "Owner" / "People Involved" toolbar filters — see participantTaskIds. An unmatched party
+  // must yield zero rows, not every row, hence the impossible-id fallback rather than skipping
+  // the clause.
+  const participantIds = await participantTaskIds(supabase, filters);
+  if (participantIds) {
+    query = participantIds.length > 0 ? query.in("id", participantIds) : query.eq("id", EMPTY_RESULT_ID);
   }
   // "Due" toolbar filter (Upcoming Tasks) — a day-count preset ("7"/"30"/"90"), not a literal
   // date; caps due_date at today + N days. Composes with onlyUpcoming's >= today floor below
@@ -203,6 +178,9 @@ export interface ListTasksForTimelineParams {
   /** Inclusive, `yyyy-MM-dd`. */
   to: string;
   filters?: Record<string, string>;
+  /** 1-based. Omit `pageSize` to get the whole window — what the Dashboard preview does. */
+  page?: number;
+  pageSize?: number;
 }
 
 // A task's bar spans [start_date, end_date], but both are nullable while due_date is not (see
@@ -221,35 +199,113 @@ function timelineOverlapFilter(from: string, to: string) {
   ].join(",");
 }
 
-// Powers the Timeline/Gantt view. Bounded by the visible window like listTasksByDueDateRange,
-// and returns the full TASK_SELECT shape so a clicked bar can open the shared task detail
-// drawer without a second fetch.
-export async function listTasksForTimeline({ from, to, filters = {} }: ListTasksForTimelineParams) {
-  const supabase = await createClient();
-  let query = supabase.from("tasks").select(TASK_SELECT).is("deleted_at", null);
+// Window + dropdown filters + ordering, shared by both passes below so the narrow pass that
+// decides WHICH tasks match and the wide pass that fetches them can never disagree.
+async function timelineScope(supabase: SupabaseClient, select: string, { from, to, filters = {} }: ListTasksForTimelineParams) {
+  let query = supabase.from("tasks").select(select).is("deleted_at", null);
 
   if (filters.season_id) query = query.eq("season_id", filters.season_id);
   if (filters.brand_id) query = query.eq("brand_id", filters.brand_id);
+  if (filters.key_stage_id) query = query.eq("key_stage_id", filters.key_stage_id);
   if (isTaskStatus(filters.status)) query = query.eq("status", filters.status);
 
-  query = query.or(timelineOverlapFilter(from, to));
-  // Earliest bar first, so rows read top-left to bottom-right like a schedule.
-  query = query.order("start_date", { ascending: true, nullsFirst: false }).order("due_date", { ascending: true });
+  const participantIds = await participantTaskIds(supabase, filters);
+  if (participantIds) {
+    query = participantIds.length > 0 ? query.in("id", participantIds) : query.eq("id", EMPTY_RESULT_ID);
+  }
 
-  const { data, error } = await query;
+  query = query.or(timelineOverlapFilter(from, to));
+  // Earliest bar first, so rows read top-left to bottom-right like a schedule. `id` is the
+  // tiebreaker and is NOT decorative: plenty of tasks share a start and due date, and without a
+  // total order Postgres may return tied rows in a different sequence per query — which, across
+  // the two passes below, would let a row land on two pages or on none.
+  return query
+    .order("start_date", { ascending: true, nullsFirst: false })
+    .order("due_date", { ascending: true })
+    .order("id", { ascending: true });
+}
+
+// The Timeline's search box. Task name and key stage are matched here; owners and people
+// involved arrive as a task-id set, since their names live two tables away (see
+// taskIdsMatchingPartyName). `ilike '%term%'` is a case-insensitive substring match, which is
+// exactly what `includes` on a lowercased string does — the two legs stay consistent.
+async function matchesSearchTerm(supabase: SupabaseClient, term: string) {
+  const [keyStageIds, participantTaskIdSet] = await Promise.all([
+    listKeyStageIdsMatching(term),
+    taskIdsMatchingPartyName(supabase, term),
+  ]);
+  const needle = term.toLowerCase();
+
+  return (row: { id: string; task_name: string; key_stage_id: string | null }) =>
+    row.task_name.toLowerCase().includes(needle) ||
+    (!!row.key_stage_id && keyStageIds.has(row.key_stage_id)) ||
+    participantTaskIdSet.has(row.id);
+}
+
+// Powers the Timeline/Gantt view. Bounded by the visible window like listTasksByDueDateRange,
+// and returns the full TASK_SELECT shape so a clicked bar can open the shared task detail
+// drawer without a second fetch.
+//
+// Searching and paging are BOTH resolved here, server-side, over the whole window — the browser
+// only ever receives the page it draws. It runs as two passes rather than one query because the
+// participant leg is a task-id set that can be hundreds of uuids long: matching happens against
+// a narrow id/name projection, and only the page's ~25 ids are then fetched in full. Inlining
+// that set into the main query's filter instead would build a URL long enough to be rejected.
+export async function listTasksForTimeline(params: ListTasksForTimelineParams) {
+  const supabase = await createClient();
+  const { filters = {}, page = 1, pageSize } = params;
+  const term = (filters.search ?? "").trim();
+
+  // No search and no pagination: one query, the whole window. The Dashboard preview's path.
+  if (!term && pageSize === undefined) {
+    const { data, error } = await timelineScope(supabase, TASK_SELECT, params);
+    if (error) throw error;
+    return { data: (data ?? []) as unknown as Task[], rowCount: data?.length ?? 0 };
+  }
+
+  const { data: candidates, error: candidateError } = await timelineScope(
+    supabase,
+    "id, task_name, key_stage_id",
+    params
+  );
+  if (candidateError) throw candidateError;
+
+  const rows = (candidates ?? []) as unknown as { id: string; task_name: string; key_stage_id: string | null }[];
+  const matched = term ? rows.filter(await matchesSearchTerm(supabase, term)) : rows;
+
+  const start = pageSize === undefined ? 0 : (page - 1) * pageSize;
+  const pageIds = (pageSize === undefined ? matched : matched.slice(start, start + pageSize)).map((row) => row.id);
+  if (pageIds.length === 0) return { data: [] as Task[], rowCount: matched.length };
+
+  // Re-ordered by the same three columns as the narrow pass, so the page reads in the sequence
+  // it was sliced in.
+  const { data, error } = await supabase
+    .from("tasks")
+    .select(TASK_SELECT)
+    .in("id", pageIds)
+    .order("start_date", { ascending: true, nullsFirst: false })
+    .order("due_date", { ascending: true })
+    .order("id", { ascending: true });
   if (error) throw error;
-  return (data ?? []) as Task[];
+
+  return { data: (data ?? []) as Task[], rowCount: matched.length };
 }
 
 // The Timeline's Overdue panel. Deliberately NOT bounded by the visible window — overdue work
-// from an earlier month is exactly what shouldn't scroll out of sight — but it does respect the
-// page's season/brand filters so the panel agrees with the chart beside it.
+// from an earlier month is exactly what shouldn't scroll out of sight — but it does respect
+// every one of the page's filters so the panel agrees with the chart beside it.
 export async function listOverdueTasks({ filters = {}, limit = 50 }: { filters?: Record<string, string>; limit?: number } = {}) {
   const supabase = await createClient();
   let query = supabase.from("tasks").select(TASK_SELECT).is("deleted_at", null).eq("status", "overdue");
 
   if (filters.season_id) query = query.eq("season_id", filters.season_id);
   if (filters.brand_id) query = query.eq("brand_id", filters.brand_id);
+  if (filters.key_stage_id) query = query.eq("key_stage_id", filters.key_stage_id);
+
+  const participantIds = await participantTaskIds(supabase, filters);
+  if (participantIds) {
+    query = participantIds.length > 0 ? query.in("id", participantIds) : query.eq("id", EMPTY_RESULT_ID);
+  }
 
   const { data, error } = await query.order("due_date", { ascending: true }).limit(limit);
   if (error) throw error;

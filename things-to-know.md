@@ -354,6 +354,11 @@ card — **still 0 requests on interaction**.
   query is window-bounded, but here it would mean ~3 months of empty rows in Week view.
 - **"View All" and the truncation link carry the card's current state** into `/timeline` as
   `view`/`date`/`seasonId`/`brandId`. Those keys must match `timelineSearchParams()`.
+- **The card fills the whole shared `TimelineControls` shape but drives four of its fields.**
+  Key stage, owner, people involved and the search term stay permanently empty here:
+  `TimelineToolbar` renders a filter only when given options, and the card gives it none for
+  those — they'd need a client-side participant match over a capped 12-row preview, which is
+  the opposite of what a preview is for.
 - The card's `loading.tsx` block hardcodes `h-[616px]` — 14 × the grid's 44px `ROW_HEIGHT`
   (12 rows + a 2-band header). Tailwind can't see a computed class, so it can't be derived from
   the constant; if either number changes, change this too.
@@ -362,9 +367,12 @@ card — **still 0 requests on interaction**.
 
 ## Timeline / Gantt (`/timeline`)
 
-**Cost: 4 Supabase calls** — timeline tasks, overdue tasks, season options, brand options, all
-issued together via `Promise.all`. View/period/filter changes re-run the Server Component
-(`shallow: false`), so they re-query; scrolling and opening the drawer do not.
+**Cost: 7 Supabase calls, 9 with a search term** — timeline tasks (2: a narrow matching pass
+and a wide page fetch, see below), overdue tasks, season options, brand options, key stage
+options, party options (departments + people); a typed term adds a key-stage lookup and a
+party-name lookup. The six independent ones are issued together via `Promise.all`. Every
+control on the page re-runs the Server Component (`shallow: false`), so every one of them
+re-queries; scrolling and opening the drawer do not.
 
 **This module has a second consumer.** The Dashboard's Gantt card renders `TimelineToolbar`,
 `TimelineGrid`, `TimelineTaskBar`, `TimelineStatusLegend` and `TimelineOverduePanel` — the same
@@ -373,8 +381,118 @@ tasks, a range and a view as props, which is what makes that possible. Keep it t
 `data/*` import inside any of them would break the preview. Only `TimelineWorkspace` and
 `page.tsx` are `/timeline`-specific.
 
+### Zoom levels
+
+**Four views, one geometry.** Week / Month / Quarter / Year all position bars as px-per-day
+(`DAY_WIDTH`: 150 / 40 / 9 / 3). Zooming out is a smaller `DAY_WIDTH` plus a **coarser header**,
+never a second layout — `getBarGeometry()` is untouched by the view beyond that one number.
+
+- **`timeline-header.ts` owns both header bands.** Each view maps to a column unit and a group
+  unit: day/week (Week, Month), week/month (Quarter), month/quarter (Year). Every band is
+  measured in **days** (`dayCount`), which is what keeps the two bands, the gridlines and the
+  bars on one coordinate system. Columns and groups each sum to exactly the window length —
+  worth re-checking if you add a view.
+- **Groups are built from the columns, not from the range.** A week straddling two months is
+  assigned to the month it *starts* in, so a group boundary always lands on a column boundary.
+  The visible consequence in Quarter view: the first and last month groups are short (the window
+  is padded to whole weeks), and a month can read as 28 days. That is alignment, not a bug.
+- **Quarter pads to whole weeks; Year does not.** Quarter's columns are weeks, so a partial week
+  at either end would be a half-width column; Year's columns are months, and week-padding would
+  slice January and December in half. `getTimelineRange()` encodes both.
+- **Q1–Q4 are calendar quarters** (Jan–Mar, Apr–Jun, Jul–Sep, Oct–Dec) — the client's
+  definition, and what date-fns' `startOfQuarter` gives. Don't switch to a fiscal-year quarter
+  without changing both.
+- **Gridlines stay one background per row.** Uniform bands (days, or Quarter's whole weeks) use
+  a `repeating-linear-gradient`; a month band isn't uniform (28–31 days), so it gets explicit
+  stops — a repeat there would drift ~5 days by December. Either way it is never one node per
+  column per row.
+- **Year is the DEFAULT view** (`TIMELINE_DEFAULT_VIEW`), so the page opens on the widest
+  window — the whole year's schedule at a glance, narrowed from there. Read the note below
+  before changing it back.
+- **The narrow pass is unbounded, and Year is what makes that matter.** The browser only ever
+  receives a page, but pass 1 reads every task overlapping the window (540 of 833 for the seed
+  year) into the Server Component — it has to, or the match count and the page boundaries would
+  only be right for one page's worth. It is three narrow columns, so this is cheap, but it would
+  hit PostgREST's 1000-row ceiling **silently** past that size. If the dataset grows, move the
+  matching into SQL (a view or an RPC) rather than letting the ceiling truncate it — the default
+  view is Year, so that is where work would start quietly disappearing.
+- **Anything hand-building a `/timeline` link compares `view` against `TIMELINE_DEFAULT_VIEW`,
+  never against its own starting view.** nuqs omits a param equal to its default, so a link that
+  leaves `view` out lands on Year. The Dashboard preview starts on Month and is the live case:
+  comparing against its own initial view would send "View All" from a Month card to a Year page.
+- **The Dashboard preview offers Week/Month only** (`PREVIEW_VIEWS`). Its data is one fixed
+  3-month band; a Quarter or Year window would draw mostly-empty columns that read as "no
+  tasks". Zooming out that far is what `/timeline` is for.
+
+### Search and pagination are server-side, and run as TWO passes
+
+Everything on this page — window, dropdown filters, search term, page — is answered by
+`listTasksForTimeline`. Nothing is narrowed in the browser: it receives only the ~25 rows it
+draws. `q`, `page` and `pageSize` are therefore in `timelineSearchParams()` alongside the
+filters, on the same non-shallow hook, so a change to any of them re-runs the query.
+
+**Why two passes and not one query.** The search has to reach owners and people involved, whose
+names live on `profiles`/`departments` while the link lives on `task_participants` — PostgREST
+can't OR across that in a single filter, so the participant leg comes back as a task-id set that
+can be hundreds of uuids long. Inlining that into the main query builds a URL long enough to be
+rejected. Instead:
+
+1. **Narrow pass** — `timelineScope()` with a `id, task_name, key_stage_id` projection: the
+   window, the dropdown filters and the ordering, whole result, no row limit.
+2. Task name and key stage are matched against that projection in memory; owners/people arrive
+   as a Set from `taskIdsMatchingPartyName()`. `ilike '%term%'` and `includes()` on a lowercased
+   string are the same case-insensitive substring test, which is what keeps the legs consistent.
+3. **Wide pass** — only the page's ~25 ids, fetched with the full `TASK_SELECT` shape so a
+   clicked bar still opens the shared drawer without a second request.
+
+`timelineScope()` is shared by both passes on purpose: if they ever disagreed about the window
+or the filters, the page would be sliced from a different set than it was fetched from.
+
+- **`.order("id")` is a correctness fix, not decoration.** Plenty of tasks share a start and due
+  date; without a total order, tied rows can come back in a different sequence per query, and
+  across two passes that lets a row land on two pages or on none. Verified by paging the full
+  year: 540 distinct rows over 22 pages, no gaps, no duplicates.
+- **Two `.or()` calls on one query AND together** — the overlap filter and (where used) any
+  second disjunction. Confirmed against the live database, not assumed.
+- **Search matches task name, key stage, owners and people involved** — the four fields the
+  client named. Season/brand are excluded on purpose: they have their own dropdowns, and folding
+  them in would make a season code match everything in that season.
+- **Name lookups are capped at 100 parties** (`NAME_MATCH_LIMIT`). Past that a term isn't
+  identifying anyone, it's the directory — same reasoning as `searchParties`' own limit.
+- **Only ids ever reach an `.or()` string.** A raw term containing a comma or a paren would
+  corrupt PostgREST's filter syntax; terms go exclusively through `.ilike()` bindings.
+- **Typing is debounced 400ms at the CALL, not on the parser.** nuqs rate-limits per key, so a
+  parser-level debounce would flush the accompanying `page: null` reset immediately and the term
+  400ms later — two navigations and a flash of unfiltered results per keystroke. Dropdowns and
+  the period buttons stay immediate.
+- **Any toolbar change resets to page 1** — `setControls` always sends `page: null` alongside.
+  The render also **clamps** `page` for display, so a stale or hand-edited URL pointing past the
+  end of a narrowed result shows the first page rather than an empty chart reading as "no tasks".
+- **`TimelineGrid` draws exactly the rows it is handed** and does no filtering or paging. That
+  is what lets the Dashboard preview pass its own 12-row slice through the same component.
+- **`listTasksForTimeline` returns `{ data, rowCount }`, and omitting `pageSize` means "the
+  whole window" in one query** — the Dashboard preview's path, which fetches its band once and
+  narrows in the browser like every other card on that page.
+- **Search does not touch the Overdue panel.** It answers "what is late" and is already
+  deliberately un-scoped to the window; a term typed to find one task shouldn't quietly re-scope
+  it. It does still respect the toolbar's dropdown filters.
+- **`PaginationControls` (`components/shared/`) is shared with the data tables.**
+  `DataTablePagination` is now a thin @tanstack adapter over it, so page numbers, ellipses and
+  the size selector exist once. The Timeline offers 20/25/30 per page (default 25).
+- **`data/tasks.ts` runs over the ~250-line guideline, deliberately.** Splitting the timeline
+  query into its own module would mean exporting `TASK_SELECT`, `isTaskStatus` and
+  `EMPTY_RESULT_ID`, and breaking the stronger rule in `CLAUDE.md` that task queries live in one
+  file. The participant-id lookups were extracted to `data/task-participants.ts` instead, since
+  three separate queries need exactly those.
+
 ### Gotchas
 
+- **The Owner and People Involved filters intersect, and can't be PostgREST clauses.** Both are
+  `kind:uuid` party keys against `task_participants`, not columns on `tasks`, so
+  `participantTaskIds()` (`data/tasks.ts`) resolves them to a task-id allow-list first — set
+  together they must intersect, not union. An unmatched party yields **zero** rows via
+  `EMPTY_RESULT_ID`; dropping the clause instead would silently widen to "no filter at all".
+  Same helper serves the tasks grid, the timeline and the overdue panel.
 - **`start_date` and `end_date` are nullable; `due_date` is not.** In practice almost every task
   has neither (2 of 34 at time of writing). So a bar's range is
   `start = start_date ?? due_date`, `end = end_date ?? due_date` — an unscheduled task renders
@@ -392,7 +510,8 @@ tasks, a range and a view as props, which is what makes that possible. Keep it t
   day, hence the `+1` in `getBarGeometry`. Bars clipped by the window get a squared-off edge so
   they read as continuing rather than genuinely ending at the screen edge.
 - **The overdue panel is deliberately NOT window-scoped** — overdue work from an earlier month
-  is exactly what shouldn't scroll out of sight. It does respect the season/brand filters.
+  is exactly what shouldn't scroll out of sight. It does respect every toolbar filter
+  (season, brand, key stage, owner, people involved) so it agrees with the chart beside it.
 - **Row alignment is structural, not synchronised.** The task column and its bar are the same
   DOM row inside one scroll container, with the left column `sticky left-0`. There is no scroll
   listener, and alignment cannot drift.

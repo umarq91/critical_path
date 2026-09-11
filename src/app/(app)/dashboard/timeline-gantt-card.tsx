@@ -14,6 +14,7 @@ import {
   type TimelineControlsPatch,
 } from "@/app/(app)/timeline/timeline-toolbar";
 import { getTimelineRange, overlapsTimelineRange, resolveAnchorDate } from "@/app/(app)/timeline/timeline-utils";
+import { TIMELINE_DEFAULT_VIEW } from "@/app/(app)/timeline/timeline-search-params";
 import {
   TIMELINE_PREVIEW_OVERDUE_HEIGHT,
   TIMELINE_PREVIEW_ROW_COUNT,
@@ -24,7 +25,23 @@ import type { Task } from "@/data/tasks";
 
 const TIMELINE_HREF = "/timeline";
 
-const INITIAL_CONTROLS: TimelineControls = { view: "month", date: "", seasonId: "", brandId: "" };
+// The card answers season and brand in the browser; the key-stage/owner/people filters and the
+// search box are /timeline's, and it renders neither (TimelineToolbar drops a filter it has no
+// options for, and search is opt-in). They still sit in the shared control shape, empty here.
+const INITIAL_CONTROLS: TimelineControls = {
+  view: "month",
+  date: "",
+  seasonId: "",
+  brandId: "",
+  keyStageId: "",
+  owner: "",
+  involved: "",
+  search: "",
+};
+
+// Quarter and Year would draw a window several times wider than the fetched band — an empty
+// chart that reads as "no tasks". Zooming out that far is what /timeline is for.
+const PREVIEW_VIEWS = ["week", "month"] as const;
 
 interface TimelineGanttCardProps {
   /** Every task overlapping the preview band — see getTimelinePreviewBand(). Narrowed to the
@@ -62,6 +79,7 @@ export const TimelineGanttCard = ({
 
   function patchControls(patch: TimelineControlsPatch) {
     setControls((current) => ({
+      ...current,
       view: patch.view ?? current.view,
       date: resolveControl(patch.date, current.date),
       seasonId: resolveControl(patch.seasonId, current.seasonId),
@@ -95,7 +113,10 @@ export const TimelineGanttCard = ({
   // user is looking at rather than resetting it. Keys match timelineSearchParams().
   const timelineHref = useMemo(() => {
     const params = new URLSearchParams();
-    if (controls.view !== INITIAL_CONTROLS.view) params.set("view", controls.view);
+    // Compared against /timeline's default, not this card's starting view: the two differ (the
+    // page opens on Year, the preview on Month), and omitting `view` means "whatever /timeline
+    // defaults to" — which would drop the user somewhere they weren't looking.
+    if (controls.view !== TIMELINE_DEFAULT_VIEW) params.set("view", controls.view);
     if (controls.date) params.set("date", controls.date);
     if (controls.seasonId) params.set("seasonId", controls.seasonId);
     if (controls.brandId) params.set("brandId", controls.brandId);
@@ -116,6 +137,7 @@ export const TimelineGanttCard = ({
             setState={patchControls}
             band={band}
             compact
+            views={PREVIEW_VIEWS}
             seasonOptions={seasonOptions}
             brandOptions={brandOptions}
             taskCount={matchCount}
