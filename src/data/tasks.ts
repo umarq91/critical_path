@@ -22,7 +22,7 @@ export interface ListTasksParams {
   sortBy?: string;
   sortDir?: string;
   filters?: Record<string, string>;
-  /** Scopes the list to one person's own work — the Upcoming Tasks page's whole premise.
+  /** Scopes the list to one person's own work — the My Tasks page's whole premise.
    *  "Theirs" means any of: they created it, they are an owner, or they are People Involved —
    *  in the last two cases whether named directly or through their department (see the
    *  task_participant_profiles view). Role grants no exemption: an admin scoped this way sees
@@ -32,9 +32,6 @@ export interface ListTasksParams {
    *  PostgREST clause: participation lives in a join table, and the two legs are a union
    *  (`created_by = me OR id IN (…)`) whose id side can run to hundreds of uuids. */
   scopeToProfileId?: string;
-  /** Hard floor of `due_date >= today` — not exposed via `filters` since callers shouldn't
-   *  be able to relax it; it's the Upcoming Tasks page's core "upcoming" definition. */
-  onlyUpcoming?: boolean;
 }
 
 const SORTABLE_COLUMNS = new Set(["task_name", "due_date", "status", "priority", "created_at"]);
@@ -98,7 +95,7 @@ function taskScope(
   // The boolean form is legacy shorthand for `{ withCount: bool }`, kept so the three existing
   // call sites below don't all need touching for one new caller's sake.
   const { withCount = false, headOnly = false } = typeof options === "boolean" ? { withCount: options } : options;
-  const { filters = {}, sortBy, sortDir, onlyUpcoming } = params;
+  const { filters = {}, sortBy, sortDir } = params;
   let query = supabase
     .from("tasks")
     .select(select, withCount || headOnly ? { count: "exact", head: headOnly } : undefined)
@@ -120,17 +117,14 @@ function taskScope(
   if (ids.participants) {
     query = ids.participants.length > 0 ? query.in("id", ids.participants) : query.eq("id", EMPTY_RESULT_ID);
   }
-  // "Due" toolbar filter (Upcoming Tasks) — a day-count preset ("7"/"30"/"90"), not a literal
-  // date; caps due_date at today + N days. Composes with onlyUpcoming's >= today floor below
-  // to express "due within the next N days" as a whole.
+  // "Due" toolbar filter (My Tasks) — a day-count preset ("7"/"30"/"90"), not a literal
+  // date; caps due_date at today + N days.
   if (filters.due_date) {
     const days = Number(filters.due_date);
     if (Number.isInteger(days) && days > 0) {
       query = query.lte("due_date", format(addDays(new Date(), days), "yyyy-MM-dd"));
     }
   }
-
-  if (onlyUpcoming) query = query.gte("due_date", format(new Date(), "yyyy-MM-dd"));
 
   const orderColumn = sortBy && SORTABLE_COLUMNS.has(sortBy) ? sortBy : "due_date";
   // `id` is the tiebreaker and is NOT decorative: due dates (and statuses, and priorities)
@@ -220,7 +214,7 @@ export interface ListTasksForExportParams {
   /** Same vocabulary as `ListTasksParams.filters` (season_id/brand_id/key_stage_id/gender/
    *  status/priority/owner/involved/search) — an export scope is the grid's own filter shape,
    *  not a new one; the Task Management export dialog forwards its page's current filters here
-   *  verbatim. Still deliberately does NOT accept `scopeToProfileId`: that's the Upcoming Tasks
+   *  verbatim. Still deliberately does NOT accept `scopeToProfileId`: that's the My Tasks
    *  page's "my work" scoping, and no export dialog sits on that page yet. */
   filters?: Record<string, string>;
   sortBy?: string;
@@ -341,7 +335,7 @@ const MAX_FLYWHEEL_ROWS = 1000;
 // fetched once and grouped into its four columns in the browser rather than as four separate
 // paginated calls — same "bounded fetch, narrow client-side" shape as listTasksByDueDateRange,
 // chosen because a shared search term and the four column counts all have to agree with the
-// same result set. `scopeToProfileId`/`onlyUpcoming`/pagination don't apply here — the board
+// same result set. `scopeToProfileId`/pagination don't apply here — the board
 // shows the organisation's whole flywheel, not one page of it.
 export async function listTasksForFlywheel(filters: Record<string, string> = {}): Promise<Task[]> {
   const supabase = await createClient();
@@ -376,13 +370,15 @@ export async function listTasksForFlywheel(filters: Record<string, string> = {})
   return (data ?? []) as unknown as Task[];
 }
 
-// The Upcoming Tasks page's one query — a thin preset over listTasks(), same shape as
+// The My Tasks page's one query — a thin preset over listTasks(), same shape as
 // listUpcomingSeasons/listUpcomingBrands elsewhere: still fully paginated/sorted/filterable
-// (search, season/brand/status/priority/due-range all layer on top via `params.filters`),
-// just with two fixed constraints the caller can't relax: scoped to this person's own tasks
-// (see scopeToProfileId), and due_date >= today.
-export function listUpcomingTasksForProfile(profileId: string, params: ListTasksParams = {}) {
-  return listTasks({ ...params, scopeToProfileId: profileId, onlyUpcoming: true });
+// (search, season/brand/status/priority/due-range all layer on top via `params.filters`), just
+// with one fixed constraint the caller can't relax: scoped to this person's own tasks (see
+// scopeToProfileId). Deliberately no due_date floor — created/owned/involved tasks show up
+// whether their due date is in the future, in the past, or unset; the "Due" toolbar filter lets
+// a user narrow that themselves.
+export function listTasksForProfile(profileId: string, params: ListTasksParams = {}) {
+  return listTasks({ ...params, scopeToProfileId: profileId });
 }
 
 export interface ListTasksByDueDateRangeParams {

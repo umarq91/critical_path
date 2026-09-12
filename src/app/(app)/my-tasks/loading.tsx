@@ -1,7 +1,7 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { DataTableSkeleton } from "@/components/data-table/data-table-skeleton";
 
-export default function UpcomingTasksLoading() {
+export default function MyTasksLoading() {
   return (
     <div className="flex flex-col">
       <div className="flex flex-wrap items-start justify-between gap-3 px-6 py-5">

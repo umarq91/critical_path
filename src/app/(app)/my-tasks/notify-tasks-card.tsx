@@ -6,8 +6,8 @@ import { Plus, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FormDialog } from "@/components/shared/form-dialog";
-import { NotifyTaskPickerDialog } from "@/app/(app)/upcoming/notify-task-picker-dialog";
-import { updateReminderTasks } from "@/app/(app)/upcoming/_reminder-actions";
+import { NotifyTaskPickerDialog } from "@/app/(app)/my-tasks/notify-task-picker-dialog";
+import { updateReminderTasks } from "@/app/(app)/my-tasks/_reminder-actions";
 import { formatDate } from "@/lib/dates";
 import type { FilterSelectOption } from "@/components/shared/filter-select";
 import type { ReminderRuleTask } from "@/data/reminders";
@@ -18,9 +18,9 @@ interface NotifyTasksCardProps {
   ownerOptions: FilterSelectOption[];
 }
 
-// "Which tasks?" — v1's one and only scope mechanism: specific tasks the user picks, from
-// exactly the set Upcoming Tasks already shows them. Season/owner are filters *inside* the
-// picker dialog, not a second scope type to keep in step with this one (see
+// "Which tasks?" — v1's one and only scope mechanism: specific tasks the user picks, from the
+// same set My Tasks shows them (see listMyReminderCandidateTasks). Season/owner are filters
+// *inside* the picker dialog, not a second scope type to keep in step with this one (see
 // reminder_rule_tasks in schema.md).
 export const NotifyTasksCard = ({ initialTasks, seasonOptions, ownerOptions }: NotifyTasksCardProps) => {
   const [selected, setSelected] = useState<Map<string, ReminderRuleTask>>(
@@ -38,6 +38,18 @@ export const NotifyTasksCard = ({ initialTasks, seasonOptions, ownerOptions }: N
     });
   }
 
+  function selectAllTasks(tasks: ReminderRuleTask[]) {
+    setSelected((previous) => {
+      const next = new Map(previous);
+      for (const task of tasks) next.set(task.id, task);
+      return next;
+    });
+  }
+
+  function clearAllTasks() {
+    setSelected(new Map());
+  }
+
   async function handleSave() {
     setIsSaving(true);
     const result = await updateReminderTasks({ taskIds: [...selected.keys()] });
@@ -50,7 +62,14 @@ export const NotifyTasksCard = ({ initialTasks, seasonOptions, ownerOptions }: N
     toast.success("Reminder tasks saved");
   }
 
-  const selectedTasks = [...selected.values()].sort((a, b) => a.due_date.localeCompare(b.due_date));
+  // Undated tasks (due_date === "") sink to the bottom rather than sorting first — same
+  // convention as the main grid's nullsFirst: false, so a reminder pick without a date doesn't
+  // jump ahead of ones that actually have one.
+  const selectedTasks = [...selected.values()].sort((a, b) => {
+    if (!a.due_date) return b.due_date ? 1 : 0;
+    if (!b.due_date) return -1;
+    return a.due_date.localeCompare(b.due_date);
+  });
 
   return (
     <Card>
@@ -77,6 +96,8 @@ export const NotifyTasksCard = ({ initialTasks, seasonOptions, ownerOptions }: N
             ownerOptions={ownerOptions}
             selectedIds={new Set(selected.keys())}
             onToggle={toggleTask}
+            onSelectAll={selectAllTasks}
+            onClearAll={clearAllTasks}
           />
         </FormDialog>
 
@@ -90,7 +111,7 @@ export const NotifyTasksCard = ({ initialTasks, seasonOptions, ownerOptions }: N
                 <span className="min-w-0 flex-1 truncate text-foreground">{task.task_name}</span>
                 <span className="shrink-0 text-xs text-muted-foreground">
                   {task.season_name ? `${task.season_name} · ` : ""}
-                  {formatDate(task.due_date)}
+                  {task.due_date ? formatDate(task.due_date) : "No due date"}
                 </span>
                 <button
                   type="button"

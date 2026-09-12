@@ -4,15 +4,17 @@ import { useEffect, useState } from "react";
 import { Loader2, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Button } from "@/components/ui/button";
 import { FilterSelect, type FilterSelectOption } from "@/components/shared/filter-select";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
-import { listMyReminderCandidateTasks } from "@/app/(app)/upcoming/_reminder-actions";
+import { listMyReminderCandidateTasks } from "@/app/(app)/my-tasks/_reminder-actions";
 import { formatDate } from "@/lib/dates";
 import type { ReminderRuleTask } from "@/data/reminders";
 
 const SEARCH_DEBOUNCE_MS = 300;
-/** Bounded fetch — "my" upcoming tasks is already a small, personally-scoped list (see
- *  data/tasks.ts's listUpcomingTasksForProfile), so one page is enough for a picker. */
+/** Bounded fetch — a personally-scoped candidate list (see listMyReminderCandidateTasks) is
+ *  already small, so one page is enough for a picker. Also the ceiling "Select all" applies
+ *  to: it only ever acts on tasks actually loaded into `candidates`. */
 const CANDIDATE_PAGE_SIZE = 100;
 
 interface NotifyTaskPickerDialogProps {
@@ -20,13 +22,21 @@ interface NotifyTaskPickerDialogProps {
   ownerOptions: FilterSelectOption[];
   selectedIds: ReadonlySet<string>;
   onToggle: (task: ReminderRuleTask) => void;
+  /** Selects every currently-loaded/filtered candidate at once — not the user's whole task
+   *  list, just what's on screen, so it composes with the search/season/owner filters above. */
+  onSelectAll: (tasks: ReminderRuleTask[]) => void;
+  /** Clears the entire selection, not just what's currently visible — mirrors what "Save"
+   *  would otherwise persist, so it's an honest "start over," not a scoped removal. */
+  onClearAll: () => void;
 }
 
-// The task list inside "Select tasks..." — scoped to the exact same set the Upcoming Tasks
-// table above it shows (tasks the signed-in user created, owns, or is involved in), with
-// season/owner filters narrowing it down. Checking a row reports it straight to the parent
-// card's selection state; there's no separate "confirm" step, since nothing is written to the
-// server until that card's own Save button is pressed.
+// The task list inside "Select tasks..." — scoped to tasks the signed-in user created, owns, or
+// is involved in, same set and same due-date-agnostic scope as the My Tasks table above it (see
+// listMyReminderCandidateTasks). A task with no due date, or one already overdue, can still be
+// picked; it just never actually fires a reminder (listDueReminders skips anything without a
+// due_date). Season/owner filters narrow the candidate list down further. Checking a row
+// reports it straight to the parent card's selection state; there's no separate "confirm" step,
+// since nothing is written to the server until that card's own Save button is pressed.
 // `forKey` is the filter combination the results actually answer — "still loading" is derived
 // by comparing it to the CURRENT filters, rather than a separately-set flag, so the effect body
 // never needs a synchronous setState of its own (only its eventual .then() does). Same
@@ -35,7 +45,14 @@ type CandidateState =
   | { status: "pending" }
   | { status: "ready"; forKey: string; tasks: ReminderRuleTask[] };
 
-export function NotifyTaskPickerDialog({ seasonOptions, ownerOptions, selectedIds, onToggle }: NotifyTaskPickerDialogProps) {
+export function NotifyTaskPickerDialog({
+  seasonOptions,
+  ownerOptions,
+  selectedIds,
+  onToggle,
+  onSelectAll,
+  onClearAll,
+}: NotifyTaskPickerDialogProps) {
   const [seasonId, setSeasonId] = useState<string | null>(null);
   const [owner, setOwner] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -55,14 +72,12 @@ export function NotifyTaskPickerDialog({ seasonOptions, ownerOptions, selectedId
     listMyReminderCandidateTasks({ filters, pageSize: CANDIDATE_PAGE_SIZE }).then((result) => {
       if (cancelled) return;
       const tasks = result.ok
-        ? result.data
-            .filter((task) => !!task.due_date)
-            .map((task) => ({
-              id: task.id,
-              task_name: task.task_name,
-              due_date: task.due_date!,
-              season_name: task.season?.season_name ?? null,
-            }))
+        ? result.data.map((task) => ({
+            id: task.id,
+            task_name: task.task_name,
+            due_date: task.due_date ?? "",
+            season_name: task.season?.season_name ?? null,
+          }))
         : [];
       setState({ status: "ready", forKey: filterKey, tasks });
     });
@@ -75,6 +90,7 @@ export function NotifyTaskPickerDialog({ seasonOptions, ownerOptions, selectedId
 
   const isLoading = state.status === "pending" || state.forKey !== filterKey;
   const candidates = state.status === "ready" ? state.tasks : [];
+  const allVisibleSelected = candidates.length > 0 && candidates.every((task) => selectedIds.has(task.id));
 
   return (
     <div className="flex flex-col gap-3">
@@ -92,6 +108,32 @@ export function NotifyTaskPickerDialog({ seasonOptions, ownerOptions, selectedId
         <FilterSelect value={owner} onValueChange={setOwner} options={ownerOptions} allLabel="All owners" />
       </div>
 
+      <div className="flex items-center justify-between">
+        <span className="text-xs text-muted-foreground">{selectedIds.size} selected</span>
+        <div className="flex items-center gap-1.5">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-xs"
+            disabled={isLoading || candidates.length === 0 || allVisibleSelected}
+            onClick={() => onSelectAll(candidates)}
+          >
+            Select all
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-xs"
+            disabled={selectedIds.size === 0}
+            onClick={onClearAll}
+          >
+            Deselect all
+          </Button>
+        </div>
+      </div>
+
       <div className="flex max-h-96 flex-col gap-1 overflow-y-auto rounded-md border border-border p-1">
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
@@ -99,7 +141,7 @@ export function NotifyTaskPickerDialog({ seasonOptions, ownerOptions, selectedId
           </div>
         ) : candidates.length === 0 ? (
           <p className="px-2 py-6 text-center text-sm text-muted-foreground">
-            No upcoming tasks match — try a different season, owner, or search term.
+            No tasks match — try a different season, owner, or search term.
           </p>
         ) : (
           candidates.map((task) => (
@@ -111,7 +153,7 @@ export function NotifyTaskPickerDialog({ seasonOptions, ownerOptions, selectedId
               <span className="min-w-0 flex-1 truncate text-foreground">{task.task_name}</span>
               <span className="shrink-0 text-xs text-muted-foreground">
                 {task.season_name ? `${task.season_name} · ` : ""}
-                {formatDate(task.due_date)}
+                {task.due_date ? formatDate(task.due_date) : "No due date"}
               </span>
             </label>
           ))

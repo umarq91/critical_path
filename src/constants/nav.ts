@@ -42,7 +42,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     items: [
       { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-      { title: "Upcoming Tasks", href: "/upcoming", icon: ListTodo },
+      { title: "My Tasks", href: "/my-tasks", icon: ListTodo },
       // Board (Tasks), DPSP Flywheel and Timeline are one section — three tabs over the same
       // task data (see components/shared/critical-path-tabs.tsx), not three unrelated pages,
       // so they get a single sidebar entry rather than three. Points at /tasks (Board) since

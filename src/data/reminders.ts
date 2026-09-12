@@ -25,7 +25,7 @@ export interface ReminderRule {
   tasks: ReminderRuleTask[];
 }
 
-// The Upcoming Tasks page's reminder cards read this once, server-side. `null` means the
+// The My Tasks page's reminder cards read this once, server-side. `null` means the
 // profile has never saved a rule yet — the UI falls back to sensible defaults (empty offsets,
 // 9am, enabled) rather than a row existing purely to hold defaults.
 export async function getMyReminderRule(profileId: string): Promise<ReminderRule | null> {
@@ -55,7 +55,7 @@ export async function getMyReminderRule(profileId: string): Promise<ReminderRule
         season_name: task.season?.season_name ?? null,
       }))
       // due_date is nullable on tasks in general, but every candidate offered by the picker
-      // already requires one (see listUpcomingTasksForProfile) — sorted here for a stable,
+      // already requires one (see listMyReminderCandidateTasks) — sorted here for a stable,
       // soonest-first chip order regardless of insert order.
       .sort((a, b) => a.due_date.localeCompare(b.due_date)),
   };

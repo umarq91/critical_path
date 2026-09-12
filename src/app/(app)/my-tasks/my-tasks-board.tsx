@@ -10,7 +10,7 @@ import { useRefreshableData } from "@/components/shared/use-refreshable-data";
 import { EmptyState } from "@/components/shared/empty-state";
 import { createTaskColumns } from "@/app/(app)/tasks/columns";
 import { updateTask } from "@/app/(app)/tasks/_actions";
-import { refreshUpcomingTasks } from "@/app/(app)/upcoming/_actions";
+import { refreshMyTasks } from "@/app/(app)/my-tasks/_actions";
 import { TaskDetailDrawer } from "@/app/(app)/tasks/task-detail-drawer";
 import { TASK_STATUS_CONFIG } from "@/constants/task-status";
 import type { Task } from "@/data/tasks";
@@ -24,7 +24,7 @@ const DUE_OPTIONS: DataTableFilterOption[] = [
   { value: "90", label: "Next 90 Days" },
 ];
 
-interface UpcomingTasksBoardProps {
+interface MyTasksBoardProps {
   tasks: Task[];
   rowCount: number;
   canManage: boolean;
@@ -37,12 +37,12 @@ interface UpcomingTasksBoardProps {
 
 // Deliberately not a re-skin of TasksBoard — same underlying DataTable/columns machinery
 // (reusing createTaskColumns, not forking a second column set), but scoped by the server to
-// "tasks I own or am involved in, due from today on" (see data/tasks.ts's
-// listUpcomingTasksForProfile) and with a narrower, purpose-fit filter set: no Key
-// Stage/Gender/Owner filters (the whole page is already scoped to the current user, so those
-// add little triage value here), plus a "Due" range preset that has no equivalent on the main
-// Tasks grid.
-export const UpcomingTasksBoard = ({
+// "tasks I created, own, or am involved in" regardless of due date (see data/tasks.ts's
+// listTasksForProfile) and with a narrower, purpose-fit filter set: no Key Stage/Gender/Owner
+// filters (the whole page is already scoped to the current user, so those add little triage
+// value here), plus a "Due" range preset — a manual narrowing filter, not the page's default
+// scope — that has no equivalent on the main Tasks grid.
+export const MyTasksBoard = ({
   tasks,
   rowCount,
   canManage,
@@ -51,7 +51,7 @@ export const UpcomingTasksBoard = ({
   seasonOptions,
   brandOptions,
   keyStageOptions,
-}: UpcomingTasksBoardProps) => {
+}: MyTasksBoardProps) => {
   const queryState = useDataTableQueryState({ defaultPageSize: 15, defaultSort: { id: "due_date", desc: false } });
   const rowEditing = useRowEditing();
   const [isSaving, setIsSaving] = useState(false);
@@ -64,7 +64,7 @@ export const UpcomingTasksBoard = ({
     data: taskData,
     refresh,
     isRefreshing,
-  } = useRefreshableData(initialTasks, () => refreshUpcomingTasks(queryState.params));
+  } = useRefreshableData(initialTasks, () => refreshMyTasks(queryState.params));
 
   async function handleConfirmEdit(task: Task) {
     setIsSaving(true);
@@ -119,7 +119,7 @@ export const UpcomingTasksBoard = ({
         isRefreshing={isRefreshing}
         enableRowSelection
         enableColumnFilterRow={false}
-        paginationLabel="upcoming tasks"
+        paginationLabel="my tasks"
         onRowClick={(task) => {
           if (!rowEditing.isEditing(task.id)) setSelectedTask(task);
         }}
@@ -127,14 +127,14 @@ export const UpcomingTasksBoard = ({
           hasActiveFilters ? (
             <EmptyState
               icon={CalendarClock}
-              title="No upcoming tasks match your filters"
+              title="No tasks match your filters"
               description="Try a different season, brand, status, or due-date range — or clear filters above."
             />
           ) : (
             <EmptyState
               icon={CalendarClock}
-              title="You're all caught up"
-              description="You have no upcoming tasks as the owner or a person involved."
+              title="Nothing here yet"
+              description="You have no tasks as the creator, the owner, or a person involved."
             />
           )
         }
@@ -148,7 +148,7 @@ export const UpcomingTasksBoard = ({
               placeholder: "All Status",
               options: Object.entries(TASK_STATUS_CONFIG).map(([value, { label }]) => ({ value, label })),
             },
-            { columnId: "due_date", title: "Due", placeholder: "All Upcoming", options: DUE_OPTIONS },
+            { columnId: "due_date", title: "Due", placeholder: "Any Due Date", options: DUE_OPTIONS },
           ],
           sortOptions: [
             { columnId: "due_date", desc: false, label: "Due Date (Earliest)" },
@@ -157,7 +157,7 @@ export const UpcomingTasksBoard = ({
             { columnId: "task_name", desc: true, label: "Task Name (Z-A)" },
           ],
           searchColumnId: "task_name",
-          searchPlaceholder: "Search in upcoming tasks...",
+          searchPlaceholder: "Search in my tasks...",
         }}
       />
       {selectedTask ? (

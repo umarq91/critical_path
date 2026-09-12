@@ -220,8 +220,8 @@ follow-up `0016`, gated on the one-way calendar rework.
 "relevant to me". An empty result set filters on an impossible uuid (`EMPTY_RESULT_ID`) rather
 than dropping the clause, which would silently widen the query to "no filter at all".
 
-**"My tasks" is now transitive.** Upcoming scopes through `task_participant_profiles`, so being
-in Planning shows you every task Planning owns, not just ones naming you. Upcoming deliberately
+**"My tasks" is now transitive.** My Tasks scopes through `task_participant_profiles`, so being
+in Planning shows you every task Planning owns, not just ones naming you. My Tasks deliberately
 has no Owner filter — the page is already scoped to you.
 
 **The seeded tasks are real client data, and `supabase/seed-tasks.sql` hardcodes live uuids.**
@@ -674,7 +674,7 @@ runs server-side in `listTasks`, so it searches the whole table, not the page on
   matching into SQL — a view with a concatenated search column, or an RPC — rather than letting
   the ceiling truncate results.
 - **`filters.task_name` still works** as a plain name-only `ilike`, so any existing deep link
-  keeps its meaning. `/upcoming` still uses it; only `/tasks` was switched to `search`.
+  keeps its meaning. `/my-tasks` still uses it; only `/tasks` was switched to `search`.
 
 ### Export (`tasks/export/route.ts`, `tasks-export-button.tsx`)
 
@@ -711,11 +711,11 @@ checklist, because Task Management has exactly one table to export.
 
 ---
 
-## Upcoming Tasks (`/upcoming`)
+## My Tasks (`/my-tasks`)
 
 **Every person sees only their own work, with no role exemption** — an admin scoped this way
 gets their own list, not the organisation's. The scope is `scopeToProfileId` on `listTasks()`,
-and "theirs" is the union of three things:
+via the `listTasksForProfile()` preset, and "theirs" is the union of three things:
 
 1. tasks they **created** (`tasks.created_by`),
 2. tasks they are an **owner** of, and
@@ -724,10 +724,19 @@ and "theirs" is the union of three things:
 where 2 and 3 count whether they are named directly **or through their department** — the
 `task_participant_profiles` view (0015) flattens department membership down to profiles. That
 last part is doing nearly all the work in practice: the client's export names a department as
-owner on 832 of 833 rows, so almost nobody is named individually. Measured on current data (378
-tasks due today or later): Brand Managers member → 190, Customer Service external user → 77,
-a profile with **no department** → 0–1. If someone reports an empty Upcoming page, check their
-department before looking at the query.
+owner on 832 of 833 rows, so almost nobody is named individually. A profile with **no
+department** typically resolves to only a handful of tasks (whatever names them directly, plus
+whatever they created) — if someone reports a near-empty My Tasks page, check their department
+before looking at the query.
+
+**Deliberately has no due-date floor.** Earlier this page was "Upcoming Tasks" and hard-filtered
+to `due_date >= today` (an `onlyUpcoming` param on `listTasks()`/`taskScope()`); that filter has
+been removed from the codebase entirely — created/owned/involved tasks show up whether their due
+date is in the future, the past, or unset, and so does every consumer of `listTasksForProfile()`,
+including the reminder-rule task picker (see the Reminders section below — it composes the
+same underlying query, so it dropped the floor along with the page). The "Due" toolbar filter
+(7/30/90 days) is a separate, user-driven narrowing layered on top via `filters.due_date`,
+unrelated to that removed floor.
 
 **The scope is applied in memory, not as a filter, and that is a fix rather than a shortcut.**
 It is a union of a column check (`created_by = me`) and a join-table id set, which PostgREST
@@ -925,21 +934,32 @@ express (that one is "show only this status").
 half-built. If either lands later, it's a new column/table plus real UI, not a toggle bolted onto
 the existing board.
 
-## Reminders (`/upcoming`, `data/reminders.ts`, `/api/cron/task-reminders`)
+## Reminders (`/my-tasks`, `data/reminders.ts`, `/api/cron/task-reminders`)
 
 **Self-service, not an admin rule.** `reminder_rules` is one row per profile, configured by that
-person on the two cards below the Upcoming Tasks table — there is no admin-facing management
-screen, and `plan.md`'s original org-wide `reminder_rules` sketch is superseded by this, not
-implemented alongside it. Every Server Action here is gated on `profile.update_own` (already
-granted to every role, admin included) rather than a new `Action` — this isn't a distinct
-capability decision, it's "manage your own settings," same as the profile itself.
+person on the two cards below the My Tasks table — there is no admin-facing management screen,
+and `plan.md`'s original org-wide `reminder_rules` sketch is superseded by this, not implemented
+alongside it. Every Server Action here is gated on `profile.update_own` (already granted to
+every role, admin included) rather than a new `Action` — this isn't a distinct capability
+decision, it's "manage your own settings," same as the profile itself.
 
 **Scope is specific tasks only — v1 deliberately dropped "by season"/"by owner" as separate
 scope types.** `reminder_rule_tasks` is a plain join (`rule_id`, `task_id`); season and owner
 are filters *inside* the "Select tasks…" picker (`notify-task-picker-dialog.tsx`), narrowing
 which of the user's own tasks they pick from — not a second matching mechanism a task could
-qualify under independently of being explicitly chosen. The picker's candidate set is exactly
-`listUpcomingTasksForProfile()` — the same tasks that page already shows.
+qualify under independently of being explicitly chosen. The picker's candidate set is
+`listMyReminderCandidateTasks()`, which is just `listTasksForProfile()` — the exact same
+created/owned/involved scope as the My Tasks page, no due-date floor. A task with no due date,
+or one already overdue, can be selected same as any other; nothing crashes, it just never
+actually fires — `listDueReminders()` skips any `reminder_rule_tasks` row whose task has
+`due_date is null` before computing offsets, so an undated pick is inert rather than invalid.
+
+**"Select all" / "Deselect all" in the picker act on different scopes, on purpose.** Select all
+only selects what's currently loaded into `candidates` — i.e. whatever the picker's own search/
+season/owner filters and the `CANDIDATE_PAGE_SIZE` (100) cap currently show — so it composes
+with those filters instead of silently grabbing the user's entire task list. Deselect all clears
+the whole selection regardless of what's currently filtered into view, mirroring what Save would
+otherwise persist — an honest "start over," not a scoped removal.
 
 **Offsets are one `integer[]` column, not three preset booleans plus a custom field.**
 `reminder_rules.offset_days` holds every "notify N days before due_date" value the user has

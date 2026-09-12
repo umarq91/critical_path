@@ -12,7 +12,7 @@ export const ROUTES = {
 // check.
 export const PROTECTED_PREFIXES = [
   "/dashboard",
-  "/upcoming",
+  "/my-tasks",
   "/tasks",
   "/calendar",
   "/timeline",

@@ -1,8 +1,8 @@
 import { PageHeader } from "@/components/shared/page-header";
-import { UpcomingTasksBoard } from "@/app/(app)/upcoming/upcoming-tasks-board";
-import { NotifyTimingCard } from "@/app/(app)/upcoming/notify-timing-card";
-import { NotifyTasksCard } from "@/app/(app)/upcoming/notify-tasks-card";
-import { listUpcomingTasksForProfile } from "@/data/tasks";
+import { MyTasksBoard } from "@/app/(app)/my-tasks/my-tasks-board";
+import { NotifyTimingCard } from "@/app/(app)/my-tasks/notify-timing-card";
+import { NotifyTasksCard } from "@/app/(app)/my-tasks/notify-tasks-card";
+import { listTasksForProfile } from "@/data/tasks";
 import { listSeasonOptions } from "@/data/seasons";
 import { listBrandOptions } from "@/data/brands";
 import { listKeyStageOptions } from "@/data/key-stages";
@@ -14,7 +14,7 @@ import { loadDataTableSearchParams } from "@/components/data-table/data-table-se
 
 const QUERY_STATE_OPTIONS = { defaultPageSize: 15, defaultSort: { id: "due_date", desc: false } };
 
-export default async function UpcomingTasksPage({
+export default async function MyTasksPage({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -25,7 +25,7 @@ export default async function UpcomingTasksPage({
   // No signed-in profile shouldn't happen here — (app)/layout.tsx already guards auth for the
   // whole authenticated shell — but without one there's no "me" to scope this page to.
   const [{ data: tasks, rowCount }, seasons, brands, keyStages, parties, reminderRule] = await Promise.all([
-    profile ? listUpcomingTasksForProfile(profile.id, queryState) : Promise.resolve({ data: [], rowCount: 0 }),
+    profile ? listTasksForProfile(profile.id, queryState) : Promise.resolve({ data: [], rowCount: 0 }),
     listSeasonOptions(),
     listBrandOptions(),
     listKeyStageOptions(),
@@ -44,11 +44,11 @@ export default async function UpcomingTasksPage({
   return (
     <div className="flex flex-col">
       <PageHeader
-        title="Upcoming Tasks"
-        description="Tasks you created, own, or are involved in — due soon, nearest first."
+        title="My Tasks"
+        description="Tasks you created, own, or are involved in — nearest due date first."
       />
       <div className="flex flex-col gap-4 px-6 pb-6">
-        <UpcomingTasksBoard
+        <MyTasksBoard
           tasks={tasks}
           rowCount={rowCount}
           canManage={canManage}

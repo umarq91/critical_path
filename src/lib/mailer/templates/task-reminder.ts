@@ -13,7 +13,7 @@ export interface TaskReminderEmailInput {
   offsetDays: number;
 }
 
-// The one email this feature sends. Links to /upcoming (where the reminder was configured and
+// The one email this feature sends. Links to /my-tasks (where the reminder was configured and
 // where the task itself is visible) rather than a task-specific deep link — TaskDetailDrawer is
 // client-only state today, not URL-addressable, so there's nowhere more specific to send them.
 export function taskReminderEmail({ to, taskName, dueDate, seasonName, offsetDays }: TaskReminderEmailInput): EmailMessage {
@@ -21,12 +21,12 @@ export function taskReminderEmail({ to, taskName, dueDate, seasonName, offsetDay
   const subject = `Reminder: "${taskName}" is due ${whenLabel}`;
   const dueDateLabel = formatDate(dueDate);
   const seasonLine = seasonName ? ` (${seasonName})` : "";
-  const link = `${publicEnv.NEXT_PUBLIC_APP_URL}/upcoming`;
+  const link = `${publicEnv.NEXT_PUBLIC_APP_URL}/my-tasks`;
 
   const text = `Reminder: "${taskName}"${seasonLine} is due ${dueDateLabel} — ${whenLabel}.\n\nView it: ${link}`;
   const html = `
     <p>Reminder: <strong>${escapeHtml(taskName)}</strong>${escapeHtml(seasonLine)} is due <strong>${dueDateLabel}</strong> — ${whenLabel}.</p>
-    <p><a href="${link}">View your upcoming tasks</a></p>
+    <p><a href="${link}">View your tasks</a></p>
   `.trim();
 
   return { to, subject, html, text };

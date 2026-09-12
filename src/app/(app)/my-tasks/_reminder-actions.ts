@@ -2,8 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { requirePermission } from "@/lib/require-permission";
-import { listUpcomingTasksForProfile, type ListTasksParams } from "@/data/tasks";
-import { reminderTimingSchema, reminderTasksSchema } from "@/app/(app)/upcoming/reminder-schema";
+import { listTasksForProfile, type ListTasksParams } from "@/data/tasks";
+import { reminderTimingSchema, reminderTasksSchema } from "@/app/(app)/my-tasks/reminder-schema";
 import type { createClient } from "@/lib/supabase/server";
 
 type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
@@ -15,13 +15,15 @@ type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
 
 // Powers the task picker dialog's season/owner filters and search — a read, but triggered by
 // client interaction (opening the dialog, changing a filter) rather than page load, same
-// reasoning as refreshTasks(). Deliberately reuses listUpcomingTasksForProfile rather than a
-// parallel query: "which of my tasks can this apply to" is exactly Upcoming Tasks' own scope.
+// reasoning as refreshTasks(). Same "created/owned/involved" scope as the My Tasks page itself
+// (listTasksForProfile), with no due-date floor — a task with no due date, or one already
+// overdue, can still be picked; listDueReminders() (data/reminders.ts) simply never fires for
+// one that has no due_date, so selecting it is harmless rather than invalid.
 export async function listMyReminderCandidateTasks(params: ListTasksParams) {
   const auth = await requirePermission("profile.update_own");
   if (!auth.ok) return auth;
 
-  const result = await listUpcomingTasksForProfile(auth.userId, params);
+  const result = await listTasksForProfile(auth.userId, params);
   return { ok: true as const, data: result.data, rowCount: result.rowCount };
 }
 
@@ -56,7 +58,7 @@ export async function updateReminderTiming(input: unknown) {
     .eq("id", ruleId);
   if (error) return { ok: false as const, error: error.message };
 
-  revalidatePath("/upcoming");
+  revalidatePath("/my-tasks");
   return { ok: true as const };
 }
 
@@ -81,6 +83,6 @@ export async function updateReminderTasks(input: unknown) {
     if (insertError) return { ok: false as const, error: insertError.message };
   }
 
-  revalidatePath("/upcoming");
+  revalidatePath("/my-tasks");
   return { ok: true as const };
 }
