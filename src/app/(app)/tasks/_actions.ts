@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requirePermission } from "@/lib/require-permission";
-import { taskCreateSchema, taskUpdateSchema } from "@/app/(app)/tasks/schema";
+import { taskCreateSchema, taskUpdateSchema, dpspCategoryValues } from "@/app/(app)/tasks/schema";
 import { listTasks, type ListTasksParams } from "@/data/tasks";
 import { parsePartyKey, participantRows } from "@/lib/party";
 import { deleteTaskCalendarEvent } from "@/lib/google/calendar";
@@ -19,9 +19,20 @@ export async function refreshTasks(params: ListTasksParams) {
 
 // The form/inline-edit selects submit "none" as their "not set" sentinel for the optional FKs
 // (see task-form.tsx / tasks/columns.tsx), never "" — normalise that (and any other falsy
-// value) to null before it hits the column. Shared by brand_id and key_stage_id.
+// value) to null before it hits the column. Shared by brand_id, key_stage_id and dpsp_category.
 function normaliseOptionalId(value: string | undefined): string | null {
   return value && value !== "none" ? value : null;
+}
+
+// dpsp_category is a Postgres enum, not a uuid FK — normaliseOptionalId's generic "none" -> null
+// step still applies, but the surviving value has to be narrowed to the enum's own literal
+// union (taskSchema only validates it as a loose string, same "none"-sentinel reasoning as
+// brand_id/key_stage_id) before it can reach a typed insert/update.
+function normaliseDpspCategory(value: string | undefined): (typeof dpspCategoryValues)[number] | null {
+  const id = normaliseOptionalId(value);
+  return id && (dpspCategoryValues as readonly string[]).includes(id)
+    ? (id as (typeof dpspCategoryValues)[number])
+    : null;
 }
 
 // due_date/start_date/end_date are all optional `date` columns, but DateField submits an unset
@@ -47,6 +58,7 @@ export async function createTask(input: unknown) {
       ...taskColumns,
       brand_id: normaliseOptionalId(taskColumns.brand_id),
       key_stage_id: normaliseOptionalId(taskColumns.key_stage_id),
+      dpsp_category: normaliseDpspCategory(taskColumns.dpsp_category),
       due_date: normaliseDate(taskColumns.due_date),
       start_date: normaliseDate(taskColumns.start_date),
       end_date: normaliseDate(taskColumns.end_date),
@@ -91,7 +103,7 @@ function firstIndividualOwnerId(owners: string[]) {
 // The columns a task edit is audited on — every user-editable column, and nothing else (the
 // google_*/locking/tracking columns are stamped by the system, not chosen by a person).
 const AUDITED_TASK_COLUMNS =
-  "id, task_name, season_id, brand_id, key_stage_id, gender, due_date, start_date, end_date, status, priority, notes";
+  "id, task_name, season_id, brand_id, key_stage_id, dpsp_category, gender, due_date, start_date, end_date, status, priority, notes";
 
 export async function updateTask(id: string, patch: unknown) {
   const auth = await requirePermission("task.update");
@@ -105,10 +117,17 @@ export async function updateTask(id: string, patch: unknown) {
   // Built via additive spreads (not property assignment) so a deliberate null - clearing an
   // existing brand / key stage / start / end date - actually reaches the DB instead of being
   // widened away by updateData's inferred (string | undefined) shape.
+  //
+  // dpsp_category is destructured out of the base spread (unlike brand_id/key_stage_id, which
+  // stay in it) because it's the one column typed as a Postgres enum literal union rather than
+  // a plain string — left in the base spread, its loosely-typed `string | undefined` from
+  // taskUpdateSchema would win the merge over normaliseDpspCategory's narrowed return type.
+  const { dpsp_category: rawDpspCategory, ...restParsed } = parsed.data;
   const updateData = {
-    ...parsed.data,
+    ...restParsed,
     ...("brand_id" in parsed.data ? { brand_id: normaliseOptionalId(parsed.data.brand_id) } : {}),
     ...("key_stage_id" in parsed.data ? { key_stage_id: normaliseOptionalId(parsed.data.key_stage_id) } : {}),
+    ...("dpsp_category" in parsed.data ? { dpsp_category: normaliseDpspCategory(rawDpspCategory) } : {}),
     ...("due_date" in parsed.data ? { due_date: normaliseDate(parsed.data.due_date) } : {}),
     ...("start_date" in parsed.data ? { start_date: normaliseDate(parsed.data.start_date) } : {}),
     ...("end_date" in parsed.data ? { end_date: normaliseDate(parsed.data.end_date) } : {}),

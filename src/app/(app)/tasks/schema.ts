@@ -4,6 +4,7 @@ import { parsePartyKey } from "@/lib/party";
 export const taskGenderValues = ["men", "women", "unisex"] as const;
 export const taskStatusValues = ["not_started", "in_progress", "completed", "overdue"] as const;
 export const taskPriorityValues = ["high", "med", "low"] as const;
+export const dpspCategoryValues = ["demand", "product", "sales", "profit"] as const;
 
 // A participant is addressed as a `kind:uuid` string on the wire — see lib/party.ts for why
 // that encoding exists rather than two parallel id arrays per role.
@@ -27,6 +28,10 @@ export const taskSchema = z.object({
   // (see normaliseOptionalId).
   brand_id: z.string().optional(),
   key_stage_id: z.string().optional(),
+  // Loose string, not z.enum(dpspCategoryValues) — same "none" sentinel pattern as brand_id/
+  // key_stage_id above, since dpsp_category is an optional DPSP Flywheel grouping (see
+  // schema.md), not a required classification like gender/status.
+  dpsp_category: z.string().optional(),
   gender: z.enum(taskGenderValues),
   // Nullable since 0022_tasks_due_date_optional.sql — some of the client's historical data has
   // no known due date. A task with no due_date still appears on the grid; see data/tasks.ts and

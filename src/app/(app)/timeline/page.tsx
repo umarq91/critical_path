@@ -1,4 +1,5 @@
 import { PageHeader } from "@/components/shared/page-header";
+import { CriticalPathTabs } from "@/components/shared/critical-path-tabs";
 import { TimelineWorkspace } from "@/app/(app)/timeline/timeline-workspace";
 import { loadTimelineSearchParams } from "@/app/(app)/timeline/timeline-search-params";
 import { getTimelineRange, resolveAnchorDate, toQueryDate } from "@/app/(app)/timeline/timeline-utils";
@@ -36,7 +37,8 @@ export default async function TimelinePage({
   return (
     <div className="flex flex-col">
       <PageHeader title="Timeline" description="Tasks laid out against their working dates, grouped by schedule." />
-      <div className="flex flex-col gap-4 px-6 pb-6">
+      <CriticalPathTabs active="timeline" />
+      <div className="flex flex-col gap-4 px-6 pb-6 pt-4">
         <TimelineWorkspace
           tasks={tasks.data}
           rowCount={tasks.rowCount}

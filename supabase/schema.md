@@ -37,6 +37,7 @@ policy — see `0006_tasks.sql`.
 | `task_gender` | `men`, `women`, `unisex` | `tasks.gender` |
 | `task_status` | `not_started`, `in_progress`, `completed`, `overdue` | `tasks.status` |
 | `task_priority` | `high`, `med`, `low` | `tasks.priority` |
+| `task_dpsp_category` | `demand`, `product`, `sales`, `profit` | `tasks.dpsp_category` |
 
 ## Helper functions
 
@@ -202,6 +203,7 @@ Seeded from real client data — see `supabase/seed-departments.sql` and the Dep
 | `google_synced_at` | timestamptz, nullable | last time this task was **pushed** to Google Calendar. Since `0019` there is no pull, so this is a record of the last outbound write and never an input to a conflict check |
 | `created_at` / `updated_at` | timestamptz | |
 | `deleted_at` | timestamptz, nullable | soft delete |
+| `dpsp_category` | `task_dpsp_category`, nullable, added `0023_tasks_dpsp_category.sql` | Optional — groups a task into the DPSP Flywheel board (`/dpsp-flywheel`) under Demand, Product, Sales or Profit. Most tasks have no category and simply don't appear on that board; it's an additional lens over the same task, not a replacement for `key_stage_id` |
 
 **Deliberately not columns (this pass):** attachments (explicitly deferred).
 

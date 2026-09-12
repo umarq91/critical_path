@@ -1,9 +1,8 @@
 import {
   LayoutDashboard,
   ListTodo,
-  ListChecks,
+  Workflow,
   Calendar,
-  GanttChartSquare,
   Tag,
   Leaf,
   Milestone,
@@ -26,6 +25,10 @@ export type NavItem = {
   /** Capability required to see this link. Omitted means every signed-in role sees it.
    *  Hiding a link is presentation only — the page itself guards with requirePageAccess(). */
   requiredAction?: Action;
+  /** Extra route prefixes that should also highlight this link — for "Critical Path", whose
+   *  href points at /tasks (its default tab) but should stay highlighted on /dpsp-flywheel and
+   *  /timeline too, since those are tabs of the same section, not separate pages. */
+  activePrefixes?: string[];
 };
 
 export type NavGroup = {
@@ -40,9 +43,13 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
       { title: "Upcoming Tasks", href: "/upcoming", icon: ListTodo },
-      { title: "Tasks", href: "/tasks", icon: ListChecks },
+      // Board (Tasks), DPSP Flywheel and Timeline are one section — three tabs over the same
+      // task data (see components/shared/critical-path-tabs.tsx), not three unrelated pages,
+      // so they get a single sidebar entry rather than three. Points at /tasks (Board) since
+      // that's the section's default landing tab; labelled "Tasks" (not "Critical Path") per
+      // client preference, even though the tab strip it lands on is titled Critical Path.
+      { title: "Tasks", href: "/tasks", icon: Workflow, activePrefixes: ["/dpsp-flywheel", "/timeline"] },
       { title: "Calendar", href: "/calendar", icon: Calendar },
-      { title: "Timeline", href: "/timeline", icon: GanttChartSquare },
       { title: "Brands", href: "/brands", icon: Tag, requiredAction: "brand.view" },
       { title: "Seasons", href: "/seasons", icon: Leaf, requiredAction: "lookups.view" },
       { title: "Key Stages", href: "/key-stages", icon: Milestone, requiredAction: "lookups.view" },

@@ -1,4 +1,5 @@
 import { PageHeader } from "@/components/shared/page-header";
+import { CriticalPathTabs } from "@/components/shared/critical-path-tabs";
 import { TaskPageActions } from "@/app/(app)/tasks/task-page-actions";
 import { TasksBoard } from "@/app/(app)/tasks/tasks-board";
 import { listTasks } from "@/data/tasks";
@@ -53,7 +54,8 @@ export default async function TasksPage({
           />
         }
       />
-      <div className="flex flex-col gap-4 px-6 pb-6">
+      <CriticalPathTabs active="board" />
+      <div className="flex flex-col gap-4 px-6 pb-6 pt-4">
         <TasksBoard
           tasks={tasks}
           rowCount={rowCount}

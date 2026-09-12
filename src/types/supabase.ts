@@ -452,6 +452,7 @@ export type Database = {
           created_by: string | null
           deleted_at: string | null
           deleted_by: string | null
+          dpsp_category: Database["public"]["Enums"]["task_dpsp_category"] | null
           due_date: string | null
           end_date: string | null
           gender: Database["public"]["Enums"]["task_gender"]
@@ -479,6 +480,7 @@ export type Database = {
           created_by?: string | null
           deleted_at?: string | null
           deleted_by?: string | null
+          dpsp_category?: Database["public"]["Enums"]["task_dpsp_category"] | null
           due_date?: string | null
           end_date?: string | null
           gender: Database["public"]["Enums"]["task_gender"]
@@ -506,6 +508,7 @@ export type Database = {
           created_by?: string | null
           deleted_at?: string | null
           deleted_by?: string | null
+          dpsp_category?: Database["public"]["Enums"]["task_dpsp_category"] | null
           due_date?: string | null
           end_date?: string | null
           gender?: Database["public"]["Enums"]["task_gender"]
@@ -639,6 +642,7 @@ export type Database = {
     Enums: {
       brand_status: "active" | "inactive"
       season_status: "planning" | "upcoming" | "active" | "completed"
+      task_dpsp_category: "demand" | "product" | "sales" | "profit"
       task_gender: "men" | "women" | "unisex"
       task_participant_role: "owner" | "involved"
       task_priority: "high" | "med" | "low"
@@ -773,6 +777,7 @@ export const Constants = {
     Enums: {
       brand_status: ["active", "inactive"],
       season_status: ["planning", "upcoming", "active", "completed"],
+      task_dpsp_category: ["demand", "product", "sales", "profit"],
       task_gender: ["men", "women", "unisex"],
       task_priority: ["high", "med", "low"],
       task_status: ["not_started", "in_progress", "completed", "overdue"],

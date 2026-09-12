@@ -18,11 +18,13 @@ import {
   taskCreateSchema,
   taskGenderValues,
   taskStatusValues,
+  dpspCategoryValues,
   type TaskCreateInput,
 } from "@/app/(app)/tasks/schema";
 import { createTask } from "@/app/(app)/tasks/_actions";
 import { TASK_GENDER_CONFIG } from "@/constants/task-gender";
 import { TASK_STATUS_CONFIG } from "@/constants/task-status";
+import { DPSP_CATEGORY_CONFIG } from "@/constants/dpsp-category";
 import type { DataTableFilterOption } from "@/components/data-table/table-features";
 
 interface TaskFormProps {
@@ -46,6 +48,7 @@ export const TaskForm = ({ onSuccess, seasonOptions, brandOptions, keyStageOptio
       season_id: seasonOptions[0]?.value ?? "",
       brand_id: "none",
       key_stage_id: "none",
+      dpsp_category: "none",
       gender: "unisex",
       due_date: "",
       start_date: "",
@@ -120,6 +123,16 @@ export const TaskForm = ({ onSuccess, seasonOptions, brandOptions, keyStageOptio
                 name="gender"
                 label="Gender"
                 options={taskGenderValues.map((value) => ({ value, label: TASK_GENDER_CONFIG[value].label }))}
+              />
+              <SelectField
+                control={form.control}
+                name="dpsp_category"
+                label="DPSP Category"
+                placeholder="No category"
+                options={[
+                  { value: "none", label: "No category" },
+                  ...dpspCategoryValues.map((value) => ({ value, label: DPSP_CATEGORY_CONFIG[value].label })),
+                ]}
               />
             </div>
           </FormSection>

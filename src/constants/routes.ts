@@ -16,6 +16,7 @@ export const PROTECTED_PREFIXES = [
   "/tasks",
   "/calendar",
   "/timeline",
+  "/dpsp-flywheel",
   "/brands",
   "/seasons",
   "/key-stages",

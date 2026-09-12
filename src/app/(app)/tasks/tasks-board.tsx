@@ -12,6 +12,7 @@ import { updateTask, refreshTasks } from "@/app/(app)/tasks/_actions";
 import { TaskDetailDrawer } from "@/app/(app)/tasks/task-detail-drawer";
 import { TASK_STATUS_CONFIG } from "@/constants/task-status";
 import { TASK_GENDER_CONFIG } from "@/constants/task-gender";
+import { DPSP_CATEGORY_CONFIG } from "@/constants/dpsp-category";
 import type { Task } from "@/data/tasks";
 import type { DataTableFilterOption } from "@/components/data-table/table-features";
 
@@ -110,6 +111,12 @@ export const TasksBoard = ({
             { columnId: "season_id", title: "Season", placeholder: "All Seasons", options: seasonOptions },
             { columnId: "brand_id", title: "Brand", placeholder: "All Brands", options: brandOptions },
             { columnId: "key_stage_id", title: "Key Stage", placeholder: "All Key Stages", options: keyStageOptions },
+            {
+              columnId: "dpsp_category",
+              title: "DPSP Category",
+              placeholder: "All Categories",
+              options: Object.entries(DPSP_CATEGORY_CONFIG).map(([value, { label }]) => ({ value, label })),
+            },
             {
               columnId: "gender",
               title: "Gender",

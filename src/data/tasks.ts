@@ -8,7 +8,13 @@ import {
   type SupabaseClient,
 } from "@/data/task-participants";
 import { TASK_SEARCH_SELECT, resolveTaskSearchMatcher, type TaskSearchRow } from "@/data/task-search";
-import { taskGenderValues, taskStatusValues, taskPriorityValues, type TaskInput } from "@/app/(app)/tasks/schema";
+import {
+  taskGenderValues,
+  taskStatusValues,
+  taskPriorityValues,
+  dpspCategoryValues,
+  type TaskInput,
+} from "@/app/(app)/tasks/schema";
 
 export interface ListTasksParams {
   page?: number;
@@ -47,6 +53,10 @@ function isTaskStatus(value: string | undefined): value is TaskInput["status"] {
 
 function isTaskPriority(value: string | undefined): value is TaskInput["priority"] {
   return !!value && (taskPriorityValues as readonly string[]).includes(value);
+}
+
+function isDpspCategory(value: string | undefined): value is (typeof dpspCategoryValues)[number] {
+  return !!value && (dpspCategoryValues as readonly string[]).includes(value);
 }
 
 /** Task-id allow-lists that can't be expressed as inline PostgREST filters, resolved once per
@@ -101,6 +111,10 @@ function taskScope(
   if (isTaskGender(filters.gender)) query = query.eq("gender", filters.gender);
   if (isTaskStatus(filters.status)) query = query.eq("status", filters.status);
   if (isTaskPriority(filters.priority)) query = query.eq("priority", filters.priority);
+  if (isDpspCategory(filters.dpsp_category)) query = query.eq("dpsp_category", filters.dpsp_category);
+  // "Hide done" toggle (DPSP Flywheel board) — an exclusion, not an equality match, so it's
+  // its own filter key rather than overloading `status`.
+  if (filters.hide_done === "true") query = query.neq("status", "completed");
   // An unmatched party must yield zero rows, not every row, hence the impossible-id fallback
   // rather than skipping the clause.
   if (ids.participants) {
@@ -315,6 +329,51 @@ export async function countTasksForExport(filters: Record<string, string> = {}):
   const { count, error } = await taskScope(supabase, "id", params, ids, { headOnly: true });
   if (error) throw error;
   return count ?? 0;
+}
+
+/** Hard ceiling on the DPSP Flywheel board's single fetch — a safety valve, not a target. The
+ *  client's live dataset (~800 tasks total, per things-to-know.md) sits well under this, so
+ *  unlike listTasksForExport there's no need for a chunked-page loop; see listTasksForFlywheel. */
+const MAX_FLYWHEEL_ROWS = 1000;
+
+// The DPSP Flywheel board's one query: every dpsp_category'd task matching the toolbar's
+// filters (season/owner/search/hide_done — the same `filters` vocabulary listTasks() takes),
+// fetched once and grouped into its four columns in the browser rather than as four separate
+// paginated calls — same "bounded fetch, narrow client-side" shape as listTasksByDueDateRange,
+// chosen because a shared search term and the four column counts all have to agree with the
+// same result set. `scopeToProfileId`/`onlyUpcoming`/pagination don't apply here — the board
+// shows the organisation's whole flywheel, not one page of it.
+export async function listTasksForFlywheel(filters: Record<string, string> = {}): Promise<Task[]> {
+  const supabase = await createClient();
+  const params: ListTasksParams = { filters };
+  const ids = await resolveTaskScopeIds(supabase, params);
+  const term = (filters.search ?? "").trim();
+
+  if (!term) {
+    const { data, error } = await taskScope(supabase, TASK_SELECT, params, ids, false)
+      .not("dpsp_category", "is", null)
+      .range(0, MAX_FLYWHEEL_ROWS - 1);
+    if (error) throw error;
+    return (data ?? []) as unknown as Task[];
+  }
+
+  const { data: candidates, error: candidateError } = await taskScope(supabase, TASK_NARROW_SELECT, params, ids, false).not(
+    "dpsp_category",
+    "is",
+    null
+  );
+  if (candidateError) throw candidateError;
+
+  const matcher = await resolveTaskSearchMatcher(supabase, term);
+  const matchedIds = ((candidates ?? []) as unknown as TaskNarrowRow[])
+    .filter(matcher)
+    .slice(0, MAX_FLYWHEEL_ROWS)
+    .map((row) => row.id);
+  if (matchedIds.length === 0) return [];
+
+  const { data, error } = await taskScope(supabase, TASK_SELECT, params, ids, false).in("id", matchedIds);
+  if (error) throw error;
+  return (data ?? []) as unknown as Task[];
 }
 
 // The Upcoming Tasks page's one query — a thin preset over listTasks(), same shape as

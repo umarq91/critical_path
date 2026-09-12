@@ -47,7 +47,12 @@ export function AppSidebar({ role }: { role: Role }) {
             <SidebarGroupContent>
               <SidebarMenu className="gap-1">
                 {group.items.map((item) => {
-                  const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+                  const isActive =
+                    pathname === item.href ||
+                    pathname.startsWith(`${item.href}/`) ||
+                    (item.activePrefixes ?? []).some(
+                      (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+                    );
                   return (
                     <SidebarMenuItem key={item.href}>
                       <SidebarMenuButton

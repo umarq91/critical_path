@@ -13,6 +13,7 @@ import {
   Lock,
   Milestone,
   MoreVertical,
+  RefreshCw,
   Tag,
   UserCheck,
   UserRound,
@@ -33,6 +34,7 @@ import { PartyStack } from "@/app/(app)/tasks/party-stack";
 import { taskOwners, taskPeopleInvolved } from "@/app/(app)/tasks/task-parties";
 import { TASK_STATUS_CONFIG } from "@/constants/task-status";
 import { TASK_GENDER_CONFIG } from "@/constants/task-gender";
+import { DPSP_CATEGORY_CONFIG } from "@/constants/dpsp-category";
 import { formatDate } from "@/lib/dates";
 import type { Task } from "@/data/tasks";
 import type { LucideIcon } from "lucide-react";
@@ -134,6 +136,13 @@ export const TaskDetailDrawer = ({ task, open, onOpenChange, canAssignPeople, on
                 </OverviewField>
                 <OverviewField icon={Milestone} label="Key Stage">
                   {task.key_stage?.name ?? <span className="text-muted-foreground">Not set</span>}
+                </OverviewField>
+                <OverviewField icon={RefreshCw} label="DPSP Category">
+                  {task.dpsp_category ? (
+                    <StatusBadge value={task.dpsp_category} config={DPSP_CATEGORY_CONFIG} />
+                  ) : (
+                    <span className="text-muted-foreground">Not set</span>
+                  )}
                 </OverviewField>
                 <OverviewField icon={UserCheck} label="Owners">
                   {draft.owners.length > 0 ? (

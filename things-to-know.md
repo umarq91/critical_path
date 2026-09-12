@@ -856,3 +856,71 @@ border is always present but `border-transparent` at rest, so toggling it can't 
 by a pixel; and the hook finds the scroll container by `data-slot="table-container"` because
 that element belongs to the shadcn `<Table>` primitive, not to us. Renaming that slot silently
 disables the effect — there's nothing to throw.
+
+## Critical Path tabs (Board / DPSP Flywheel / Timeline)
+
+**Tasks, DPSP Flywheel and Timeline are one sidebar entry, not three.** `constants/nav.ts` has a
+single link labelled **"Tasks"** (client preference — not "Critical Path", despite the tab strip
+it opens onto being titled that) pointing at `/tasks`, with `activePrefixes: ["/dpsp-flywheel",
+"/timeline"]` so the sidebar stays highlighted on all three routes. `components/shared/
+critical-path-tabs.tsx` renders the actual tab strip (Board / DPSP Flywheel / Timeline) at the
+top of all three pages' content. Each tab is still a genuinely separate route with its own query
+state, filters and data fetch — nothing is shared between them beyond the tab strip itself. Add
+a fourth tab (e.g. "By Department") by adding a row to `TABS` in that file and a matching
+`<CriticalPathTabs active="...">` on the new page; don't invent a second tab component.
+
+## DPSP Flywheel (`/dpsp-flywheel`)
+
+**`tasks.dpsp_category` is optional and single-valued** (`task_dpsp_category` enum: demand /
+product / sales / profit, `0023_tasks_dpsp_category.sql`). A task with no category simply never
+appears on this board — it's an additional lens over the same task, not a required
+classification like `status`/`gender`. Editable the same way as Key Stage (an inline-select grid
+column + a task-form field, "none" sentinel normalised to `null` in `_actions.ts`).
+
+**One bounded fetch, grouped into columns in the browser — not four separate queries.**
+`listTasksForFlywheel()` (`data/tasks.ts`) fetches every non-null-category task matching the
+toolbar's filters in one shot (capped at `MAX_FLYWHEEL_ROWS`, 1000 — the client's live dataset
+is a few hundred, so this is a safety valve, not a real limit) and the workspace groups the flat
+array into the four columns with `useMemo`. This was chosen over four
+`listTasks({filters:{dpsp_category}})` calls because a shared search term and the four column
+counts have to agree with one result set.
+
+**Each column paginates client-side, not server-side.** `DpspFlywheelColumn` holds its own
+`page` state and slices its category's already-in-memory array at
+`DPSP_FLYWHEEL_COLUMN_PAGE_SIZE` (25) using the shared `<PaginationControls>` — there's no
+per-column server round trip, since the whole board's data is already sitting in the browser
+from the one bounded fetch above. The column header's count is always the category's TOTAL
+(`tasks.length`), never the current page's — that's what keeps "DEMAND · 92" accurate while
+only 25 cards render. A column's `page` resets to 1 whenever its `tasks` array changes, via
+setState-during-render (React's documented pattern for "reset state when a prop changes" —
+comparing `tasks` against a mirrored `tasksForPage` state and resetting both in the same render),
+deliberately not a `useEffect` — CLAUDE.md's "no useEffect for derived state" rule, and the
+lint rule (`react-hooks/set-state-in-effect`) both rule that out here. Otherwise a
+season/department/search change that shrinks a category below its previous page count would
+render an empty column instead of jumping back.
+This was chosen over real (server) pagination because the whole point of the single bounded
+fetch above is that a shared search term and the four columns' counts can't drift apart; paging
+one column server-side would reintroduce exactly that problem.
+
+**Category pills are display-only, not a server filter.** Toggling Demand/Product/Sales/Profit
+in the toolbar hides/shows that column client-side (`visibleCategories` state in
+`dpsp-flywheel-workspace.tsx`); it does not change which tasks are fetched, and is deliberately
+not persisted in the URL (unlike season/department/search/hide-done, which are). All four
+columns' counts and the diagram's stats always reflect the full filtered set, regardless of
+which columns are currently hidden.
+
+**The department filter reuses the Owner-filter machinery, not a new column.** There's no
+`tasks.department_id` — a task's department is one of its `task_participants` owners. The
+toolbar's department picker maps a department id to an `owner` filter value (`department:<uuid>`
+party key, see `lib/party.ts`) and `listTasks()`/`listTasksForFlywheel()` resolve it exactly the
+same way the Tasks/Timeline "Owner" filter already does (`participantTaskIds()`).
+
+**"Hide done" is its own filter key (`filters.hide_done === "true"`), not a `status` equality
+filter** — it's an exclusion (`status != completed`), which the existing `status` filter can't
+express (that one is "show only this status").
+
+**Skipped for this pass, deliberately:** the "Show target-state" toggle and "Connect sheet"
+(Google Sheet sync) from the client's original mockup — both would need new data-model concepts
+(a target-state/gap deliverable; an external sheet connection) and were scoped out rather than
+half-built. If either lands later, it's a new column/table plus real UI, not a toggle bolted onto
+the existing board.

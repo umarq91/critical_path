@@ -11,6 +11,7 @@ import type { RowEditingState } from "@/components/data-table/use-row-editing";
 import { dataTableFeatures, type DataTableFilterOption } from "@/components/data-table/table-features";
 import { TASK_STATUS_CONFIG } from "@/constants/task-status";
 import { TASK_GENDER_CONFIG } from "@/constants/task-gender";
+import { DPSP_CATEGORY_CONFIG } from "@/constants/dpsp-category";
 import { cn } from "@/lib/utils";
 import { TaskRowActions } from "@/app/(app)/tasks/task-row-actions";
 import { PartyStack } from "@/app/(app)/tasks/party-stack";
@@ -22,6 +23,7 @@ const columnHelper = createColumnHelper<typeof dataTableFeatures, Task>();
 
 const STATUS_OPTIONS = Object.entries(TASK_STATUS_CONFIG).map(([value, { label }]) => ({ value, label }));
 const GENDER_OPTIONS = Object.entries(TASK_GENDER_CONFIG).map(([value, { label }]) => ({ value, label }));
+const DPSP_CATEGORY_OPTIONS = Object.entries(DPSP_CATEGORY_CONFIG).map(([value, { label }]) => ({ value, label }));
 // Priority is temporarily hidden across the Tasks module (grid, form, filters, detail drawer)
 // per client request — the column and its data stay in the DB, this is UI-only.
 const EDITABLE_FIELDS = [
@@ -29,6 +31,7 @@ const EDITABLE_FIELDS = [
   "season_id",
   "brand_id",
   "key_stage_id",
+  "dpsp_category",
   "gender",
   "due_date",
   "status",
@@ -63,6 +66,7 @@ export function createTaskColumns({
   // empty-string option would be unselectable; "none" is normalised back to null in _actions.ts.
   const keyStageEditOptions = [{ value: "none", label: "No key stage" }, ...keyStageOptions];
   const brandEditOptions = [{ value: "none", label: "No brand" }, ...brandOptions];
+  const dpspCategoryEditOptions = [{ value: "none", label: "No category" }, ...DPSP_CATEGORY_OPTIONS];
 
   return [
     columnHelper.accessor("task_name", {
@@ -125,6 +129,28 @@ export function createTaskColumns({
           isEditing={rowEditing.isEditing(row.original.id)}
           draftValue={rowEditing.draft.key_stage_id}
           onDraftChange={(next) => rowEditing.setDraftField("key_stage_id", next)}
+        />
+      ),
+    }),
+    columnHelper.accessor("dpsp_category", {
+      header: ({ column }) => <DataTableColumnHeader column={column} title="DPSP Category" />,
+      meta: { label: "DPSP Category", width: "md" },
+      filterFn: "weakEquals",
+      cell: ({ row, getValue }) => (
+        <EditableCell
+          value={getValue() ?? "none"}
+          display={
+            getValue() ? (
+              <StatusBadge value={getValue()!} config={DPSP_CATEGORY_CONFIG} />
+            ) : (
+              <span className="text-muted-foreground">—</span>
+            )
+          }
+          variant="select"
+          options={dpspCategoryEditOptions}
+          isEditing={rowEditing.isEditing(row.original.id)}
+          draftValue={rowEditing.draft.dpsp_category}
+          onDraftChange={(next) => rowEditing.setDraftField("dpsp_category", next)}
         />
       ),
     }),
@@ -242,9 +268,11 @@ export function createTaskColumns({
                   const initialDraft = Object.fromEntries(
                     EDITABLE_FIELDS.map((field) => [
                       field,
-                      // key_stage_id's "not set" sentinel is "none", not "" — see
-                      // keyStageEditOptions above.
-                      field === "key_stage_id" ? (task.key_stage_id ?? "none") : (task[field] ?? ""),
+                      // key_stage_id/dpsp_category's "not set" sentinel is "none", not "" —
+                      // see keyStageEditOptions/dpspCategoryEditOptions above.
+                      field === "key_stage_id" || field === "dpsp_category"
+                        ? (task[field] ?? "none")
+                        : (task[field] ?? ""),
                     ])
                   );
                   rowEditing.startEditing(task.id, initialDraft);
