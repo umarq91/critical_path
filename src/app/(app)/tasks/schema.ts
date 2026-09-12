@@ -28,7 +28,10 @@ export const taskSchema = z.object({
   brand_id: z.string().optional(),
   key_stage_id: z.string().optional(),
   gender: z.enum(taskGenderValues),
-  due_date: z.string().min(1, "Due date is required"),
+  // Nullable since 0022_tasks_due_date_optional.sql — some of the client's historical data has
+  // no known due date. A task with no due_date still appears on the grid; see data/tasks.ts and
+  // things-to-know.md's Tasks section for what that does to sorting/overdue/calendar/timeline.
+  due_date: z.string().optional(),
   start_date: z.string().optional(),
   end_date: z.string().optional(),
   status: z.enum(taskStatusValues),

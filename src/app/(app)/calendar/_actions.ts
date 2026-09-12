@@ -72,7 +72,13 @@ export async function syncGoogleCalendar() {
   let pushedCount = 0;
   let skippedCount = 0;
 
-  for (const task of tasks ?? []) {
+  // The gte/lte range above already guarantees due_date is non-null for every matched row —
+  // this narrows the type to match, rather than being a runtime filter.
+  const datedTasks = (tasks ?? []).filter(
+    (task): task is typeof task & { due_date: string } => task.due_date !== null
+  );
+
+  for (const task of datedTasks) {
     // A task maps to exactly one google_event_id, so it can only live on one calendar. Joint
     // ownership is the norm here (the client's export has two owners on a third of all rows),
     // so the rule is first-claim-wins: whoever syncs first owns the event, and everyone else

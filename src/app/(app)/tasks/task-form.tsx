@@ -18,13 +18,11 @@ import {
   taskCreateSchema,
   taskGenderValues,
   taskStatusValues,
-  taskPriorityValues,
   type TaskCreateInput,
 } from "@/app/(app)/tasks/schema";
 import { createTask } from "@/app/(app)/tasks/_actions";
 import { TASK_GENDER_CONFIG } from "@/constants/task-gender";
 import { TASK_STATUS_CONFIG } from "@/constants/task-status";
-import { TASK_PRIORITY_CONFIG } from "@/constants/task-priority";
 import type { DataTableFilterOption } from "@/components/data-table/table-features";
 
 interface TaskFormProps {
@@ -55,6 +53,8 @@ export const TaskForm = ({ onSuccess, seasonOptions, brandOptions, keyStageOptio
       owners: [],
       people_involved: [],
       status: "not_started",
+      // Priority is temporarily hidden from the form (client request) but the schema still
+      // requires a value — "med" matches the DB column's own default.
       priority: "med",
       notes: "",
     },
@@ -143,12 +143,6 @@ export const TaskForm = ({ onSuccess, seasonOptions, brandOptions, keyStageOptio
                 name="status"
                 label="Status"
                 options={taskStatusValues.map((value) => ({ value, label: TASK_STATUS_CONFIG[value].label }))}
-              />
-              <SelectField
-                control={form.control}
-                name="priority"
-                label="Priority"
-                options={taskPriorityValues.map((value) => ({ value, label: TASK_PRIORITY_CONFIG[value].label }))}
               />
             </div>
             <div className="grid gap-1.5">

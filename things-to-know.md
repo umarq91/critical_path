@@ -244,6 +244,36 @@ bad data at source, not a mapping error.
 
 ---
 
+## Priority (hidden) & optional Due Date
+
+**Priority is a real column, deliberately not shown in the UI.** Per client request ("Priority
+field is not needed — unless I requested this?"), it's removed from the grid, the create form,
+the detail drawer, and both boards' toolbar filters — but the `tasks.priority` column, its zod
+field, and `TASK_PRIORITY_CONFIG` are untouched, and the Task Records export still offers it as
+an opt-in column (just `defaultSelected: false` now, matching the grid). This is a UI-only,
+easily-reversible removal, not a schema change — don't repurpose the column for anything else
+while it's hidden.
+
+**`due_date` is nullable since `0022_tasks_due_date_optional.sql`.** Some of the client's
+historical data has no known due date; forcing one would mean fabricating data. A task with
+`due_date is null`:
+- **Still appears on the Tasks grid** — sorts to the bottom regardless of ascending/descending
+  (`nullsFirst: false` in `data/tasks.ts`'s `taskScope`/`listOverdueTasks`), and its cell reads
+  "No due date" instead of a formatted date.
+- **Is never overdue.** Nothing in this codebase auto-stamps `status = 'overdue'` yet (see the
+  Google Calendar sync note above on the status-rollover cron) — the one place that computes
+  "overdue" live rather than trusting the stored status, `calendar-task-chip.tsx`, explicitly
+  short-circuits on `due_date === null`. If a status-rollover cron is ever built, it must carry
+  the same guard.
+- **Is excluded from the Calendar and Gantt/Timeline** — both are date-positioned views and
+  simply have nowhere to place a task with no relevant date (`listTasksByDueDateRange`'s
+  range filter and `timelineOverlapFilter`'s three clauses both naturally exclude it; see
+  `data/tasks.ts`). Not a bug to fix — there's no date to draw a bar or a cell against.
+- **Is excluded from the Dashboard's Monthly/Weekly Completion Trend only** — see that section's
+  gotchas above. Still counted in every other dashboard tile.
+
+---
+
 ## Seasons & Key Stages
 
 **Both are seeded from client data, not invented.** `supabase/seed-seasons.sql` (28 rows) and
@@ -307,7 +337,10 @@ card — **still 0 requests on interaction**.
 ### Gotchas
 
 - **There is no `completed_at` column.** Completion is bucketed by **due date**, so "May" means
-  *"of the work due in May, this much is done"* — not "completed during May".
+  *"of the work due in May, this much is done"* — not "completed during May". Since `due_date`
+  became nullable (`0022`), a task with no due date has no period to fall into and is excluded
+  from the Monthly/Weekly Completion Trend specifically — it still counts in every other tile
+  (status/season/brand/gender), which aren't bucketed by date.
 - **Monthly and Weekly window differently, on purpose.** Monthly = calendar-consecutive months
   spanning the data (cap 18), empty months shown. Weekly = the most recent 16 weeks *that have
   tasks due*, empties skipped — a readable week axis is ~16 bars but a year of history is 50+,

@@ -50,7 +50,12 @@ export const CalendarBoard = ({
   const router = useRouter();
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
-  const tasksByDate = useMemo(() => groupByDate(tasks, (task) => toDateKey(task.due_date)), [tasks]);
+  // `tasks` comes from listTasksByDueDateRange, which range-filters on due_date, so every task
+  // reaching this board already has one — a task with none has nowhere on this grid to sit.
+  const tasksByDate = useMemo(
+    () => groupByDate(tasks, (task) => toDateKey(task.due_date as string)),
+    [tasks]
+  );
 
   // Keying the active grid by its range forces a remount on every Prev/Next/Today/view
   // change, so the fade-in animation on each grid replays instead of only firing once on

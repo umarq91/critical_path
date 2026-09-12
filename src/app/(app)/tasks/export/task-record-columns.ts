@@ -22,9 +22,11 @@ function partyNames(parties: { name: string }[]) {
 // from the current source of truth.
 //
 // Categories and default-on/off follow the same "important vs optional" call the rest of the
-// app already makes for this data: what's on the task grid by default (name, status, priority,
-// season, brand, key stage, due date) stays on; audit-trail and rarely-populated fields
-// (created/updated timestamps, working-timeline dates, the raw id) start off but stay available.
+// app already makes for this data: what's on the task grid by default (name, status, season,
+// brand, key stage, due date) stays on; audit-trail and rarely-populated fields (created/updated
+// timestamps, working-timeline dates, the raw id) start off but stay available. Priority is
+// temporarily hidden from the grid/form/drawer (client request) and defaults off here too, for
+// the same reason — still selectable, just not surfaced unless asked for.
 export const TASK_RECORD_COLUMN_GROUPS: ExportColumnGroup<Task>[] = [
   {
     key: "basic",
@@ -44,7 +46,7 @@ export const TASK_RECORD_COLUMN_GROUPS: ExportColumnGroup<Task>[] = [
         key: "priority",
         label: "Priority",
         category: "basic",
-        defaultSelected: true,
+        defaultSelected: false,
         dataType: "string",
         width: 12,
         getValue: (t) => TASK_PRIORITY_CONFIG[t.priority]?.label ?? t.priority,
@@ -104,7 +106,16 @@ export const TASK_RECORD_COLUMN_GROUPS: ExportColumnGroup<Task>[] = [
     key: "dates",
     label: "Dates",
     columns: [
-      { key: "due_date", label: "Due Date", category: "dates", defaultSelected: true, dataType: "date", width: 14, getValue: (t) => toExportDateOnly(t.due_date) },
+      {
+        key: "due_date",
+        label: "Due Date",
+        description: "Blank for tasks imported without a known due date — they never count as overdue.",
+        category: "dates",
+        defaultSelected: true,
+        dataType: "date",
+        width: 14,
+        getValue: (t) => (t.due_date ? toExportDateOnly(t.due_date) : null),
+      },
       {
         key: "start_date",
         label: "Start Date",

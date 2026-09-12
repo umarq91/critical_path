@@ -123,7 +123,13 @@ function taskScope(
   // repeat heavily, and without a total order Postgres may return tied rows in a different
   // sequence per query — which lets a row appear on two pages, or on none, both for ordinary
   // pagination and across the search's two passes.
-  return query.order(orderColumn, { ascending: sortDir !== "desc" }).order("id", { ascending: true });
+  //
+  // due_date is nullable (some historical tasks have none) — nullsFirst: false pins undated
+  // rows to the bottom regardless of sort direction, so they never jump to the top of a
+  // "Latest first" sort. Harmless on every other sortable column, none of which are nullable.
+  return query
+    .order(orderColumn, { ascending: sortDir !== "desc", nullsFirst: false })
+    .order("id", { ascending: true });
 }
 
 /** The narrow pass's projection: what a search matches against, plus the column the personal
@@ -386,11 +392,12 @@ export interface ListTasksForTimelineParams {
   pageSize?: number;
 }
 
-// A task's bar spans [start_date, end_date], but both are nullable while due_date is not (see
-// supabase/schema.md). So the Timeline treats due_date as the fallback for whichever end is
-// missing — an unscheduled task is a single-day milestone on its due date rather than being
-// absent from the chart entirely. `timelineBarRange()` applies the same coalescing client-side;
-// these three clauses are its SQL mirror, and the two must stay in step.
+// A task's bar spans [start_date, end_date], both nullable, with due_date (also nullable since
+// 0022) as the fallback for whichever end is missing — an unscheduled-but-dated task is a
+// single-day milestone on its due date rather than being absent from the chart entirely. A task
+// with none of the three dates set has nothing to plot and simply matches no clause below.
+// `timelineBarRange()` applies the same coalescing client-side; these three clauses are its SQL
+// mirror, and the two must stay in step.
 function timelineOverlapFilter(from: string, to: string) {
   return [
     // Fully scheduled: [start, end] intersects the window.
@@ -489,7 +496,7 @@ export async function listOverdueTasks({ filters = {}, limit = 50 }: { filters?:
     query = participantIds.length > 0 ? query.in("id", participantIds) : query.eq("id", EMPTY_RESULT_ID);
   }
 
-  const { data, error } = await query.order("due_date", { ascending: true }).limit(limit);
+  const { data, error } = await query.order("due_date", { ascending: true, nullsFirst: false }).limit(limit);
   if (error) throw error;
   return (data ?? []) as Task[];
 }

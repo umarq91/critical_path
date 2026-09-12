@@ -58,7 +58,8 @@ export const TimelineOverduePanel = ({
                   <span className="flex min-w-0 flex-col gap-0.5">
                     <span className="truncate text-sm font-medium text-foreground">{task.task_name}</span>
                     <span className="text-xs text-status-overdue-text">
-                      {TASK_STATUS_CONFIG[task.status]?.label ?? task.status} · {formatDate(task.end_date ?? task.due_date)}
+                      {TASK_STATUS_CONFIG[task.status]?.label ?? task.status} ·{" "}
+                      {task.end_date ?? task.due_date ? formatDate((task.end_date ?? task.due_date) as string) : "No due date"}
                     </span>
                   </span>
                 </button>

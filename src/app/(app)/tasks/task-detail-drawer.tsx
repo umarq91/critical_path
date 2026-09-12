@@ -9,7 +9,6 @@ import {
   CircleDot,
   ClipboardList,
   FileText,
-  Flag,
   History,
   Lock,
   Milestone,
@@ -34,7 +33,6 @@ import { PartyStack } from "@/app/(app)/tasks/party-stack";
 import { taskOwners, taskPeopleInvolved } from "@/app/(app)/tasks/task-parties";
 import { TASK_STATUS_CONFIG } from "@/constants/task-status";
 import { TASK_GENDER_CONFIG } from "@/constants/task-gender";
-import { TASK_PRIORITY_CONFIG } from "@/constants/task-priority";
 import { formatDate } from "@/lib/dates";
 import type { Task } from "@/data/tasks";
 import type { LucideIcon } from "lucide-react";
@@ -148,10 +146,7 @@ export const TaskDetailDrawer = ({ task, open, onOpenChange, canAssignPeople, on
                   <StatusBadge value={task.status} config={TASK_STATUS_CONFIG} />
                 </OverviewField>
                 <OverviewField icon={CalendarClock} label="Due Date">
-                  {formatDate(task.due_date)}
-                </OverviewField>
-                <OverviewField icon={Flag} label="Priority">
-                  <StatusBadge value={task.priority} config={TASK_PRIORITY_CONFIG} />
+                  {task.due_date ? formatDate(task.due_date) : <span className="text-muted-foreground">Not set</span>}
                 </OverviewField>
                 <OverviewField icon={CalendarPlus} label="Created">
                   {formatDate(task.created_at)}

@@ -89,7 +89,7 @@ export function getTimelineDayCount(range: TimelineRange) {
 interface DatedTask {
   start_date: string | null;
   end_date: string | null;
-  due_date: string;
+  due_date: string | null;
 }
 
 export interface BarRange {
@@ -99,16 +99,21 @@ export interface BarRange {
   isMilestone: boolean;
 }
 
-// start_date/end_date are both nullable while due_date is not (see supabase/schema.md), so
-// due_date is the fallback for whichever end is missing. Without this an unscheduled task —
-// the overwhelming majority in practice — simply wouldn't appear on the chart at all.
+// start_date/end_date/due_date are all nullable, so due_date is the fallback for whichever end
+// is missing. Without this an unscheduled-but-dated task — the overwhelming majority in
+// practice — simply wouldn't appear on the chart at all.
 //
-// The SQL mirror of this coalescing is timelineOverlapFilter() in data/tasks.ts; the two must
-// stay in step or the query and the geometry will disagree about which tasks are visible.
+// The SQL mirror of this coalescing is timelineOverlapFilter() in data/tasks.ts, which already
+// only selects tasks with at least one date set, so `start ?? due` and `rawEnd ?? due` below are
+// never both null in practice — the `?? start` fallbacks exist purely so a malformed row (all
+// three dates null) degrades to a same-day marker instead of crashing the whole board.
+//
+// The SQL and this function must stay in step or the query and the geometry will disagree about
+// which tasks are visible.
 export function timelineBarRange(task: DatedTask): BarRange {
-  const due = parseDateOnly(task.due_date);
-  const start = task.start_date ? parseDateOnly(task.start_date) : due;
-  const rawEnd = task.end_date ? parseDateOnly(task.end_date) : due;
+  const due = task.due_date ? parseDateOnly(task.due_date) : null;
+  const start = task.start_date ? parseDateOnly(task.start_date) : (due ?? new Date());
+  const rawEnd = task.end_date ? parseDateOnly(task.end_date) : (due ?? start);
 
   return {
     start,

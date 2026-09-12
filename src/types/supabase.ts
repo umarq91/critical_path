@@ -452,7 +452,7 @@ export type Database = {
           created_by: string | null
           deleted_at: string | null
           deleted_by: string | null
-          due_date: string
+          due_date: string | null
           end_date: string | null
           gender: Database["public"]["Enums"]["task_gender"]
           google_calendar_owner_id: string | null
@@ -479,7 +479,7 @@ export type Database = {
           created_by?: string | null
           deleted_at?: string | null
           deleted_by?: string | null
-          due_date: string
+          due_date?: string | null
           end_date?: string | null
           gender: Database["public"]["Enums"]["task_gender"]
           google_calendar_owner_id?: string | null
@@ -506,7 +506,7 @@ export type Database = {
           created_by?: string | null
           deleted_at?: string | null
           deleted_by?: string | null
-          due_date?: string
+          due_date?: string | null
           end_date?: string | null
           gender?: Database["public"]["Enums"]["task_gender"]
           google_calendar_owner_id?: string | null

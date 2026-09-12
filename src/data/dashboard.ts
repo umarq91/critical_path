@@ -63,9 +63,19 @@ const WEEK_OPTIONS = { weekStartsOn: 1 } as const;
 interface TaskFact {
   status: TaskStatus;
   gender: TaskGender;
-  due_date: string;
+  due_date: string | null;
   season: { id: string; season_name: string; color: string | null } | null;
   brand: { id: string; brand_name: string; color: string | null } | null;
+}
+
+/** A fact with a known due_date — the monthly/weekly trend is bucketed by it, so a task with no
+ *  due date has no period to fall into and is excluded from those two charts only. It still
+ *  counts everywhere else (status/season/brand/gender tiles), which read off the unfiltered
+ *  `facts` array. */
+type DatedTaskFact = TaskFact & { due_date: string };
+
+function hasDueDate(fact: TaskFact): fact is DatedTaskFact {
+  return fact.due_date !== null;
 }
 
 function emptyStatusCounts(): TaskStatusCounts {
@@ -135,7 +145,7 @@ interface BucketDefinition {
 // There is no `completed_at` column on tasks (see supabase/schema.md), so a task is counted in
 // the period its DUE DATE falls in. "Completion in May" therefore means "of the work due in
 // May, this much is done" — which is the question the Task Completion card actually asks.
-function bucketFacts(facts: TaskFact[], definitions: BucketDefinition[], keyOf: (date: Date) => string) {
+function bucketFacts(facts: DatedTaskFact[], definitions: BucketDefinition[], keyOf: (date: Date) => string) {
   const buckets = new Map<string, CompletionBucket>(
     definitions.map((definition) => [definition.key, { ...definition, total: 0, completed: 0, overdue: 0 }])
   );
@@ -158,7 +168,8 @@ function bucketFacts(facts: TaskFact[], definitions: BucketDefinition[], keyOf: 
 // 12 — silently drops whole cohorts whenever the work predates it, taking this card's
 // completed/overdue tiles to zero while the all-time tiles at the top of the page read
 // non-zero.
-function monthlyBuckets(facts: TaskFact[], today: Date) {
+function monthlyBuckets(allFacts: TaskFact[], today: Date) {
+  const facts = allFacts.filter(hasDueDate);
   const months = facts.map((fact) => startOfMonth(new Date(fact.due_date)));
   const end = months.reduce((latest, month) => (month > latest ? month : latest), startOfMonth(today));
   const floor = subMonths(end, MAX_MONTH_BUCKETS - 1);
@@ -182,7 +193,8 @@ function monthlyBuckets(facts: TaskFact[], today: Date) {
 // as a flat row of zeros no matter where the window is placed. Skipping empty weeks is also
 // the more truthful reading — a week with nothing due isn't 0% completion, it's no measurement
 // at all, which is exactly how the card's average-rate tile already treats it.
-function weeklyBuckets(facts: TaskFact[], today: Date) {
+function weeklyBuckets(allFacts: TaskFact[], today: Date) {
+  const facts = allFacts.filter(hasDueDate);
   const toWeek = (date: Date) => startOfWeek(date, WEEK_OPTIONS);
 
   const weeksWithWork = new Map<string, Date>();

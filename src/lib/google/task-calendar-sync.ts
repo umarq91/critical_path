@@ -1,5 +1,5 @@
 import "server-only";
-import { upsertTaskCalendarEvent } from "@/lib/google/calendar";
+import { upsertTaskCalendarEvent, deleteTaskCalendarEvent } from "@/lib/google/calendar";
 import type { createClient } from "@/lib/supabase/server";
 
 type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
@@ -7,6 +7,10 @@ type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
 export interface SyncableTask {
   id: string;
   task_name: string;
+  // Callers of pushTaskToGoogleCalendar always have a due_date in hand by construction (the
+  // Sync button's own query range-filters on it; resyncTaskCalendarEvent below branches away
+  // before calling this for a task whose due_date is null) — an all-day Google Calendar event
+  // has nowhere to go without one.
   due_date: string;
   google_event_id: string | null;
   google_calendar_owner_id?: string | null;
@@ -63,5 +67,16 @@ export async function resyncTaskCalendarEvent(supabase: SupabaseClient, taskId: 
 
   if (!task?.google_event_id || !task.google_calendar_owner_id) return;
 
-  await pushTaskToGoogleCalendar(supabase, task, task.google_calendar_owner_id);
+  // due_date is nullable; an all-day event can't exist with no date to anchor it, so clearing
+  // the due date on an already-synced task removes the event instead of pushing garbage.
+  if (!task.due_date) {
+    await deleteTaskCalendarEvent(task.google_calendar_owner_id, task.google_event_id);
+    await supabase
+      .from("tasks")
+      .update({ google_event_id: null, google_calendar_owner_id: null })
+      .eq("id", task.id);
+    return;
+  }
+
+  await pushTaskToGoogleCalendar(supabase, { ...task, due_date: task.due_date }, task.google_calendar_owner_id);
 }

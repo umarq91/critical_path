@@ -1,4 +1,5 @@
-import { isBefore, parseISO, startOfToday } from "date-fns";
+import { isBefore, startOfToday } from "date-fns";
+import { parseDateOnly } from "@/lib/dates";
 import { ColorTag } from "@/components/shared/color-tag";
 import { TASK_STATUS_CONFIG } from "@/constants/task-status";
 import { cn } from "@/lib/utils";
@@ -27,8 +28,11 @@ export const CalendarTaskChip = ({ task, onSelect, variant = "compact" }: Calend
   // The `overdue` status is only stamped by the nightly status-rollover cron — a task whose
   // due_date has already passed can still read "in_progress" until that job catches up. The
   // calendar shows the actual due date, so it derives overdue from the date directly rather
-  // than trusting a status value that may be a day stale.
-  const isOverdue = task.status !== "completed" && isBefore(parseISO(task.due_date), startOfToday());
+  // than trusting a status value that may be a day stale. A task with no due_date can never be
+  // overdue — this component only ever renders tasks fetched by due-date range in practice, but
+  // the check is here regardless since "no date" and "date in the past" aren't the same thing.
+  const isOverdue =
+    task.status !== "completed" && task.due_date !== null && isBefore(parseDateOnly(task.due_date), startOfToday());
   const effectiveStatus = isOverdue ? "overdue" : task.status;
   const statusConfig = TASK_STATUS_CONFIG[effectiveStatus];
   const dotClass = STATUS_DOT_CLASS[effectiveStatus] ?? "bg-muted-foreground";

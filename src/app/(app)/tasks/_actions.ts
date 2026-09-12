@@ -24,9 +24,9 @@ function normaliseOptionalId(value: string | undefined): string | null {
   return value && value !== "none" ? value : null;
 }
 
-// start_date/end_date are optional `date` columns, but DateField submits an unset date as ""
-// rather than omitting the key — "" fails Postgres's date parsing outright ("invalid input
-// syntax for type date: \"\""), so it's normalised to null before the DB write, same
+// due_date/start_date/end_date are all optional `date` columns, but DateField submits an unset
+// date as "" rather than omitting the key — "" fails Postgres's date parsing outright ("invalid
+// input syntax for type date: \"\""), so it's normalised to null before the DB write, same
 // reasoning as normaliseOptionalId above.
 function normaliseDate(value: string | undefined): string | null {
   return value ? value : null;
@@ -47,6 +47,7 @@ export async function createTask(input: unknown) {
       ...taskColumns,
       brand_id: normaliseOptionalId(taskColumns.brand_id),
       key_stage_id: normaliseOptionalId(taskColumns.key_stage_id),
+      due_date: normaliseDate(taskColumns.due_date),
       start_date: normaliseDate(taskColumns.start_date),
       end_date: normaliseDate(taskColumns.end_date),
       // Compatibility shim while tasks.assignee_id still exists (0015 is the expand phase; the
@@ -108,6 +109,7 @@ export async function updateTask(id: string, patch: unknown) {
     ...parsed.data,
     ...("brand_id" in parsed.data ? { brand_id: normaliseOptionalId(parsed.data.brand_id) } : {}),
     ...("key_stage_id" in parsed.data ? { key_stage_id: normaliseOptionalId(parsed.data.key_stage_id) } : {}),
+    ...("due_date" in parsed.data ? { due_date: normaliseDate(parsed.data.due_date) } : {}),
     ...("start_date" in parsed.data ? { start_date: normaliseDate(parsed.data.start_date) } : {}),
     ...("end_date" in parsed.data ? { end_date: normaliseDate(parsed.data.end_date) } : {}),
   };

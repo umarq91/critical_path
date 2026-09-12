@@ -21,9 +21,12 @@ interface TimelineTaskBarProps {
 export const TimelineTaskBar = ({ task, geometry, onSelect }: TimelineTaskBarProps) => {
   const color = TASK_STATUS_VIZ_COLORS[task.status];
   const statusLabel = TASK_STATUS_CONFIG[task.status]?.label ?? task.status;
+  // A task reaching the timeline has at least one of start_date/end_date/due_date set (see
+  // timelineOverlapFilter in data/tasks.ts), so these fallbacks never all miss in practice.
+  const dueLabel = task.due_date ? formatDate(task.due_date) : "no due date";
   const schedule = geometry.isMilestone
-    ? `Due ${formatDate(task.due_date)} — no start/end set`
-    : `${formatDate(task.start_date ?? task.due_date)} → ${formatDate(task.end_date ?? task.due_date)}`;
+    ? `Due ${dueLabel} — no start/end set`
+    : `${task.start_date ? formatDate(task.start_date) : dueLabel} → ${task.end_date ? formatDate(task.end_date) : dueLabel}`;
 
   return (
     <button

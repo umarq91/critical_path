@@ -13,7 +13,6 @@ import { updateTask } from "@/app/(app)/tasks/_actions";
 import { refreshUpcomingTasks } from "@/app/(app)/upcoming/_actions";
 import { TaskDetailDrawer } from "@/app/(app)/tasks/task-detail-drawer";
 import { TASK_STATUS_CONFIG } from "@/constants/task-status";
-import { TASK_PRIORITY_CONFIG } from "@/constants/task-priority";
 import type { Task } from "@/data/tasks";
 import type { DataTableFilterOption } from "@/components/data-table/table-features";
 
@@ -148,12 +147,6 @@ export const UpcomingTasksBoard = ({
               title: "Status",
               placeholder: "All Status",
               options: Object.entries(TASK_STATUS_CONFIG).map(([value, { label }]) => ({ value, label })),
-            },
-            {
-              columnId: "priority",
-              title: "Priority",
-              placeholder: "All Priorities",
-              options: Object.entries(TASK_PRIORITY_CONFIG).map(([value, { label }]) => ({ value, label })),
             },
             { columnId: "due_date", title: "Due", placeholder: "All Upcoming", options: DUE_OPTIONS },
           ],

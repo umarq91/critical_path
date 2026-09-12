@@ -175,7 +175,7 @@ Membership is managed at `/management/teams` (add/remove writes `profiles.depart
 Seeded from real client data — see `supabase/seed-departments.sql` and the Departments section of `things-to-know.md`.
 
 ### `tasks`
-*Migration: `0006_tasks.sql`, `priority` added in `0014_tasks_priority.sql`. The core entity — spreadsheet grid, calendar, Gantt/Timeline, and dashboards all read from this table.*
+*Migration: `0006_tasks.sql`, `priority` added in `0014_tasks_priority.sql`, `due_date` made nullable in `0022_tasks_due_date_optional.sql`. The core entity — spreadsheet grid, calendar, Gantt/Timeline, and dashboards all read from this table.*
 
 | Column | Type | Notes |
 |---|---|---|
@@ -185,7 +185,7 @@ Seeded from real client data — see `supabase/seed-departments.sql` and the Dep
 | `brand_id` | uuid, FK → `brands.id`, **nullable** since `0016_tasks_brand_optional.sql` | Optional, unlike `season_id` — plenty of stage work (trend trips, range reviews, shipping) isn't brand-specific, and the client's export has no BRAND column at all. FK left as restrict, not `set null`: brands are soft-deleted, so a brand vanishing under a task should surface, not silently blank the column |
 | `key_stage_id` | uuid, FK → `key_stages.id`, nullable, `on delete set null` | optional — a task isn't required to belong to a key stage |
 | `gender` | `task_gender`, not null | `men` \| `women` \| `unisex` |
-| `due_date` | date, not null | |
+| `due_date` | date, nullable since `0022_tasks_due_date_optional.sql` | Some of the client's historical data has no known due date. A task with `due_date is null` still appears on the Tasks grid, is never counted as overdue, and is excluded from the Calendar, Gantt/Timeline, and the Dashboard's due-date-bucketed Completion Trend (it still counts in the all-time status/season/brand/gender tiles) |
 | `assignee_id` | uuid, FK → `profiles.id`, nullable, `on delete set null` | **Superseded by `task_participants` (`0015`)** — owner is 1..n parties, each a profile *or* a department, not one profile. Backfilled and left in place during the expand phase; a follow-up migration drops it. Don't write to it in new code |
 | `status` | `task_status`, default `not_started` | `not_started` \| `in_progress` \| `completed` \| `overdue` |
 | `priority` | `task_priority`, default `med` | `high` \| `med` \| `low` — was stubbed as a hardcoded "Not set" placeholder in the task detail drawer until this migration landed |
