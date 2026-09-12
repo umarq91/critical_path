@@ -19,11 +19,26 @@ import { taskReminderEmail } from "@/lib/mailer/templates/task-reminder";
 // development defaults to GET — this route doesn't care which, since either way it's the
 // same trusted caller (CRON_SECRET), not a REST resource with different verbs for different
 // actions.
+// pg_net's own timeout on this route is 15s (see the cron.schedule call in things-to-know.md's
+// Reminders section) — this must stay at or above that, or Vercel could kill a slow-but-healthy
+// run before pg_net gives up on it, which would surface as an opaque error instead of a graceful
+// completion.
+export const maxDuration = 30;
+
 async function handleTaskReminders(request: NextRequest) {
   const denied = requireCronAuth(request);
   if (denied) return denied;
 
-  const due = await listDueReminders();
+  let due;
+  try {
+    due = await listDueReminders();
+  } catch (error) {
+    // Uncaught here means pg_net's caller sees a bare 500 with no way to tell us why — this
+    // route has no other logging destination, so surface the message in the response body
+    // itself (net._http_response.content captures it) rather than losing it entirely.
+    console.error("task-reminders: listDueReminders failed", error);
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Unknown error" }, { status: 500 });
+  }
 
   let sent = 0;
   let failed = 0;
