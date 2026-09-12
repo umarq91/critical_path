@@ -13,7 +13,13 @@ import { taskReminderEmail } from "@/lib/mailer/templates/task-reminder";
 // ⚠️ TEMPORARY: while SMTP_* is unset, a "skipped" reminder is logged to notifications_log
 // anyway (see the comment at that call below) so it's visible in Supabase during testing.
 // Remove that once real SMTP_* creds are in — see things-to-know.md's Reminders section.
-export async function GET(request: NextRequest) {
+//
+// Both GET and POST hit the same handler: `net.http_post()` (the pg_cron/pg_net call this
+// route is actually triggered by) always issues a POST, while a manual curl during
+// development defaults to GET — this route doesn't care which, since either way it's the
+// same trusted caller (CRON_SECRET), not a REST resource with different verbs for different
+// actions.
+async function handleTaskReminders(request: NextRequest) {
   const denied = requireCronAuth(request);
   if (denied) return denied;
 
@@ -58,3 +64,6 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({ matched: due.length, sent, failed, skippedNoSmtp });
 }
+
+export const GET = handleTaskReminders;
+export const POST = handleTaskReminders;
