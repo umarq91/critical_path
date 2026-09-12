@@ -1034,7 +1034,8 @@ select cron.schedule(
   $$
   select net.http_post(
     url := 'https://YOUR-DEPLOYED-DOMAIN/api/cron/task-reminders',
-    headers := jsonb_build_object('Authorization', 'Bearer ' || 'YOUR_CRON_SECRET_VALUE')
+    headers := jsonb_build_object('Authorization', 'Bearer ' || 'YOUR_CRON_SECRET_VALUE'),
+    timeout_milliseconds := 15000
   );
   $$
 );
@@ -1042,3 +1043,12 @@ select cron.schedule(
 
 Requires the `pg_cron` and `pg_net` extensions enabled on the Supabase project (Database →
 Extensions) — both are available on the free tier.
+
+**`timeout_milliseconds := 15000` is load-bearing, not padding.** `net.http_post`'s default
+timeout is 5000ms, and because this route only gets hit every 15 minutes, the Vercel function is
+*always* cold when pg_cron fires it — cold-start latency alone measured 2–5s in production,
+putting a stock 5s timeout right on the coin-flip line. Below this value, some runs get marked
+`timed_out` in `net._http_response` (status_code `null`) purely from cold-start latency, before
+the route's own logic ever executes — indistinguishable from a real hang unless you check
+`net._http_response.timed_out`/`error_msg`, not just `status_code`. If the job is ever
+re-scheduled from scratch (not `cron.alter_job`'d), carry this value forward.
