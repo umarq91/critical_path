@@ -1,33 +1,24 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, Plus } from "lucide-react";
-import { Button, buttonVariants } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { FormDialog } from "@/components/shared/form-dialog";
 import { SeasonForm } from "@/app/(app)/seasons/season-form";
-import { cn } from "@/lib/utils";
+import { SeasonsExportButton } from "@/app/(app)/seasons/seasons-export-button";
 
-export const SeasonPageActions = ({ canCreateSeason }: { canCreateSeason: boolean }) => {
+interface SeasonPageActionsProps {
+  canCreateSeason: boolean;
+  canExport: boolean;
+  rowCount: number;
+}
+
+export const SeasonPageActions = ({ canCreateSeason, canExport, rowCount }: SeasonPageActionsProps) => {
   const [open, setOpen] = useState(false);
 
   return (
     <>
-      <DropdownMenu>
-        <DropdownMenuTrigger className={cn(buttonVariants({ variant: "outline" }), "gap-1.5")}>
-          Export
-          <ChevronDown />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem>Export as CSV</DropdownMenuItem>
-          <DropdownMenuItem>Export as PDF</DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      {canExport ? <SeasonsExportButton rowCount={rowCount} /> : null}
       {canCreateSeason ? (
         <FormDialog
           title="Add Season"

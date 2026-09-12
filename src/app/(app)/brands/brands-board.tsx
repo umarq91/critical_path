@@ -7,6 +7,7 @@ import { useDataTableQueryState } from "@/components/data-table/use-data-table-q
 import { useRowEditing } from "@/components/data-table/use-row-editing";
 import { createBrandColumns } from "@/app/(app)/brands/columns";
 import { updateBrand } from "@/app/(app)/brands/_actions";
+import { BRANDS_QUERY_STATE } from "@/app/(app)/brands/query-state";
 import { BRAND_STATUS_CONFIG } from "@/constants/brand-status";
 import type { Brand } from "@/data/brands";
 import type { DataTableFilterOption } from "@/components/data-table/table-features";
@@ -20,7 +21,7 @@ interface BrandsBoardProps {
 }
 
 export const BrandsBoard = ({ brands, rowCount, canManage, canDelete, seasonOptions }: BrandsBoardProps) => {
-  const queryState = useDataTableQueryState({ defaultPageSize: 10, defaultSort: { id: "brand_name", desc: false } });
+  const queryState = useDataTableQueryState(BRANDS_QUERY_STATE);
   const rowEditing = useRowEditing();
   const [isSaving, setIsSaving] = useState(false);
 

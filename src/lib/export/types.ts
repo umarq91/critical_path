@@ -60,3 +60,12 @@ export function selectColumns<TRow>(groups: ExportColumnGroup<TRow>[], keys: rea
   const wanted = new Set(keys);
   return flattenColumns(groups).filter((column) => wanted.has(column.key));
 }
+
+// Shared cap for the lookup-entity exports (seasons, brands, key stages) — unlike tasks.ts's
+// MAX_EXPORT_ROWS, this deliberately equals PostgREST's own default per-request row cap
+// (`db-max-rows`, 1000), so a single `.range()` call is guaranteed to return everything up to
+// the limit rather than silently truncating short of it. These are small admin lookup tables
+// that will never realistically approach 1000 rows, so unlike tasks there's no need for the
+// paged fetch loop — one request, and `rowCount > this` just flags the (practically
+// theoretical) truncated case rather than driving real pagination.
+export const MAX_LOOKUP_EXPORT_ROWS = 1000;

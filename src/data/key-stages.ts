@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { MAX_LOOKUP_EXPORT_ROWS } from "@/lib/export/types";
 
 export interface ListKeyStagesParams {
   page?: number;
@@ -34,6 +35,14 @@ export async function listKeyStages({
 }
 
 export type KeyStage = Awaited<ReturnType<typeof listKeyStages>>["data"][number];
+
+// The Key Stages admin page's export — same filters/sort as the board, whole matching scope
+// rather than one page. See listSeasonsForExport's comment: small admin lookup table, so a
+// single MAX_LOOKUP_EXPORT_ROWS-sized page of listKeyStages() is enough, no chunked fetch loop.
+export async function listKeyStagesForExport(params: Omit<ListKeyStagesParams, "page" | "pageSize"> = {}) {
+  const { data, rowCount } = await listKeyStages({ ...params, page: 1, pageSize: MAX_LOOKUP_EXPORT_ROWS });
+  return { data, rowCount, truncated: rowCount > MAX_LOOKUP_EXPORT_ROWS };
+}
 
 // The key-stage leg of the Timeline's search box: ids whose name matches a free-text term, so
 // searching "trend trip" reaches every task in that stage and not only the ones naming it.

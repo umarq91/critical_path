@@ -9,8 +9,7 @@ import { getCurrentProfile } from "@/data/profiles";
 import { can } from "@/lib/permissions";
 import { requirePageAccess } from "@/lib/require-page-access";
 import { loadDataTableSearchParams } from "@/components/data-table/data-table-search-params";
-
-const QUERY_STATE_OPTIONS = { defaultPageSize: 10, defaultSort: { id: "start_date", desc: false } };
+import { SEASONS_QUERY_STATE } from "@/app/(app)/seasons/query-state";
 
 export default async function SeasonsPage({
   searchParams,
@@ -20,7 +19,7 @@ export default async function SeasonsPage({
   // External users have no business on an organisation-wide lookup list; the sidebar
   // hides the link, and this is what makes typing the URL equally ineffective.
   await requirePageAccess("lookups.view");
-  const queryState = await loadDataTableSearchParams(searchParams, QUERY_STATE_OPTIONS);
+  const queryState = await loadDataTableSearchParams(searchParams, SEASONS_QUERY_STATE);
 
   const [{ data: seasons, rowCount }, summary, upcomingSeasons, profile] = await Promise.all([
     listSeasons(queryState),
@@ -29,6 +28,7 @@ export default async function SeasonsPage({
     getCurrentProfile(),
   ]);
   const canManage = !!profile && can(profile.role, "admin.manage_lookups");
+  const canExport = !!profile && can(profile.role, "dashboard.export_reports");
   const seasonStats = await listSeasonTaskStats(seasons.map((season) => season.id));
 
   return (
@@ -36,7 +36,7 @@ export default async function SeasonsPage({
       <PageHeader
         title="Seasons"
         description="Manage and organise all active and upcoming seasons."
-        action={<SeasonPageActions canCreateSeason={canManage} />}
+        action={<SeasonPageActions canCreateSeason={canManage} canExport={canExport} rowCount={rowCount} />}
       />
       <div className="flex flex-col gap-4 px-6 pb-6">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">

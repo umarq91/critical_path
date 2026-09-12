@@ -10,6 +10,7 @@ import { createSeasonColumns } from "@/app/(app)/seasons/columns";
 import { updateSeason } from "@/app/(app)/seasons/_actions";
 import { SelectedSeasonPanel } from "@/app/(app)/seasons/selected-season-panel";
 import { UpcomingSeasonsPanel } from "@/app/(app)/seasons/upcoming-seasons-panel";
+import { SEASONS_QUERY_STATE } from "@/app/(app)/seasons/query-state";
 import { SEASON_STATUS_CONFIG } from "@/constants/season-status";
 import type { DataTableFilterOption } from "@/components/data-table/table-features";
 import type { Season, SeasonTaskStats, listUpcomingSeasons } from "@/data/seasons";
@@ -33,7 +34,7 @@ export const SeasonsBoard = ({
   upcomingSeasons,
   seasonStats,
 }: SeasonsBoardProps) => {
-  const queryState = useDataTableQueryState({ defaultPageSize: 10, defaultSort: { id: "start_date", desc: false } });
+  const queryState = useDataTableQueryState(SEASONS_QUERY_STATE);
   const rowEditing = useRowEditing();
   const [isSaving, setIsSaving] = useState(false);
 

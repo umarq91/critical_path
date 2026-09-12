@@ -1,39 +1,26 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, Plus } from "lucide-react";
-import { Button, buttonVariants } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { FormDialog } from "@/components/shared/form-dialog";
 import { BrandForm } from "@/app/(app)/brands/brand-form";
-import { cn } from "@/lib/utils";
+import { BrandsExportButton } from "@/app/(app)/brands/brands-export-button";
 import type { listSeasonOptions } from "@/data/seasons";
 
 interface BrandPageActionsProps {
   canCreateBrand: boolean;
+  canExport: boolean;
+  rowCount: number;
   seasonOptions: Awaited<ReturnType<typeof listSeasonOptions>>;
 }
 
-export const BrandPageActions = ({ canCreateBrand, seasonOptions }: BrandPageActionsProps) => {
+export const BrandPageActions = ({ canCreateBrand, canExport, rowCount, seasonOptions }: BrandPageActionsProps) => {
   const [open, setOpen] = useState(false);
 
   return (
     <>
-      <DropdownMenu>
-        <DropdownMenuTrigger className={cn(buttonVariants({ variant: "outline" }), "gap-1.5")}>
-          Export
-          <ChevronDown />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem>Export as CSV</DropdownMenuItem>
-          <DropdownMenuItem>Export as PDF</DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      {canExport ? <BrandsExportButton rowCount={rowCount} /> : null}
       {canCreateBrand ? (
         <FormDialog
           title="Add New Brand"

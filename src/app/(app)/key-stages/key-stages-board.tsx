@@ -7,6 +7,7 @@ import { useDataTableQueryState } from "@/components/data-table/use-data-table-q
 import { useRowEditing } from "@/components/data-table/use-row-editing";
 import { createKeyStageColumns } from "@/app/(app)/key-stages/columns";
 import { updateKeyStage } from "@/app/(app)/key-stages/_actions";
+import { KEY_STAGES_QUERY_STATE } from "@/app/(app)/key-stages/query-state";
 import type { KeyStage } from "@/data/key-stages";
 
 interface KeyStagesBoardProps {
@@ -17,7 +18,7 @@ interface KeyStagesBoardProps {
 }
 
 export const KeyStagesBoard = ({ keyStages, rowCount, canManage, canDelete }: KeyStagesBoardProps) => {
-  const queryState = useDataTableQueryState({ defaultPageSize: 15, defaultSort: { id: "name", desc: false } });
+  const queryState = useDataTableQueryState(KEY_STAGES_QUERY_STATE);
   const rowEditing = useRowEditing();
   const [isSaving, setIsSaving] = useState(false);
 

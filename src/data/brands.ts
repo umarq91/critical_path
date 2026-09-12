@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { MAX_LOOKUP_EXPORT_ROWS } from "@/lib/export/types";
 import { brandStatusValues, type BrandInput } from "@/app/(app)/brands/schema";
 
 export interface ListBrandsParams {
@@ -57,6 +58,14 @@ export async function listBrands({ page = 1, pageSize = 15, sortBy, sortDir, fil
 }
 
 export type Brand = Awaited<ReturnType<typeof listBrands>>["data"][number];
+
+// The Brands admin page's export — same filters/sort as the board, whole matching scope
+// rather than one page. See listSeasonsForExport's comment: small admin lookup table, so a
+// single MAX_LOOKUP_EXPORT_ROWS-sized page of listBrands() is enough, no chunked fetch loop.
+export async function listBrandsForExport(params: Omit<ListBrandsParams, "page" | "pageSize"> = {}) {
+  const { data, rowCount } = await listBrands({ ...params, page: 1, pageSize: MAX_LOOKUP_EXPORT_ROWS });
+  return { data, rowCount, truncated: rowCount > MAX_LOOKUP_EXPORT_ROWS };
+}
 
 // Stat cards — must reflect the whole dataset, not whatever page listBrands() currently has
 // loaded, so this is a separate, narrow-column query rather than derived from the page.

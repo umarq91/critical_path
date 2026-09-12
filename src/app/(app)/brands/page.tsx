@@ -9,8 +9,7 @@ import { getCurrentProfile } from "@/data/profiles";
 import { can } from "@/lib/permissions";
 import { requirePageAccess } from "@/lib/require-page-access";
 import { loadDataTableSearchParams } from "@/components/data-table/data-table-search-params";
-
-const QUERY_STATE_OPTIONS = { defaultPageSize: 10, defaultSort: { id: "brand_name", desc: false } };
+import { BRANDS_QUERY_STATE } from "@/app/(app)/brands/query-state";
 
 export default async function BrandsPage({
   searchParams,
@@ -20,7 +19,7 @@ export default async function BrandsPage({
   // External users have no business on an organisation-wide lookup list; the sidebar
   // hides the link, and this is what makes typing the URL equally ineffective.
   await requirePageAccess("brand.view");
-  const queryState = await loadDataTableSearchParams(searchParams, QUERY_STATE_OPTIONS);
+  const queryState = await loadDataTableSearchParams(searchParams, BRANDS_QUERY_STATE);
 
   const [{ data: brands, rowCount }, summary, seasons, profile] = await Promise.all([
     listBrands(queryState),
@@ -30,6 +29,7 @@ export default async function BrandsPage({
   ]);
   const canManage = !!profile && can(profile.role, "brand.manage");
   const canDelete = !!profile && can(profile.role, "brand.delete");
+  const canExport = !!profile && can(profile.role, "dashboard.export_reports");
   const seasonOptions = seasons.map((season) => ({ value: season.id, label: season.season_name }));
 
   return (
@@ -37,7 +37,9 @@ export default async function BrandsPage({
       <PageHeader
         title="Brands"
         description="Manage the brands tasks and seasons are organised under."
-        action={<BrandPageActions canCreateBrand={canManage} seasonOptions={seasons} />}
+        action={
+          <BrandPageActions canCreateBrand={canManage} canExport={canExport} rowCount={rowCount} seasonOptions={seasons} />
+        }
       />
       <div className="flex flex-col gap-4 px-6 pb-6">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">

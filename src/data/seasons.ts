@@ -1,6 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { sanitiseOrSearchTerm } from "@/lib/utils";
+import { MAX_LOOKUP_EXPORT_ROWS } from "@/lib/export/types";
 import { seasonStatusValues, type SeasonInput } from "@/app/(app)/seasons/schema";
 
 export interface ListSeasonsParams {
@@ -50,6 +51,15 @@ export async function listSeasons({ page = 1, pageSize = 10, sortBy, sortDir, fi
 }
 
 export type Season = Awaited<ReturnType<typeof listSeasons>>["data"][number];
+
+// The Seasons admin page's export — same filters/sort as the board (never re-derived), the
+// whole matching scope rather than one page. Delegates to listSeasons() itself instead of
+// duplicating its filter-building: Seasons is a small admin lookup table, so a single
+// MAX_LOOKUP_EXPORT_ROWS-sized page (not tasks.ts's chunked-fetch loop) is enough to cover it.
+export async function listSeasonsForExport(params: Omit<ListSeasonsParams, "page" | "pageSize"> = {}) {
+  const { data, rowCount } = await listSeasons({ ...params, page: 1, pageSize: MAX_LOOKUP_EXPORT_ROWS });
+  return { data, rowCount, truncated: rowCount > MAX_LOOKUP_EXPORT_ROWS };
+}
 
 // Aggregates for the stat cards + toolbar filter dropdowns — these must reflect the whole
 // dataset, not whatever page listSeasons() currently has loaded, so they're a separate,
