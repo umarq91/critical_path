@@ -1,21 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, Plus } from "lucide-react";
-import { Button, buttonVariants } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { FormDialog } from "@/components/shared/form-dialog";
 import { TaskForm } from "@/app/(app)/tasks/task-form";
-import { cn } from "@/lib/utils";
+import { TasksExportButton } from "@/app/(app)/tasks/tasks-export-button";
 import type { DataTableFilterOption } from "@/components/data-table/table-features";
 
 interface TaskPageActionsProps {
   canCreateTask: boolean;
+  canExport: boolean;
+  rowCount: number;
   seasonOptions: DataTableFilterOption[];
   brandOptions: DataTableFilterOption[];
   keyStageOptions: DataTableFilterOption[];
@@ -23,6 +19,8 @@ interface TaskPageActionsProps {
 
 export const TaskPageActions = ({
   canCreateTask,
+  canExport,
+  rowCount,
   seasonOptions,
   brandOptions,
   keyStageOptions,
@@ -31,16 +29,7 @@ export const TaskPageActions = ({
 
   return (
     <>
-      <DropdownMenu>
-        <DropdownMenuTrigger className={cn(buttonVariants({ variant: "outline" }), "gap-1.5")}>
-          Export
-          <ChevronDown />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem>Export as CSV</DropdownMenuItem>
-          <DropdownMenuItem>Export as PDF</DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      {canExport ? <TasksExportButton rowCount={rowCount} /> : null}
       {canCreateTask ? (
         <FormDialog
           title="Add New Task"

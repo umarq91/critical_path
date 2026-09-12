@@ -59,13 +59,14 @@ export default async function DashboardPage() {
 
   const completionRate = percentOf(metrics.statusCounts.completed, metrics.total);
   const shareOfTotal = (count: number) => `${formatPercent(percentOf(count, metrics.total))} of total`;
+  const canExport = !!profile && can(profile.role, "dashboard.export_reports");
 
   return (
     <div className="flex flex-col">
       <PageHeader
         title={`Welcome Back ${firstName(profile?.full_name, profile?.email)}!`}
         description="Here's what's happening with your tasks today."
-        action={<DashboardExportButton metrics={metrics} />}
+        action={canExport ? <DashboardExportButton metrics={metrics} /> : undefined}
       />
 
       <div className="flex flex-col gap-4 px-6 pb-6">

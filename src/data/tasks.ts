@@ -63,6 +63,14 @@ async function resolveTaskScopeIds(supabase: SupabaseClient, params: ListTasksPa
   };
 }
 
+interface TaskScopeOptions {
+  /** Attaches an exact row count to the response alongside the page of rows. */
+  withCount?: boolean;
+  /** Skips fetching rows entirely — just the count. For a "how many records match" preview
+   *  that has no business paying for the rows it's not going to show. Implies `withCount`. */
+  headOnly?: boolean;
+}
+
 // Filters, scope and ordering, shared by the plain query and by both passes of a search — so
 // the narrow pass that decides WHICH tasks match and the wide pass that fetches them can never
 // disagree about anything else.
@@ -70,11 +78,20 @@ async function resolveTaskScopeIds(supabase: SupabaseClient, params: ListTasksPa
 // Synchronous on purpose: a PostgREST builder is itself thenable, so `await`ing an async
 // function that returned one would RUN the query instead of handing it back. Hence the
 // pre-resolved ids.
-function taskScope(supabase: SupabaseClient, select: string, params: ListTasksParams, ids: TaskScopeIds, withCount: boolean) {
+function taskScope(
+  supabase: SupabaseClient,
+  select: string,
+  params: ListTasksParams,
+  ids: TaskScopeIds,
+  options: TaskScopeOptions | boolean = {}
+) {
+  // The boolean form is legacy shorthand for `{ withCount: bool }`, kept so the three existing
+  // call sites below don't all need touching for one new caller's sake.
+  const { withCount = false, headOnly = false } = typeof options === "boolean" ? { withCount: options } : options;
   const { filters = {}, sortBy, sortDir, onlyUpcoming } = params;
   let query = supabase
     .from("tasks")
-    .select(select, withCount ? { count: "exact" } : undefined)
+    .select(select, withCount || headOnly ? { count: "exact", head: headOnly } : undefined)
     .is("deleted_at", null);
 
   if (filters.task_name) query = query.ilike("task_name", `%${filters.task_name}%`);
@@ -178,6 +195,121 @@ function taskSelectQuery(supabase: SupabaseClient) {
 }
 
 export type Task = NonNullable<Awaited<ReturnType<typeof taskSelectQuery>>["data"]>[number];
+
+export interface ListTasksForExportParams {
+  /** Same vocabulary as `ListTasksParams.filters` (season_id/brand_id/key_stage_id/gender/
+   *  status/priority/owner/involved/search) — an export scope is the grid's own filter shape,
+   *  not a new one; the Task Management export dialog forwards its page's current filters here
+   *  verbatim. Still deliberately does NOT accept `scopeToProfileId`: that's the Upcoming Tasks
+   *  page's "my work" scoping, and no export dialog sits on that page yet. */
+  filters?: Record<string, string>;
+  sortBy?: string;
+  sortDir?: string;
+}
+
+/** Hard ceiling on a single export — a safety valve, not a target. Past this, an export belongs
+ *  behind a background job with an emailed download link, not a synchronous HTTP response; see
+ *  the note on `listTasksForExport` for the reasoning. */
+export const MAX_EXPORT_ROWS = 5000;
+
+// PostgREST caps one response at 1000 rows (see data/dashboard.ts's own MAX_FACT_PAGES note),
+// so a bulk export has to page through internally just like the dashboard's aggregate fetch
+// does — the two are the same problem (read every row of a filtered scope) at a different
+// projection width.
+const EXPORT_PAGE_SIZE = 1000;
+
+// The bulk-export counterpart to listTasks(): every row matching a filter scope (not a UI page
+// of them), fetched server-side and handed back as one in-memory array for a Route Handler to
+// turn into a file. Unlike the first version of this function, it DOES follow listTasks() onto
+// the two-pass route when `filters.search` is set — the Task Management export dialog is meant
+// to export what the grid is currently showing, and a search term is part of that — see
+// exportSearchMatches() below. Owner/People Involved participant filters resolve through the
+// same resolveTaskScopeIds() the grid itself uses, for the same reason.
+//
+// Bounded at MAX_EXPORT_ROWS rather than exporting an unbounded table: past a few thousand
+// rows, a synchronous request/response export stops being a reasonable architecture regardless
+// of format — the browser is holding the whole file in memory to trigger a download, and a
+// Vercel Route Handler has its own execution time ceiling. `truncated` tells the caller (and
+// the caller must tell the user) that the file is a prefix of the matching set, not all of it.
+export async function listTasksForExport(
+  params: ListTasksForExportParams = {}
+): Promise<{ data: Task[]; rowCount: number; truncated: boolean }> {
+  const supabase = await createClient();
+  const ids = await resolveTaskScopeIds(supabase, params);
+  const term = (params.filters?.search ?? "").trim();
+  if (term) return exportSearchMatches(supabase, params, ids, term);
+
+  const { count, error: countError } = await taskScope(supabase, "id", params, ids, { headOnly: true });
+  if (countError) throw countError;
+  const rowCount = count ?? 0;
+  if (rowCount === 0) return { data: [], rowCount: 0, truncated: false };
+
+  const fetchCount = Math.min(rowCount, MAX_EXPORT_ROWS);
+  const rows: Task[] = [];
+  for (let from = 0; from < fetchCount; from += EXPORT_PAGE_SIZE) {
+    const to = Math.min(from + EXPORT_PAGE_SIZE, fetchCount) - 1;
+    const { data, error } = await taskScope(supabase, TASK_SELECT, params, ids, {}).range(from, to);
+    if (error) throw error;
+    rows.push(...((data ?? []) as unknown as Task[]));
+    // A page short of a full EXPORT_PAGE_SIZE means the table had fewer rows than the count
+    // implied (a concurrent delete) — stop rather than requesting an empty page next.
+    if (!data || data.length < to - from + 1) break;
+  }
+
+  return { data: rows, rowCount, truncated: rowCount > MAX_EXPORT_ROWS };
+}
+
+// listTasksForExport's search-term branch — mirrors listTasks()'s own two-pass route (narrow
+// projection across the WHOLE scope, filtered in memory, since a search term can't be a
+// PostgREST clause) except the slice it hydrates to full rows is the export's MAX_EXPORT_ROWS
+// prefix of matches rather than one UI page.
+async function exportSearchMatches(
+  supabase: SupabaseClient,
+  params: ListTasksForExportParams,
+  ids: TaskScopeIds,
+  term: string
+): Promise<{ data: Task[]; rowCount: number; truncated: boolean }> {
+  const { data: candidates, error: candidateError } = await taskScope(supabase, TASK_NARROW_SELECT, params, ids, false);
+  if (candidateError) throw candidateError;
+
+  const matcher = await resolveTaskSearchMatcher(supabase, term);
+  const matched = ((candidates ?? []) as unknown as TaskNarrowRow[]).filter(matcher);
+  const rowCount = matched.length;
+  if (rowCount === 0) return { data: [], rowCount: 0, truncated: false };
+
+  const exportIds = matched.slice(0, MAX_EXPORT_ROWS).map((row) => row.id);
+  const rows: Task[] = [];
+  for (let from = 0; from < exportIds.length; from += EXPORT_PAGE_SIZE) {
+    const chunk = exportIds.slice(from, from + EXPORT_PAGE_SIZE);
+    const { data, error } = await taskScope(supabase, TASK_SELECT, params, ids, false).in("id", chunk);
+    if (error) throw error;
+    rows.push(...((data ?? []) as unknown as Task[]));
+  }
+
+  return { data: rows, rowCount, truncated: rowCount > MAX_EXPORT_ROWS };
+}
+
+/** Cheap "how many rows would this export contain" — the live count the export dialog shows
+ *  while the user is still choosing filters, without paying for the rows themselves. Follows
+ *  the same search/participant-scope rules as listTasksForExport, since it exists to preview
+ *  that same call. */
+export async function countTasksForExport(filters: Record<string, string> = {}): Promise<number> {
+  const supabase = await createClient();
+  const params: ListTasksForExportParams = { filters };
+  const ids = await resolveTaskScopeIds(supabase, params);
+  const term = (filters.search ?? "").trim();
+
+  if (term) {
+    const { data: candidates, error } = await taskScope(supabase, TASK_NARROW_SELECT, params, ids, false);
+    if (error) throw error;
+    const matcher = await resolveTaskSearchMatcher(supabase, term);
+    return ((candidates ?? []) as unknown as TaskNarrowRow[]).filter(matcher).length;
+  }
+
+  const { count, error } = await taskScope(supabase, "id", params, ids, { headOnly: true });
+  if (error) throw error;
+  return count ?? 0;
+}
 
 // The Upcoming Tasks page's one query — a thin preset over listTasks(), same shape as
 // listUpcomingSeasons/listUpcomingBrands elsewhere: still fully paginated/sorted/filterable

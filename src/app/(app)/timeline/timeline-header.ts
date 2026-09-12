@@ -5,6 +5,7 @@ import {
   eachWeekOfInterval,
   differenceInCalendarDays,
   endOfMonth,
+  endOfQuarter,
   endOfWeek,
   format,
   getISOWeek,
@@ -124,7 +125,12 @@ function toColumn(view: TimelineView, span: Span, dayCount: number, today: Date)
 // Groups are built from the columns rather than from the range, so a group boundary always
 // lands on a column boundary — a week straddling two months belongs to whichever month it
 // starts in, and the two bands stay in alignment.
-function toGroup(view: TimelineView, start: Date) {
+//
+// Quarter view is the one case where that "starts in" rule would leak an extra group: its
+// week-column band is padded out to whole weeks (getTimelineRange), so the first/last column
+// can start a few days into the adjacent quarter. `quarterBounds` clamps the month lookup back
+// onto the real quarter so those padding days join Q1's January/March, not a stray Dec/Apr group.
+function toGroup(view: TimelineView, start: Date, quarterBounds: Span | null) {
   const unit = GROUP_UNIT[view];
 
   if (unit === "quarter") {
@@ -136,7 +142,14 @@ function toGroup(view: TimelineView, start: Date) {
     };
   }
   if (unit === "month") {
-    const monthStart = startOfMonth(start);
+    const clamped = quarterBounds
+      ? start < quarterBounds.start
+        ? quarterBounds.start
+        : start > quarterBounds.end
+          ? quarterBounds.end
+          : start
+      : start;
+    const monthStart = startOfMonth(clamped);
     return { key: format(monthStart, "yyyy-MM"), label: format(monthStart, "MMMM"), rangeLabel: format(monthStart, "yyyy") };
   }
   const weekStart = startOfWeek(start, WEEK_OPTIONS);
@@ -173,9 +186,19 @@ export function getTimelineHeader(view: TimelineView, range: TimelineRange, toda
   const spans = buildSpans(view, range);
   const columns = spans.map((span) => toColumn(view, span, clampedDayCount(span, range), today));
 
+  // Week-boundary padding is at most 6 days either side, so the range midpoint always falls
+  // inside the real quarter — safe to derive its true start/end from, unlike range.start/end.
+  const quarterBounds: Span | null =
+    view === "quarter"
+      ? (() => {
+          const mid = new Date((range.start.getTime() + range.end.getTime()) / 2);
+          return { start: startOfQuarter(mid), end: endOfQuarter(mid) };
+        })()
+      : null;
+
   const groups: TimelineGroup[] = [];
   spans.forEach((span, index) => {
-    const { key, label, rangeLabel } = toGroup(view, span.start);
+    const { key, label, rangeLabel } = toGroup(view, span.start, quarterBounds);
     const current = groups.at(-1);
     const dayCount = columns[index]?.dayCount ?? 0;
 

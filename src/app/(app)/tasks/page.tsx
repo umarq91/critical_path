@@ -31,6 +31,7 @@ export default async function TasksPage({
   const canManage = !!profile && can(profile.role, "task.update");
   const canDelete = !!profile && can(profile.role, "task.delete");
   const canAssignPeople = !!profile && can(profile.role, "task.assign");
+  const canExport = !!profile && can(profile.role, "dashboard.export_reports");
 
   const seasonOptions = seasons.map((season) => ({ value: season.id, label: season.season_name }));
   const brandOptions = brands.map((brand) => ({ value: brand.id, label: brand.brand_name }));
@@ -44,6 +45,8 @@ export default async function TasksPage({
         action={
           <TaskPageActions
             canCreateTask={canCreateTask}
+            canExport={canExport}
+            rowCount={rowCount}
             seasonOptions={seasonOptions}
             brandOptions={brandOptions}
             keyStageOptions={keyStageOptions}

@@ -25,7 +25,7 @@ export default async function SignInPage({ searchParams }: PageProps<"/auth/sign
         </div>
         <div className="flex flex-col gap-2">
           <h1 className="text-4xl font-bold text-foreground">Welcome Back</h1>
-          <p className="text-lg text-text-secondary">Sign in to continue to Critical Path</p>
+          <p className="text-lg text-text-secondary">Sign in to continue to Three by one</p>
         </div>
 
         {error ? (

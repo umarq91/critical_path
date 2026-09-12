@@ -321,8 +321,39 @@ card — **still 0 requests on interaction**.
   doesn't change when the list is narrowed.
 - **Season folds into "Other"; Brand truncates.** A bar list has no ring to complete, so a
   synthetic "Other" bar would outrank real brands. Both dropdowns list *every* entity.
-- **Export is client-side CSV** from data already rendered — no second fetch, no Route Handler.
-  It emits the **full** breakdowns, not the charts' trimmed top-N.
+- **Export is a Route Handler** (`dashboard/export/route.ts`), not client-side — an XLSX
+  workbook needs `exceljs` server-side, and the dialog's configurable Task Records columns need
+  a fresh query anyway, so CSV was moved onto the same code path rather than keeping two.
+  `dashboard-export-button.tsx` opens a dialog (format + which sections + which Task Records
+  columns), then `fetch()`s the route and downloads the response as a blob — no `<a href>` GET
+  navigation, so a permission/validation error surfaces as a toast instead of a browser download
+  of a JSON error body.
+  - **XLSX** can hold any combination of three tabs: **Dashboard Summary** (the full
+    Status/Season/Brand/Gender breakdowns — full, not the cards' trimmed top-N) and
+    **Completion Trend** (Monthly + Weekly, `lib/export/*` columns from `dashboard/export/
+    summary-rows.ts`) are always the **whole-table** numbers, never scoped to anything — same
+    reasoning as `getDashboardMetrics()` itself, see the note in `summary-rows.ts`. **Task
+    Records** is one row per task with a checkbox-configurable column set
+    (`dashboard/export/task-record-columns.ts`) — deliberately excludes `assignee_id`, superseded
+    by `task_participants` (see Tasks section below).
+  - **CSV holds exactly one table** — `lib/export/csv.ts`'s `buildCsv()` takes a single sheet,
+    so the route's `resolveSections()` collapses a CSV request down to one section (preferring
+    "records" if it was asked for) even if a hand-built query string asks for more. The dialog
+    itself always requests Task Records for CSV, since that's the one section a column checklist
+    actually applies to.
+  - **Timeline/Gantt is deliberately never exportable from this dialog** — it's a preview band of
+    12 rows, not a complete dataset; there is nothing in it that Task Records doesn't already
+    cover in full.
+  - **Bounded at `MAX_EXPORT_ROWS` (5000)**, same cap `listTasksForExport()` (`data/tasks.ts`)
+    uses everywhere — past that the response carries `X-Export-Truncated: true` and the dialog's
+    success toast says so; there's no UI to raise the cap, since a bigger export belongs behind a
+    background job with an emailed link, not a synchronous request.
+  - **Only `dashboard.export_reports` roles reach the route** (`requirePermission`, same matrix
+    as everywhere else) — `viewer` and `external` get `dashboard.view` but not this.
+    `dashboard/page.tsx` also hides the Export button itself for them (`can(profile.role,
+    "dashboard.export_reports")`), same "hide the dead-end, still enforce server-side" pattern
+    as `canAssignPeople` on the Gantt card below — the route check is what's load-bearing, the
+    hidden button is just not leaving a guaranteed-403 control on screen.
 - **The Overdue tile links into `/tasks` pre-filtered, rather than the dashboard owning a
   second overdue list.** The href is built with `dataTableSearchParamsHref` off the *same*
   parser definition and the *same* defaults (`TASKS_QUERY_STATE`) the tasks page loads with —
@@ -611,6 +642,39 @@ runs server-side in `listTasks`, so it searches the whole table, not the page on
   the ceiling truncate results.
 - **`filters.task_name` still works** as a plain name-only `ilike`, so any existing deep link
   keeps its meaning. `/upcoming` still uses it; only `/tasks` was switched to `search`.
+
+### Export (`tasks/export/route.ts`, `tasks-export-button.tsx`)
+
+Same Route-Handler-plus-dialog shape as the Dashboard's export (see that module's own section)
+but scoped to this page's single dataset — there's no "sections" checklist, only a column
+checklist, because Task Management has exactly one table to export.
+
+- **Reads the grid's live URL state, not a re-derived scope.** The button calls
+  `useDataTableQueryState(TASKS_QUERY_STATE)` — the same hook `tasks-board.tsx` uses — and
+  forwards `filters`/`sortBy`/`sortDir` straight to the route. A second, independent
+  `useQueryStates` reading the same URL is the intended nuqs pattern here, not a state-sync bug:
+  there is exactly one source of truth (the URL), so the button and the board can't disagree.
+- **`filters.search` now works in an export, unlike the Dashboard's.** `listTasksForExport()`
+  (`data/tasks.ts`) follows `listTasks()` onto the two-pass route when a search term is present
+  — see `exportSearchMatches()` — matching against the WHOLE scope's narrow projection (not
+  paginated) rather than one page, then hydrating up to `MAX_EXPORT_ROWS` matches to full rows.
+  Same unbounded-narrow-pass caveat as live search applies (see above): past ~1000 candidate
+  rows PostgREST's page ceiling silently truncates the search, independent of the export's own
+  `MAX_EXPORT_ROWS` cap.
+- **Owner/People Involved filters are honoured too** — `resolveTaskScopeIds()` runs unconditionally
+  now, where the first cut of `listTasksForExport()` hardcoded `{ participants: null }` (that was
+  correct only for the Dashboard's unfiltered, grid-filter-free caller; it silently ignored an
+  active Owner filter for anyone else).
+- **`countTasksForExport()` mirrors the same rules** (participants + search) for the same reason
+  it exists — a future "N tasks will be exported" preview must agree with what the export
+  actually returns — but nothing calls it yet; it isn't wired into the dialog.
+- **`TASK_RECORD_COLUMN_GROUPS` lives at `tasks/export/task-record-columns.ts`**, not under either
+  page's own folder, because both this page and the Dashboard's export dialog import it — see the
+  file's own header note before moving it again.
+- **Same permission as the Dashboard export** (`dashboard.export_reports`, checked via
+  `requirePermission()` in the route and hidden client-side via `can()` in `page.tsx`) — one
+  capability governs "can this user pull data out of the platform as a file" everywhere, rather
+  than a second grant per page that happens to add an Export button.
 
 ---
 

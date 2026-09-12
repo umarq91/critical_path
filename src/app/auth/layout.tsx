@@ -9,7 +9,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       <div className="flex flex-col items-center justify-center gap-6 bg-muted/40 px-4 py-12">
         {children}
         <p className="text-caption text-muted-foreground">
-          © 2026 Critical Path. All rights reserved.
+          © 2026 Three by one. All rights reserved.
         </p>
       </div>
     </div>

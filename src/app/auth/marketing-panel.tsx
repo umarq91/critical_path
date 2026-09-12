@@ -1,5 +1,5 @@
 import { CheckCircle2, Users, BarChart3 } from "lucide-react";
-import { CriticalPathLogo } from "@/components/icons/critical-path-logo";
+import Image from "next/image";
 
 const FEATURES = [
   {
@@ -25,9 +25,15 @@ const FEATURES = [
 export function MarketingPanel() {
   return (
     <div className="flex h-full flex-col justify-between p-16 xl:p-20">
-      <div className="flex items-center gap-3">
-        <CriticalPathLogo className="size-8 shrink-0" />
-        <span className="text-2xl font-semibold text-foreground">Critical Path</span>
+      <div className="flex items-center">
+        <Image
+          src="/icons/logo.jpeg"
+          alt="Three by one"
+          width={1600}
+          height={328}
+          priority
+          className="h-8 w-auto object-contain"
+        />
       </div>
 
       <div className="flex flex-col gap-4">

@@ -1,8 +1,8 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CriticalPathLogo } from "@/components/icons/critical-path-logo";
 import {
   Sidebar,
   SidebarContent,
@@ -25,11 +25,15 @@ export function AppSidebar({ role }: { role: Role }) {
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="px-2 pt-4 pb-2">
-        <div className="flex h-10 items-center gap-2 px-2">
-          <CriticalPathLogo className="size-6 shrink-0" />
-          <span className="text-h3 lg:text-h2 truncate group-data-[collapsible=icon]:hidden">
-            Critical Path
-          </span>
+        <div className="flex h-14 items-center px-2 group-data-[collapsible=icon]:hidden">
+          <Image
+            src="/icons/logo.jpeg"
+            alt="Three by one"
+            width={1600}
+            height={328}
+            priority
+            className="h-10 w-auto object-contain"
+          />
         </div>
       </SidebarHeader>
       <SidebarContent className="gap-6 px-1 py-2">

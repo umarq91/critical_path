@@ -11,7 +11,7 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: "Critical Path",
+  title: "Three by one",
   description: "Threebyone critical path task management",
 };
 

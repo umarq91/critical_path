@@ -53,7 +53,7 @@ export const PERMISSION_CATALOG: PermissionCatalogGroup[] = [
     title: "Dashboard & calendar",
     entries: [
       { action: "dashboard.view", label: "View dashboard", description: "Charts and summaries for the tasks they can see" },
-      { action: "dashboard.export_reports", label: "Export reports", description: "Download Excel and PDF exports" },
+      { action: "dashboard.export_reports", label: "Export reports", description: "Download Excel and CSV exports" },
       { action: "calendar.sync_google", label: "Google Calendar sync", description: "Push their task due dates to Google Calendar" },
     ],
   },
