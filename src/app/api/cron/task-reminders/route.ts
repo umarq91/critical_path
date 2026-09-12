@@ -9,6 +9,10 @@ import { taskReminderEmail } from "@/lib/mailer/templates/task-reminder";
 // app/api/cron/* route is. Fetches every (rule, task, offset) reminder due right now
 // (listDueReminders already excludes anything notifications_log says was already sent), sends
 // each by email, and logs it. One failed send never blocks the rest of the batch.
+//
+// ⚠️ TEMPORARY: while SMTP_* is unset, a "skipped" reminder is logged to notifications_log
+// anyway (see the comment at that call below) so it's visible in Supabase during testing.
+// Remove that once real SMTP_* creds are in — see things-to-know.md's Reminders section.
 export async function GET(request: NextRequest) {
   const denied = requireCronAuth(request);
   if (denied) return denied;
@@ -31,10 +35,14 @@ export async function GET(request: NextRequest) {
       );
 
       if (!result.sent) {
-        // SMTP isn't configured yet (getSmtpEnv() returned null) — deliberately NOT logged to
-        // notifications_log, since nothing actually went out: this reminder must stay eligible
-        // to send for real the moment SMTP_* is set, not be silently marked done today.
+        // TEMPORARY, while SMTP_* isn't configured yet: log this exact reminder to
+        // notifications_log as if it sent, so its presence is verifiable in Supabase before
+        // the real relay is wired up. Revert this back to a plain `continue` (no log write)
+        // once SMTP_* is set — leaving it in place after that point means every reminder whose
+        // SMTP send fails also gets silently marked "done" and never retried, which defeats
+        // the whole point of the dedupe log. See things-to-know.md's Reminders section.
         skippedNoSmtp++;
+        await recordReminderSent(reminder.ruleId, reminder.taskId, reminder.offsetDays);
         continue;
       }
 

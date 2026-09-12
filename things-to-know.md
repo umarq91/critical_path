@@ -980,12 +980,19 @@ matching hour passes without a successful send does that day's reminder silently
 **SMTP is optional at runtime, not a hard dependency of the cron route.** `getSmtpEnv()`
 (`env.server.ts`) returns `null` rather than throwing when `SMTP_*` is unset — same shape as
 `getGoogleServiceAccountEnv()` — so `sendMail()` returns `{ sent: false }` instead of attempting
-a real send, and the route counts it as `skippedNoSmtp` rather than `sent` or `failed`. Critically,
-`recordReminderSent()` is only called when `sent: true` — a reminder skipped for lack of SMTP
-config must stay eligible to send for real once `SMTP_*` is finally set, not be permanently
-marked done by a run that never actually emailed anyone. This is what let the cron/pg_cron
-wiring and the matching logic be stood up and verified before the client's Workspace SMTP relay
-was provisioned.
+a real send, and the route counts it as `skippedNoSmtp` rather than `sent` or `failed`. This is
+what let the cron/pg_cron wiring and the matching logic be stood up and verified before the
+client's Workspace SMTP relay was provisioned.
+
+**⚠️ TEMPORARY, current state: a `skippedNoSmtp` reminder is still logged to
+`notifications_log`**, in `app/api/cron/task-reminders/route.ts` — a deliberate, explicitly
+requested testing convenience so a "would-have-sent" reminder is visible in Supabase
+(`select * from notifications_log`) while there's no SMTP relay to actually check against. The
+trade-off: once real `SMTP_*` creds land, any (rule, task, offset) that already got logged this
+way will **not** actually send — the dedupe log already thinks it's done. **Remove the
+`await recordReminderSent(...)` call from the `!result.sent` branch (revert to a plain
+`continue`) before relying on real email delivery** — otherwise every SMTP failure also gets
+silently marked "done" and never retried, which defeats the entire purpose of the dedupe log.
 
 **Completed or soft-deleted tasks never get reminded about**, checked in `listDueReminders()`
 itself (`status = 'completed'` or `deleted_at is not null` excludes the candidate) — a reminder

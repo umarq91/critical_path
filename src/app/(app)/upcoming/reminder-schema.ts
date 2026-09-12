@@ -9,9 +9,11 @@ export const REMINDER_OFFSET_PRESETS = [
   { label: "1 week before", value: 7 },
 ] as const;
 
-// Hours shown in the "send at" picker — every hour of a normal working day is enough; nobody
-// configuring an email reminder needs 3am as an option.
-export const REMINDER_HOUR_OPTIONS = Array.from({ length: 15 }, (_, index) => index + 6); // 6am–8pm
+// Every hour of the day, in REMINDER_ORG_TIMEZONE (data/reminders.ts) — not restricted to
+// "business hours": the person setting this may not be in that timezone (see the reminders
+// note on Sydney-time hour picking), so the full 24 stay available rather than assuming what
+// counts as a reasonable send time for them.
+export const REMINDER_HOUR_OPTIONS = Array.from({ length: 24 }, (_, index) => index);
 
 const MAX_OFFSETS = 10;
 const MAX_TASKS = 100;
