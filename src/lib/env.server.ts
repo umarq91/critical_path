@@ -57,3 +57,34 @@ export function getGoogleOAuthEnv(): GoogleOAuthEnv | null {
   });
   return result.success ? result.data : null;
 }
+
+const smtpSchema = z.object({
+  SMTP_HOST: z.string().min(1),
+  SMTP_PORT: z.coerce.number().int().positive(),
+  SMTP_USER: z.string().min(1),
+  SMTP_PASS: z.string().min(1),
+});
+
+export type SmtpEnv = z.infer<typeof smtpSchema>;
+
+// Returns null instead of throwing when unset, same reasoning and shape as
+// getGoogleServiceAccountEnv above — the Workspace SMTP relay is a separate provisioning step
+// the client hasn't completed yet, and lib/mailer/send.ts falls back to a no-op (logged, not
+// sent) rather than making every cron run hard-fail until it is.
+export function getSmtpEnv(): SmtpEnv | null {
+  const result = smtpSchema.safeParse({
+    SMTP_HOST: process.env.SMTP_HOST,
+    SMTP_PORT: process.env.SMTP_PORT,
+    SMTP_USER: process.env.SMTP_USER,
+    SMTP_PASS: process.env.SMTP_PASS,
+  });
+  return result.success ? result.data : null;
+}
+
+const cronSecretSchema = z.object({ CRON_SECRET: z.string().min(1) });
+
+// Checked by every app/api/cron/* route (lib/cron-auth.ts) against the caller's header —
+// Supabase pg_cron's net.http_post call carries this the same way Vercel's own Cron would.
+export function getCronSecret(): string {
+  return cronSecretSchema.parse({ CRON_SECRET: process.env.CRON_SECRET }).CRON_SECRET;
+}

@@ -285,6 +285,26 @@ Exists so "tasks relevant to me" stays one query rather than the three hops (me 
 
 **Backfilled on install** from `tasks`' own tracking columns, so the page opens with the history that already existed. Those rows carry `{ backfilled: true }` and no field detail (`tasks` records *that* a row was edited, not what changed) — the UI says so rather than rendering an empty diff. Each backfill block is guarded by a not-exists on `(entity_id, action)`, so re-running the file adds nothing.
 
+### `reminder_rules`, `reminder_rule_tasks`, `notifications_log`
+*Migration: `0024_reminder_rules.sql`. Personal email reminders — the settings cards on `/upcoming`, not an admin-managed rule set. See things-to-know.md's Reminders section for the full picture (timezone assumption, offset semantics, the cron/pg_cron wiring).*
+
+**`reminder_rules`** — at most one row per profile (`profile_id unique`):
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid, PK | |
+| `profile_id` | uuid, FK → `profiles.id`, unique, not null, `on delete cascade` | |
+| `offset_days` | integer[], not null, default `{}` | each entry is "notify N days before `due_date`" — presets (2/1/7) and a custom value are just integers in the same array |
+| `notify_hour` | smallint, not null, default `9` | hour of day (0–23) to send, in a single fixed org timezone — see things-to-know.md |
+| `is_enabled` | boolean, not null, default `true` | master on/off without deleting the configuration |
+| `created_at` / `updated_at` | timestamptz | |
+
+**`reminder_rule_tasks`** — which of the profile's own tasks the rule applies to, a plain join (`rule_id`, `task_id`, unique pair) — not a scope-type table. Season/owner are filters *inside* the task picker UI, never a second matching mechanism.
+
+**`notifications_log`** — dedupe + audit for the cron route: `rule_id`, `task_id`, `offset_days`, `sent_at`, unique on the triple. A row here means that exact reminder already went out; the cron route checks this before sending, not before matching.
+
+**RLS:** `reminder_rules`/`reminder_rule_tasks` are owner-only (`profile_id = auth.uid()`, or a join back to the owning rule) — a personal preference, not a lookup entity, so there's no "everyone reads, admin writes" split. `notifications_log` has **no policies at all** — only the service-role client (`lib/supabase/admin.ts`, used exclusively by `/api/cron/task-reminders`) can touch it.
+
 ### `google_oauth_tokens`
 *Migration: `0012_google_oauth_tokens.sql`. Per-user Google OAuth access/refresh tokens, used only to call the Calendar API as that specific user.*
 

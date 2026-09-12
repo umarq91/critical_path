@@ -1,9 +1,13 @@
 import { PageHeader } from "@/components/shared/page-header";
 import { UpcomingTasksBoard } from "@/app/(app)/upcoming/upcoming-tasks-board";
+import { NotifyTimingCard } from "@/app/(app)/upcoming/notify-timing-card";
+import { NotifyTasksCard } from "@/app/(app)/upcoming/notify-tasks-card";
 import { listUpcomingTasksForProfile } from "@/data/tasks";
 import { listSeasonOptions } from "@/data/seasons";
 import { listBrandOptions } from "@/data/brands";
 import { listKeyStageOptions } from "@/data/key-stages";
+import { listPartyOptions } from "@/data/parties";
+import { getMyReminderRule } from "@/data/reminders";
 import { getCurrentProfile } from "@/data/profiles";
 import { can } from "@/lib/permissions";
 import { loadDataTableSearchParams } from "@/components/data-table/data-table-search-params";
@@ -20,11 +24,13 @@ export default async function UpcomingTasksPage({
 
   // No signed-in profile shouldn't happen here — (app)/layout.tsx already guards auth for the
   // whole authenticated shell — but without one there's no "me" to scope this page to.
-  const [{ data: tasks, rowCount }, seasons, brands, keyStages] = await Promise.all([
+  const [{ data: tasks, rowCount }, seasons, brands, keyStages, parties, reminderRule] = await Promise.all([
     profile ? listUpcomingTasksForProfile(profile.id, queryState) : Promise.resolve({ data: [], rowCount: 0 }),
     listSeasonOptions(),
     listBrandOptions(),
     listKeyStageOptions(),
+    listPartyOptions(),
+    profile ? getMyReminderRule(profile.id) : Promise.resolve(null),
   ]);
 
   const canManage = !!profile && can(profile.role, "task.update");
@@ -52,6 +58,15 @@ export default async function UpcomingTasksPage({
           brandOptions={brandOptions}
           keyStageOptions={keyStageOptions}
         />
+
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <NotifyTimingCard initialRule={reminderRule} />
+          <NotifyTasksCard
+            initialTasks={reminderRule?.tasks ?? []}
+            seasonOptions={seasonOptions}
+            ownerOptions={parties}
+          />
+        </div>
       </div>
     </div>
   );

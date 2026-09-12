@@ -924,3 +924,94 @@ express (that one is "show only this status").
 (a target-state/gap deliverable; an external sheet connection) and were scoped out rather than
 half-built. If either lands later, it's a new column/table plus real UI, not a toggle bolted onto
 the existing board.
+
+## Reminders (`/upcoming`, `data/reminders.ts`, `/api/cron/task-reminders`)
+
+**Self-service, not an admin rule.** `reminder_rules` is one row per profile, configured by that
+person on the two cards below the Upcoming Tasks table — there is no admin-facing management
+screen, and `plan.md`'s original org-wide `reminder_rules` sketch is superseded by this, not
+implemented alongside it. Every Server Action here is gated on `profile.update_own` (already
+granted to every role, admin included) rather than a new `Action` — this isn't a distinct
+capability decision, it's "manage your own settings," same as the profile itself.
+
+**Scope is specific tasks only — v1 deliberately dropped "by season"/"by owner" as separate
+scope types.** `reminder_rule_tasks` is a plain join (`rule_id`, `task_id`); season and owner
+are filters *inside* the "Select tasks…" picker (`notify-task-picker-dialog.tsx`), narrowing
+which of the user's own tasks they pick from — not a second matching mechanism a task could
+qualify under independently of being explicitly chosen. The picker's candidate set is exactly
+`listUpcomingTasksForProfile()` — the same tasks that page already shows.
+
+**Offsets are one `integer[]` column, not three preset booleans plus a custom field.**
+`reminder_rules.offset_days` holds every "notify N days before due_date" value the user has
+turned on — the three UI presets (2/1/7) and any custom value they add are indistinguishable
+once stored; the UI (`notify-timing-card.tsx`) just partitions the array into "known presets"
+vs. "everything else" for display.
+
+**One fixed org timezone (`REMINDER_ORG_TIMEZONE` = `Australia/Sydney`), not per-user.** The
+client operates out of one region — there's no per-user timezone field anywhere in the app, and
+adding one just for this would be scope no one asked for. If that ever changes, this constant in
+`data/reminders.ts` is the one place to touch.
+
+**due_date arithmetic must NOT go through the org timezone — only "what time is it right now"
+should.** `due_date` is a bare calendar date with no attached timezone; "3 days before" is pure
+calendar-date subtraction (`subtractCalendarDays()`, via `date-fns` on `parseDateOnly`'s
+local-midnight `Date`). Reformatting that result through `Intl.DateTimeFormat` with an explicit
+IANA zone — which IS correct for turning `now` (a real instant) into "what day/hour is it in
+Sydney" — would risk shifting the calendar day depending on what timezone the Node process
+itself happens to run in. Keep these two operations (`subtractCalendarDays` vs.
+`hourInOrgTimezone`/`isoDateInOrgTimezone`) conceptually separate; an earlier draft of this file
+conflated them and silently mis-dated reminders near a UTC day boundary.
+
+**Matching is a JS scan over a bounded fetch, not a SQL query with `unnest()`.** `listDueReminders()`
+pulls every enabled rule (already filtered to `notify_hour = current hour` at the DB level) with
+its tasks, then loops over each rule's `offset_days` array in TypeScript checking
+`due_date - offset == today`. At the client's actual scale (a few hundred tasks, presumably a
+handful of active rules) this is simpler to read and maintain than the equivalent SQL, and
+`MAX_DUE_REMINDERS_PER_RUN` (500) is the safety valve if that assumption ever stops holding.
+
+**Dedupe is a real unique constraint, not just an in-memory guard.** `notifications_log` has
+`unique(rule_id, task_id, offset_days)`; `listDueReminders()` filters candidates against it as
+an optimisation (so one run doesn't even try to re-send within itself), but
+`recordReminderSent()`'s `upsert(..., { ignoreDuplicates: true })` is what actually makes two
+overlapping/retried cron runs safe. A failed send is deliberately left un-logged — the next tick
+(still the same hour, since the cron runs every 15 minutes) retries it; only after the whole
+matching hour passes without a successful send does that day's reminder silently not go out.
+
+**SMTP is optional at runtime, not a hard dependency of the cron route.** `getSmtpEnv()`
+(`env.server.ts`) returns `null` rather than throwing when `SMTP_*` is unset — same shape as
+`getGoogleServiceAccountEnv()` — so `sendMail()` returns `{ sent: false }` instead of attempting
+a real send, and the route counts it as `skippedNoSmtp` rather than `sent` or `failed`. Critically,
+`recordReminderSent()` is only called when `sent: true` — a reminder skipped for lack of SMTP
+config must stay eligible to send for real once `SMTP_*` is finally set, not be permanently
+marked done by a run that never actually emailed anyone. This is what let the cron/pg_cron
+wiring and the matching logic be stood up and verified before the client's Workspace SMTP relay
+was provisioned.
+
+**Completed or soft-deleted tasks never get reminded about**, checked in `listDueReminders()`
+itself (`status = 'completed'` or `deleted_at is not null` excludes the candidate) — a reminder
+about finished work is noise, not signal.
+
+**The trigger is Supabase `pg_cron`/`pg_net`, not Vercel Cron** — the project stays on Vercel's
+free plan, which caps its own Cron Jobs at once a day regardless of the configured schedule.
+`pg_net`'s `net.http_post` is fire-and-forget (Postgres doesn't wait for the route to finish) and
+logs each call's response in `net._http_response`, useful for debugging a silently-failing run.
+**The actual `cron.schedule(...)` registration is a manual, one-time SQL Editor step — it is
+NOT part of the checked-in migration**, because it embeds an environment-specific URL and the
+`CRON_SECRET` value, neither of which belongs in git history. Run this once per environment
+(dev/staging/prod each need their own, pointed at their own deployed URL):
+
+```sql
+select cron.schedule(
+  'task-reminders-every-15-min',
+  '*/15 * * * *',
+  $$
+  select net.http_post(
+    url := 'https://YOUR-DEPLOYED-DOMAIN/api/cron/task-reminders',
+    headers := jsonb_build_object('Authorization', 'Bearer ' || 'YOUR_CRON_SECRET_VALUE')
+  );
+  $$
+);
+```
+
+Requires the `pg_cron` and `pg_net` extensions enabled on the Supabase project (Database →
+Extensions) — both are available on the free tier.

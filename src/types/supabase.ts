@@ -262,6 +262,45 @@ export type Database = {
         }
         Relationships: []
       }
+      notifications_log: {
+        Row: {
+          id: string
+          rule_id: string
+          task_id: string
+          offset_days: number
+          sent_at: string
+        }
+        Insert: {
+          id?: string
+          rule_id: string
+          task_id: string
+          offset_days: number
+          sent_at?: string
+        }
+        Update: {
+          id?: string
+          rule_id?: string
+          task_id?: string
+          offset_days?: number
+          sent_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_log_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "reminder_rules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_log_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -305,6 +344,80 @@ export type Database = {
             columns: ["department_id"]
             isOneToOne: false
             referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reminder_rule_tasks: {
+        Row: {
+          id: string
+          rule_id: string
+          task_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          rule_id: string
+          task_id: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          rule_id?: string
+          task_id?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reminder_rule_tasks_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "reminder_rules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reminder_rule_tasks_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reminder_rules: {
+        Row: {
+          id: string
+          profile_id: string
+          offset_days: number[]
+          notify_hour: number
+          is_enabled: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          profile_id: string
+          offset_days?: number[]
+          notify_hour?: number
+          is_enabled?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          profile_id?: string
+          offset_days?: number[]
+          notify_hour?: number
+          is_enabled?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reminder_rules_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
