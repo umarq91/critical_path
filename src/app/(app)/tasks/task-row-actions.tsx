@@ -34,7 +34,7 @@ export const TaskRowActions = ({ taskId, taskName }: { taskId: string; taskName:
       </DropdownMenu>
       <ConfirmDialog
         title="Delete task"
-        description={`This removes "${taskName}" from the list. It can be recovered from the database if needed.`}
+        description={`This removes "${taskName}" from the list. It can be restored from Trash at any time.`}
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
         onConfirm={handleDelete}

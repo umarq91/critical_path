@@ -26,7 +26,7 @@ export const PERMISSION_CATALOG: PermissionCatalogGroup[] = [
       { action: "task.view", label: "View tasks", description: "External users see only tasks they are involved in" },
       { action: "task.create", label: "Create tasks", description: "Add a task manually or from a template" },
       { action: "task.update", label: "Edit tasks", description: "Change task fields, including status" },
-      { action: "task.delete", label: "Delete tasks", description: "Permanently remove a task" },
+      { action: "task.delete", label: "Delete tasks", description: "Remove a task and restore it from Trash" },
       { action: "task.assign", label: "Assign owners", description: "Set owner departments and people involved" },
       { action: "task.bulk_update", label: "Bulk edit", description: "Apply a change across many selected tasks" },
       { action: "task.comment", label: "Comment", description: "Post comments on a task" },

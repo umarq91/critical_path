@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Plus } from "lucide-react";
+import Link from "next/link";
+import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FormDialog } from "@/components/shared/form-dialog";
 import { TaskForm } from "@/app/(app)/tasks/task-form";
@@ -10,6 +11,7 @@ import type { DataTableFilterOption } from "@/components/data-table/table-featur
 
 interface TaskPageActionsProps {
   canCreateTask: boolean;
+  canDelete: boolean;
   canExport: boolean;
   rowCount: number;
   seasonOptions: DataTableFilterOption[];
@@ -19,6 +21,7 @@ interface TaskPageActionsProps {
 
 export const TaskPageActions = ({
   canCreateTask,
+  canDelete,
   canExport,
   rowCount,
   seasonOptions,
@@ -30,6 +33,15 @@ export const TaskPageActions = ({
   return (
     <>
       {canExport ? <TasksExportButton rowCount={rowCount} /> : null}
+      {canDelete ? (
+        // Same gate as the Trash page itself (task.delete) — restoring is part of the
+        // delete capability, not a separate grant, so there's no point showing this link to
+        // someone requirePageAccess would bounce straight back out.
+        <Button variant="outline" nativeButton={false} render={<Link href="/tasks/trash" />}>
+          <Trash2 />
+          Trash
+        </Button>
+      ) : null}
       {canCreateTask ? (
         <FormDialog
           title="Add New Task"

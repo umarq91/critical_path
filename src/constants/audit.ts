@@ -6,6 +6,7 @@ export const AUDIT_ACTION = {
   TASK_CREATE: "task.create",
   TASK_UPDATE: "task.update",
   TASK_DELETE: "task.delete",
+  TASK_RESTORE: "task.restore",
   // One verb for both roles, not `task.owner_change` + `task.people_change`. The drawer saves
   // owners and people involved in a single confirmed action, and splitting that into two log
   // rows made one edit look like two.
@@ -32,6 +33,10 @@ export const AUDIT_ACTION_CONFIG: StatusBadgeConfig = {
   [AUDIT_ACTION.TASK_DELETE]: {
     label: "Deleted",
     className: "border border-status-overdue-base bg-status-overdue-soft text-status-overdue-text",
+  },
+  [AUDIT_ACTION.TASK_RESTORE]: {
+    label: "Restored",
+    className: "border border-status-complete-base bg-status-complete-soft text-status-complete-text",
   },
   [AUDIT_ACTION.TASK_PARTICIPANTS_CHANGE]: {
     label: "Reassigned",

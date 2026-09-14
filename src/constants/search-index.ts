@@ -14,6 +14,7 @@ import {
   Building2,
   Bell,
   Settings,
+  Trash2,
   type LucideIcon,
 } from "lucide-react";
 import { can, type Action } from "@/lib/permissions";
@@ -79,6 +80,15 @@ export const SEARCH_INDEX: SearchItem[] = [
     icon: GanttChartSquare,
     section: "Pages",
     keywords: ["gantt", "roadmap", "schedule", "chart", "key stage"],
+  },
+  {
+    title: "Trash",
+    description: "Deleted tasks — restore one at any time",
+    href: "/tasks/trash",
+    icon: Trash2,
+    section: "Pages",
+    keywords: ["deleted", "restore", "recover", "undo delete", "recycle bin"],
+    requiredAction: "task.delete",
   },
   {
     title: "Calendar",

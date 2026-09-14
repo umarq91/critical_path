@@ -7,7 +7,7 @@ import { listTasks, type ListTasksParams } from "@/data/tasks";
 import { parsePartyKey, participantRows } from "@/lib/party";
 import { deleteTaskCalendarEvent } from "@/lib/google/calendar";
 import { resyncTaskCalendarEvent } from "@/lib/google/task-calendar-sync";
-import { logTaskCreated, logTaskUpdated, logTaskDeleted } from "@/app/(app)/tasks/_audit";
+import { logTaskCreated, logTaskUpdated, logTaskDeleted, logTaskRestored } from "@/app/(app)/tasks/_audit";
 
 // Powers the isolated "Refresh" icon on the tasks table (see useRefreshableData). A plain
 // read, not a mutation — router.refresh() can't scope a reload to just this table (it
@@ -188,5 +188,38 @@ export async function deleteTask(id: string) {
 
   revalidatePath("/tasks");
   revalidatePath("/calendar");
+  return { ok: true as const };
+}
+
+// The Trash view's one write. Same permission as deleteTask (task.delete) — the people who can
+// remove a task are the people who can bring it back, rather than a separate grant. Clears
+// deleted_by too, not just deleted_at: a restored task with a stale deleted_by would read as
+// "deleted by so-and-so" everywhere that column is joined, for a task that's no longer deleted.
+//
+// Deliberately does NOT touch google_event_id/google_calendar_owner_id — a Google event
+// deleted alongside the task is already self-healed by upsertTaskCalendarEvent's fallback (see
+// lib/google/calendar.ts) the next time this task is pushed, so there's nothing to clean up
+// here.
+export async function restoreTask(id: string) {
+  const auth = await requirePermission("task.delete");
+  if (!auth.ok) return auth;
+
+  const { data: task } = await auth.supabase
+    .from("tasks")
+    .select("task_name, deleted_at")
+    .eq("id", id)
+    .maybeSingle();
+  if (!task?.deleted_at) return { ok: false as const, error: "This task isn't in the trash" };
+
+  const { error } = await auth.supabase
+    .from("tasks")
+    .update({ deleted_at: null, deleted_by: null, last_edited_by: auth.userId })
+    .eq("id", id);
+  if (error) return { ok: false as const, error: error.message };
+
+  await logTaskRestored(auth.supabase, { userId: auth.userId, email: auth.email }, { id, task_name: task.task_name });
+
+  revalidatePath("/tasks");
+  revalidatePath("/tasks/trash");
   return { ok: true as const };
 }

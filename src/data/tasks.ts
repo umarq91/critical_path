@@ -535,6 +535,56 @@ export async function listTasksForTimeline(params: ListTasksForTimelineParams) {
   return { data: (data ?? []) as Task[], rowCount: matched.length };
 }
 
+export interface ListDeletedTasksParams {
+  page?: number;
+  pageSize?: number;
+  /** Task-name search plus the same season/brand/key_stage equality filters as the grid —
+   *  deliberately NOT the grid's full filter vocabulary (status/gender/priority/owner/search
+   *  across relations): a trash is small and browsed rarely, so it doesn't need the two-pass
+   *  search machinery listTasks() carries for a 794-row active grid. */
+  filters?: Record<string, string>;
+}
+
+// A type witness, never called — same reasoning as taskSelectQuery above: Task/DeletedTask
+// have to come from a `.select(...)` call where the string's LITERAL type survives.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function deletedTaskSelectQuery(supabase: SupabaseClient) {
+  return supabase
+    .from("tasks")
+    .select(`${TASK_SELECT}, deleted_by_profile:profiles!tasks_deleted_by_fkey(id, full_name, email, avatar_url)`);
+}
+
+export type DeletedTask = NonNullable<Awaited<ReturnType<typeof deletedTaskSelectQuery>>["data"]>[number];
+
+// The Trash view (/tasks/trash) — the one place in this file querying `deleted_at is not
+// null` instead of `is null`. Deliberately its own small query rather than a taskScope()
+// branch: routing the grid's shared scope function through an "include deleted" flag would
+// put a parameter whose only real value is "false" on every one of its other nine call sites,
+// for the sake of one low-traffic screen. Ordered by deleted_at (most recently removed first)
+// rather than due_date — "what did I just delete" is the question this page answers.
+export async function listDeletedTasks({ page = 1, pageSize = 15, filters = {} }: ListDeletedTasksParams = {}) {
+  const supabase = await createClient();
+  let query = supabase
+    .from("tasks")
+    .select(`${TASK_SELECT}, deleted_by_profile:profiles!tasks_deleted_by_fkey(id, full_name, email, avatar_url)`, {
+      count: "exact",
+    })
+    .not("deleted_at", "is", null);
+
+  if (filters.task_name) query = query.ilike("task_name", `%${filters.task_name}%`);
+  if (filters.season_id) query = query.eq("season_id", filters.season_id);
+  if (filters.brand_id) query = query.eq("brand_id", filters.brand_id);
+
+  const from = (page - 1) * pageSize;
+  const { data, error, count } = await query
+    .order("deleted_at", { ascending: false })
+    .order("id", { ascending: true })
+    .range(from, from + pageSize - 1);
+  if (error) throw error;
+
+  return { data: (data ?? []) as unknown as DeletedTask[], rowCount: count ?? 0 };
+}
+
 // The Timeline's Overdue panel. Deliberately NOT bounded by the visible window — overdue work
 // from an earlier month is exactly what shouldn't scroll out of sight — but it does respect
 // every one of the page's filters so the panel agrees with the chart beside it.

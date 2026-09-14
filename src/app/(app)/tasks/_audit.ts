@@ -137,6 +137,17 @@ export async function logTaskDeleted(
   });
 }
 
+export async function logTaskRestored(
+  supabase: SupabaseClient,
+  actor: AuditActor,
+  task: { id: string; task_name: string | null }
+) {
+  await recordAuditEvent(supabase, {
+    ...taskEvent(actor, task.id, task.task_name),
+    action: AUDIT_ACTION.TASK_RESTORE,
+  });
+}
+
 // Owner and People Involved changes are the one part of this that `tasks`' own tracking columns
 // can't see at all — they're writes to task_participants, which leaves the task row untouched.
 //

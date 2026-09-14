@@ -46,6 +46,7 @@ export default async function TasksPage({
         action={
           <TaskPageActions
             canCreateTask={canCreateTask}
+            canDelete={canDelete}
             canExport={canExport}
             rowCount={rowCount}
             seasonOptions={seasonOptions}

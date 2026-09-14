@@ -634,6 +634,45 @@ one lookup that is. If lookups should be logged, that is one decision applied to
 
 ---
 
+## Trash / soft-delete recovery (`/tasks/trash`)
+
+**Soft delete already existed** — `deleteTask` has always set `deleted_at`/`deleted_by` rather
+than issuing a real `DELETE`, and every task query filters `deleted_at is null`. What didn't
+exist until this pass was a way back: nothing read the other side of that filter. `/tasks/trash`
+and `restoreTask` are that other side, not a new deletion mechanism.
+
+- **RLS already allowed this — no migration needed.** The `tasks_select_scoped` policy (0018)
+  has no `deleted_at` clause at all; it only gates on active-user/external-participant status.
+  A deleted task was always readable by any internal user through the ordinary per-user client,
+  simply because nothing queried for it. `listDeletedTasks` (`data/tasks.ts`) is a plain
+  `.not("deleted_at", "is", null)` query on the same client `listTasks` uses — not the admin
+  client, and not a new policy.
+- **`restoreTask` reuses `task.delete`, not a new permission.** Same reasoning as the RLS
+  `UPDATE` policy already being shared between delete and restore (both are an `UPDATE` on
+  `deleted_at`, never the admin-only hard `DELETE` policy): the people who can remove a task are
+  the people who can bring it back. `requirePageAccess("task.delete")` gates the whole
+  `/tasks/trash` page the same way, so `canRestore` on the trash columns is always `true` —
+  anyone who reaches the page already cleared the gate.
+- **`listDeletedTasks` is deliberately NOT a `taskScope()` branch.** Routing the grid's shared
+  scope function through an "include deleted" flag would put a parameter whose only real value
+  is `false` on every one of `taskScope`'s other call sites, for the sake of one low-traffic
+  screen. It's a small standalone query instead — same shape as `listOverdueTasks` — with a
+  narrower filter set (task name, season, brand) than the grid: no search-across-relations, no
+  owner/participant scoping, no personal scope. A trash is browsed rarely and doesn't need the
+  two-pass machinery the ~800-row active grid carries.
+- **Restoring never touches `google_event_id`/`google_calendar_owner_id`.** A task's Google
+  Calendar event is best-effort deleted alongside it, but `upsertTaskCalendarEvent`'s own
+  fallback (`lib/google/calendar.ts`) already recreates the event if the stored id 404s on
+  Google's side — so a restored task's stale event id self-heals on its next push/edit rather
+  than needing to be cleared here.
+- **No permanent-delete action.** Trash only restores. Emptying it, if ever needed, is a
+  database operation, not a UI one — deliberate, to keep the one irreversible action in this
+  module out of the app entirely.
+- **Restore has no confirmation dialog**, unlike delete — it only ever un-hides a row already
+  sitting in Trash, so it's a single click, same as the grid's inline-edit confirm.
+
+---
+
 ## Task grid search (`/tasks`)
 
 **The search box is one term against the task AND everything it relates to** — its own name, its
