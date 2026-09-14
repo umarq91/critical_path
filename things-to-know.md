@@ -1135,17 +1135,19 @@ re-scheduled from scratch (not `cron.alter_job`'d), carry this value forward.
 ## Integrations / API keys (`/management/integrations`, `/integration/v1/*`)
 
 **Check `/management/integrations/docs` (or `ENDPOINT_DOCS` in `endpoint-docs.ts`) for which
-endpoints are actually live before assuming — this section doesn't keep a duplicate running
-list, since it drifted immediately the first time.** As of `/users` landing: `/health`,
-`/seasons`, `/brands`, `/users`. `docs/databricks-integration-api-spec.md` describes ~19 total;
+endpoints are actually live — this section named them once, by count, and was stale within one
+endpoint; it doesn't try again.** `docs/databricks-integration-api-spec.md` describes ~19 total;
 each new one gets built against real columns only, with any genuinely missing field sent as
-`null` (see `version`, below — every endpoint sends `null` for it, since no table has a
-change-counter column). `seasons`/`brands` are near-identical mirrors of each other
-(`lib/integration/brands.ts` copies `lib/integration/seasons.ts` field-for-field); `users`
-(`lib/integration/users.ts`) needed a join (`department` via `profiles.department_id`) and a
-label map (`role_name` via the same `ROLE_LABEL` the UI's role badges use) — see its own bullet
-below for the two fields it sends `null` and why. **Before adding another endpoint from that
-spec, check whether its fields actually exist as columns first** — most of the
+`null` (see the `version` bullet below — every endpoint sends `null` for it, since no table has
+a change-counter column). Two shapes have emerged so far: a **straight column mirror**
+(`seasons`/`brands`/`users` — `lib/integration/brands.ts` literally copies
+`lib/integration/seasons.ts` field-for-field; `users` additionally needed a join for
+`department` and a label map for `role_name`, see its own bullet below), and a **real-aggregate
+endpoint** (`teams` — `member_count`/`active_tasks_count`/`completed_tasks_count` are computed,
+not missing, so they are NOT sent as `null` the way a genuinely absent field is; see its own
+bullet below for the dedupe logic that makes that safe). **Before adding another endpoint from
+that spec, check whether its fields actually exist as columns (or are honestly computable) first**
+— most of the
 `tasks` shape in that doc (`blocked_status`, `delay_reason_code`, `is_milestone`,
 `planned_*`/`actual_*` dates distinct from `start_date`/`end_date`, `version`, `comments_count`,
 `attachments_count`, …) has no backing column, and `task_dependencies`/`delay_reason_codes`/
@@ -1239,6 +1241,24 @@ already there), not a rename-and-ship exercise.
   is nothing for it to toggle. `role_name` is real data, not a gap: `lib/integration/users.ts`
   reuses `ROLE_LABEL` (`constants/roles.ts`), the same map the UI's own role badges read from,
   rather than re-deriving "Administrator" from "admin" a second time.
+- **`/teams` is `departments`, and its three count fields are the first real aggregates in this
+  API — worth understanding before copying the pattern to another endpoint.**
+  `lib/integration/teams.ts`'s `countTaskStatusesByDepartment()` reads every
+  `task_participants` row for the page's department ids joined to `tasks(status, deleted_at)`,
+  then dedupes on `department_id:task_id` before bucketing — **without that dedupe, a
+  department that is both `owner` and `involved` on the same task double-counts it**, since
+  `task_participants` has one row per role, not one row per (task, department) pair. Verified
+  against an independent manual query during development (same count, same dedupe key). Soft-
+  deleted tasks are excluded, same as every other view of task counts in this app. "Active" =
+  not `completed` (there's no third bucket the spec asks for); "completed" = `status =
+  'completed'`, the same check `data/dashboard.ts` uses. Both `department` (no two-level
+  team-within-department hierarchy exists here) and `lead_name` (no "lead" role exists) are
+  `null` — a **different kind of gap** than `member_count`/the task counts, which are real,
+  computed data and must never be sent as `null` just because they're not stored columns.
+  `status` is derived from `deleted_at` (departments have no separate status column, unlike
+  brands/seasons) — a legitimate derivation, unlike `/users`' `deleted_at`, which is NOT derived
+  from `status` for the opposite reason (see above) — know which direction is safe to derive in
+  before doing it on a new endpoint.
 - **`integrations-info-card.tsx` is the one explanation of "where does the key go"** — base URL,
   the `apikey` header (not `Authorization`, not a query param), which endpoints are actually
   live, and what a `null` field means (genuinely unset vs. "this schema doesn't track that data,

@@ -373,6 +373,14 @@ Query parameters: `cursor`, `page_size`, `updated_since`, `include_deleted`
 
 ### `GET /teams`
 
+**BUILT.** "Team" means `departments` in this schema. `department` and `lead_name` are always
+`null` — no such concepts exist (a department IS the team; there's no "lead" role). `status` is
+derived from `deleted_at` (departments have no separate status column). `member_count`,
+`active_tasks_count`, `completed_tasks_count` ARE real computed data, not a gap — counted from
+`profiles`/`task_participants`, deduped so a department that's both owner and involved on one
+task isn't counted twice; "active" = not completed, "completed" = `status = 'completed'`, same
+check used everywhere else in this app. `version` is `null` like every endpoint.
+
 Purpose: team master data
 
 Query parameters: `cursor`, `page_size`, `updated_since`, `include_deleted`
