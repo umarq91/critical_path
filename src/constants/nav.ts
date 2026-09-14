@@ -66,11 +66,11 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: "Settings",
     items: [
-      // No requiredAction — these are the signed-in user's own email reminder preferences
-      // (profile.update_own, granted to every role), not an admin lookup like the rest of
-      // Settings.
+      // No requiredAction on either of these — reminders and the profile page below are both
+      // "manage your own settings" (profile.update_own, granted to every role), not an admin
+      // lookup like the rest of Settings.
       { title: "Email notifications", href: "/settings/notifications", icon: Bell },
-      { title: "General Settings", href: "/settings/general", icon: Settings, requiredAction: "admin.manage_lookups" },
+      { title: "General Settings", href: "/settings/general", icon: Settings },
     ],
   },
 ];
