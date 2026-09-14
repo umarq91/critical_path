@@ -711,6 +711,38 @@ checklist, because Task Management has exactly one table to export.
 
 ---
 
+## Global nav search / ⌘K palette (`(app)/nav-search.tsx`, `constants/search-index.ts`)
+
+**This is a destination finder, not a data search** — it matches page titles/keywords, not task
+rows, brand names, or anything from the database. "Find the Brands page" and "find a task named
+Brands Launch" are different problems; the latter is the `/tasks` search box (see above).
+
+- **`SEARCH_INDEX` is a hand-maintained superset of `constants/nav.ts`, not derived from it.**
+  `nav.ts` only carries what the sidebar needs (title/href/icon/requiredAction) and deliberately
+  collapses Board/DPSP Flywheel/Timeline into one "Tasks" link, since they're tabs of one section.
+  The palette should still jump straight to `/dpsp-flywheel` or `/timeline` by name, so those get
+  their own entries here even though they have none in the sidebar. Adding a page to `nav.ts`
+  usually means adding it here too — this file does not check that the two stay in sync.
+- **Matching is entirely client-side** — `matchSearchItems()` runs against the ~14-item index
+  already sent to the browser, no request per keystroke. That only works because the index is
+  destinations, not rows; do not extend this matcher to search task data, which must stay
+  server-side for the same reasons as the `/tasks` search box.
+- **Every word in the query must appear somewhere in the item's title/description/section/
+  keywords** (an AND across words, not a phrase match) — `keywords` exists specifically to catch
+  vocabulary that doesn't appear in the title (`"gantt"`/`"roadmap"` → Timeline, `"kanban"` →
+  DPSP Flywheel), so a search doesn't require knowing the exact page name.
+- **`requiredAction` is checked with the same `can()` matrix as everything else** —
+  `searchItemsForRole()` filters the index before it ever reaches the client, so the palette
+  can't be used to discover a page a role can't see. Keep an item's `requiredAction` identical to
+  its `nav.ts` counterpart's; they're two independent filters over the same capability and will
+  silently disagree if only one is updated.
+- **`SECTION_ORDER` is fixed** (Pages → Management → Settings), independent of match rank —
+  results are ranked *within* a section (title-prefix > title-substring > keyword-only), but
+  headers don't reorder themselves as the user types, which would otherwise make the list feel
+  like it's jumping around on every keystroke.
+
+---
+
 ## My Tasks (`/my-tasks`)
 
 **Every person sees only their own work, with no role exemption** — an admin scoped this way

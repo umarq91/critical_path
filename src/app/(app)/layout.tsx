@@ -31,7 +31,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <header className="flex h-16 shrink-0 items-center gap-4 border-b bg-card px-4">
           <SidebarTrigger />
           <div className="flex flex-1 items-center">
-            <NavSearch />
+            <NavSearch role={profile.role} />
           </div>
           <UserMenu profile={profile} />
         </header>
