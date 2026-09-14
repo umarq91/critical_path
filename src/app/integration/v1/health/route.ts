@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { requireIntegrationApiKey, withIntegrationTraceHeaders } from "@/lib/integration-auth";
+import { requireIntegrationApiKey } from "@/lib/integration/auth";
+import { withIntegrationTraceHeaders } from "@/lib/integration/response";
 
 // The one live endpoint in docs/databricks-integration-api-spec.md so far — see
 // things-to-know.md's Integrations section for why the other 16 aren't built yet. Exists to

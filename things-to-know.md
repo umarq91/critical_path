@@ -1134,10 +1134,12 @@ re-scheduled from scratch (not `cron.alter_job`'d), carry this value forward.
 
 ## Integrations / API keys (`/management/integrations`, `/integration/v1/*`)
 
-**Only the foundation is built — one endpoint, `GET /health`.** `docs/databricks-integration-api-spec.md`
-describes 17 endpoints; this pass built the piece every future one will share (API-key issuance +
-the auth check) plus the one endpoint that needs no data mapping at all. **Before adding another
-endpoint from that spec, check whether its fields actually exist as columns first** — most of the
+**Only two of the spec's endpoints are built — `GET /health` and `GET /seasons`.**
+`docs/databricks-integration-api-spec.md` describes 17; this pass built the piece every future
+one shares (API-key issuance + the auth check), the one endpoint needing no data mapping at all
+(`/health`), and the first real data endpoint (`/seasons`, chosen because every field it needs
+maps to a real column except `version` — see below). **Before adding another endpoint from that
+spec, check whether its fields actually exist as columns first** — most of the
 `tasks` shape in that doc (`blocked_status`, `delay_reason_code`, `is_milestone`,
 `planned_*`/`actual_*` dates distinct from `start_date`/`end_date`, `version`, `comments_count`,
 `attachments_count`, …) has no backing column, and `task_dependencies`/`delay_reason_codes`/
@@ -1185,17 +1187,61 @@ already there), not a rename-and-ship exercise.
   Kong headers; a request missing either still succeeds — Kong's actual outgoing header set
   isn't confirmed yet, and rejecting on a header this app doesn't otherwise use would be
   guessing at a contract nobody's verified. What's real: `withIntegrationTraceHeaders()`
-  (`lib/integration-auth.ts`) copies whichever of the two arrived straight onto every response,
-  success or 401, so a caller can match a response back to the request that produced it and
-  correlate against their own sync-run logs. No server-side logging or request-log table backs
-  this — `console.log` is barred in production code (CLAUDE.md) and a persistence layer for
-  request tracing is its own scope decision, not a two-header echo. Enforcing these as
-  hard-required (400 on missing) is a one-line tightening in `requireIntegrationApiKey()` if
-  Kong's real config is ever confirmed to always send them — don't add it speculatively.
+  (`lib/integration/response.ts`) copies whichever of the two arrived straight onto every
+  response, success or error, so a caller can match a response back to the request that
+  produced it and correlate against their own sync-run logs. No server-side logging or
+  request-log table backs this — `console.log` is barred in production code (CLAUDE.md) and a
+  persistence layer for request tracing is its own scope decision, not a two-header echo.
+  Enforcing these as hard-required (400 on missing) is a one-line tightening in
+  `requireIntegrationApiKey()` if Kong's real config is ever confirmed to always send them —
+  don't add it speculatively.
+- **`lib/integration-auth.ts`/`lib/integration-keys.ts` were reorganised into `lib/integration/`**
+  (`auth.ts`/`keys.ts`) once a second data endpoint was on the horizon, plus two new siblings:
+  `cursor.ts` (keyset pagination shared by every list endpoint) and `response.ts`
+  (`withIntegrationTraceHeaders`/`integrationError`, the one response envelope every route
+  returns). One folder for everything `/integration/v1/*`-specific, so it doesn't sprawl across
+  `lib/integration-*.ts` as more entities land. `lib/integration/seasons.ts` (and each entity
+  after it) lives here too, **not** in `data/` — every `data/*.ts` file reads through the
+  per-user RLS-scoped client by convention, and these read through the service-role client
+  instead (the caller has no Supabase session; see `requireIntegrationApiKey`'s own reasoning).
+  Mixing an admin-client read into `data/` would break that file-level invariant for anyone
+  who copies the pattern.
+- **Pagination is real keyset cursor, not the app's usual offset `page`/`pageSize`.**
+  `lib/integration/cursor.ts` encodes `(updated_at, id)` as an opaque base64url token; `id`
+  breaks ties when `updated_at` repeats (a bulk edit touching many rows in one transaction),
+  same reasoning `data/tasks.ts`'s own `.order("id")` tiebreak gives for the grid. A cursor that
+  fails to decode — garbled, hand-edited, or just old — is treated as "no cursor" (start over),
+  never a 500; **but decoding also validates shape** (`updatedAt` must look like an ISO
+  timestamp, `id` like a uuid) before either value is interpolated into a PostgREST `.or()`
+  filter string — the same discipline `sanitiseOrSearchTerm` applies elsewhere in this codebase
+  to keep unvalidated input out of an `.or()`, applied here as validation instead of stripping.
+  `clampPageSize()` silently falls back to the spec's default (500) for anything ≤0 or
+  non-numeric, and clamps above to the max (2000) — a bad `page_size` degrades the response, it
+  doesn't error the request.
+- **`/seasons`'s `version` field is always `null`, on purpose, by explicit client direction** —
+  this schema has no change-counter column on any table, and rather than add one speculatively
+  for a spec field nothing else needs yet, every endpoint sends `null` for it. Follow this same
+  rule for any other spec field with no backing column: send `null`, don't invent a value and
+  don't silently drop the key — the response shape should still match the spec.
 - **`integrations-info-card.tsx` is the one explanation of "where does the key go"** — base URL,
-  the `apikey` header (not `Authorization`, not a query param), and "only `/health` exists so
-  far" restated in plain language for whoever's wiring up Kong/Databricks, not just for someone
-  reading this file. Same collapsible-card pattern as `settings/notifications`' own info card
-  (open by default, `Collapsible` from `components/ui/collapsible`) — update both this card and
-  the bullets above together if the mechanism changes; they're meant to say the same thing at
-  two altitudes, not drift into two different explanations.
+  the `apikey` header (not `Authorization`, not a query param), which endpoints are actually
+  live, and what a `null` field means (genuinely unset vs. "this schema doesn't track that data,
+  like every endpoint's `version`") — restated in plain language for whoever's wiring up
+  Kong/Databricks, not just for someone reading this file. Same collapsible-card pattern as
+  `settings/notifications`' own info card (open by default, `Collapsible` from
+  `components/ui/collapsible`) — update both this card and the bullets above together if the
+  mechanism changes; they're meant to say the same thing at two altitudes, not drift into two
+  different explanations.
+- **`/management/integrations/docs` is the in-app version of `docs/databricks-integration-api-spec.md`**
+  — every one of the ~19 endpoints, transcribed the same way that file was, collapsed by default
+  behind a Live/Planned badge (`endpoint-docs.ts`'s `ENDPOINT_DOCS` array is the single source
+  for this page; keep it and the markdown spec in step when either changes — a `status: "live"`
+  entry with a `note` field is how a deviation from the spec's literal shape gets called out,
+  same idea as `/seasons`' `version: null`). Query-param descriptions are defined once
+  (`PARAM_DESCRIPTIONS`) and referenced by name across endpoints, since most of the spec's ~30
+  distinct params (`cursor`, `updated_since`, `include_deleted`, …) repeat across a dozen-plus
+  endpoints — writing the same sentence per endpoint would drift out of sync with itself over
+  time. Every one of these is `GET`-only — there is no "what to send in the body" for any
+  endpoint here, the spec is read-only end to end (see "Integration Principles" at the top of
+  the markdown spec) — the docs page's per-endpoint "Required headers" line is the closest
+  analog, since a request's only real input is its headers and query string.

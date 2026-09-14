@@ -47,9 +47,18 @@ export const IntegrationsInfoCard = ({ baseUrl }: IntegrationsInfoCardProps) => 
                 not in a shared doc or chat message.
               </li>
               <li>
-                Only <code className="rounded bg-muted px-1.5 py-0.5 text-xs text-foreground">GET /integration/v1/health</code>{" "}
-                is live today — a plain reachability check. More endpoints (tasks, seasons, brands, …) are being
-                added one at a time; a key created now will work against those as they land, no new key needed.
+                <code className="rounded bg-muted px-1.5 py-0.5 text-xs text-foreground">GET /integration/v1/health</code>{" "}
+                and <code className="rounded bg-muted px-1.5 py-0.5 text-xs text-foreground">GET /integration/v1/seasons</code>{" "}
+                are live today. More endpoints (tasks, brands, …) are being added one at a time; a key created now
+                will work against those as they land, no new key needed.
+              </li>
+              <li>
+                A field that comes back <code className="rounded bg-muted px-1.5 py-0.5 text-xs text-foreground">null</code>{" "}
+                means one of two things: that record genuinely has nothing set for it, or Critical Path doesn&apos;t
+                track that data at all yet (e.g. every endpoint&apos;s <code className="rounded bg-muted px-1.5 py-0.5 text-xs text-foreground">version</code>{" "}
+                field — there&apos;s no change-counter column in this schema, so it&apos;s always <code className="rounded bg-muted px-1.5 py-0.5 text-xs text-foreground">null</code>,
+                never a real number). The response shape follows the spec either way rather than omitting a field
+                outright.
               </li>
               <li>
                 A key is shown once, right after you create it — copy it immediately. If it&apos;s lost, there&apos;s

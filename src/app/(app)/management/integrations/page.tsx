@@ -1,4 +1,7 @@
+import Link from "next/link";
+import { FileText } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
+import { Button } from "@/components/ui/button";
 import { IntegrationsBoard } from "@/app/(app)/management/integrations/integrations-board";
 import { IntegrationsInfoCard } from "@/app/(app)/management/integrations/integrations-info-card";
 import { CreateApiKeyDialog } from "@/app/(app)/management/integrations/create-api-key-dialog";
@@ -23,8 +26,16 @@ export default async function IntegrationsPage({
     <div className="flex flex-col">
       <PageHeader
         title="Integrations"
-        description="API keys for the read-only integration API. Only /health is live today — data endpoints are added one at a time."
-        action={<CreateApiKeyDialog />}
+        description="API keys for the read-only integration API. /health and /seasons are live today — more endpoints are added one at a time."
+        action={
+          <>
+            <Button variant="outline" nativeButton={false} render={<Link href="/management/integrations/docs" />}>
+              <FileText />
+              Docs
+            </Button>
+            <CreateApiKeyDialog />
+          </>
+        }
       />
       <div className="flex flex-col gap-4 px-6 pb-6">
         <IntegrationsInfoCard baseUrl={publicEnv.NEXT_PUBLIC_APP_URL} />

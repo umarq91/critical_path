@@ -16,6 +16,7 @@ import {
   Settings,
   Trash2,
   KeyRound,
+  FileText,
   type LucideIcon,
 } from "lucide-react";
 import { can, type Action } from "@/lib/permissions";
@@ -172,6 +173,15 @@ export const SEARCH_INDEX: SearchItem[] = [
     icon: KeyRound,
     section: "Management",
     keywords: ["api key", "api keys", "databricks", "kong", "integration api", "token", "developer"],
+    requiredAction: "admin.manage_integrations",
+  },
+  {
+    title: "API Documentation",
+    description: "Endpoint reference for the integration API — request params, example responses",
+    href: "/management/integrations/docs",
+    icon: FileText,
+    section: "Management",
+    keywords: ["api docs", "endpoints", "reference", "databricks", "kong", "swagger", "openapi"],
     requiredAction: "admin.manage_integrations",
   },
   {

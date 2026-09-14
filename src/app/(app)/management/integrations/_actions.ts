@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requirePermission } from "@/lib/require-permission";
 import { recordAuditEvent } from "@/lib/audit";
 import { AUDIT_ACTION, AUDIT_ENTITY_TYPE } from "@/constants/audit";
-import { generateApiKey } from "@/lib/integration-keys";
+import { generateApiKey } from "@/lib/integration/keys";
 import { apiKeyCreateSchema } from "@/app/(app)/management/integrations/schema";
 
 export async function createApiKey(input: unknown) {

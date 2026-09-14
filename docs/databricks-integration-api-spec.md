@@ -5,15 +5,18 @@
 >
 > **Status: in progress, built incrementally.** Originally out of scope (see `plan.md` §8's
 > history of that decision), now reversed by explicit client direction. The foundation — API-key
-> issuance/management (`/management/integrations`) and the auth check every endpoint below will
-> share — is live, along with `GET /health` as a proof-of-life endpoint. **Every other endpoint
-> in this document is still just a target shape, not something built yet** — most of the `tasks`
-> fields below (`blocked_status`, `delay_reason_code`, `is_milestone`, `planned_*`/`actual_*`
-> dates, `version`, `comments_count`, …) have no column to back them in the current schema, and
+> issuance/management (`/management/integrations`) and the auth check every endpoint below
+> shares — is live, along with `GET /health` (proof-of-life) and `GET /seasons` (the first real
+> data endpoint — every field it needs maps to a real column except `version`, sent as `null`
+> rather than invented; see below). **Every other endpoint in this document is still just a
+> target shape, not something built yet** — most of the `tasks` fields below (`blocked_status`,
+> `delay_reason_code`, `is_milestone`, `planned_*`/`actual_*` dates, `version`, `comments_count`,
+> …) have no column to back them in the current schema, and
 > `task_dependencies`/`delay_reason_codes`/`task_history_snapshots` don't exist as tables at all.
-> Each endpoint gets built one at a time, against real columns only — see
-> `things-to-know.md`'s Integrations section for the as-built auth mechanism and what's live so
-> far, and don't build a data endpoint here by inventing the columns it would need.
+> Each endpoint gets built one at a time, against real columns only, with any genuinely missing
+> field sent as `null` (not omitted, not invented) — see `things-to-know.md`'s Integrations
+> section for the as-built auth mechanism, the cursor-pagination shape every list endpoint
+> shares, and what's live so far.
 
 ## Purpose
 
@@ -103,6 +106,8 @@ Most list endpoints can return a shared `meta` block like this:
 > the data available. They may also change with endpoint parameters.
 
 ### `GET /health`
+
+**BUILT.** Matches this shape exactly.
 
 Purpose: basic service health check
 
@@ -261,6 +266,12 @@ Path parameters: `task_id`
 ```
 
 ### `GET /seasons`
+
+**BUILT.** Matches this shape exactly, with one deliberate deviation: `version` is always
+`null`, never a real integer like the `5` in the example below — this schema has no
+change-counter column on `seasons` (or anywhere), and nothing invents one for this field alone.
+Cursor is a real opaque token (`lib/integration/cursor.ts`), not the literal string shown in the
+example — treat it as a black box and resubmit whatever `next_cursor` came back.
 
 Purpose: season master data
 
