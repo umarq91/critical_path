@@ -6,9 +6,10 @@
 > **Status: in progress, built incrementally.** Originally out of scope (see `plan.md` §8's
 > history of that decision), now reversed by explicit client direction. The foundation — API-key
 > issuance/management (`/management/integrations`) and the auth check every endpoint below
-> shares — is live, along with `GET /health` (proof-of-life) and `GET /seasons` (the first real
-> data endpoint — every field it needs maps to a real column except `version`, sent as `null`
-> rather than invented; see below). **Every other endpoint in this document is still just a
+> shares — is live, along with `GET /health` (proof-of-life) and `GET /seasons` / `GET /brands`
+> (the first real data endpoints — every field each needs maps to a real column except
+> `version`, sent as `null` rather than invented; see below). **Every other endpoint in this
+> document is still just a
 > target shape, not something built yet** — most of the `tasks` fields below (`blocked_status`,
 > `delay_reason_code`, `is_milestone`, `planned_*`/`actual_*` dates, `version`, `comments_count`,
 > …) have no column to back them in the current schema, and
@@ -302,6 +303,9 @@ Query parameters: `cursor`, `page_size`, `updated_since`, `include_deleted`
 ```
 
 ### `GET /brands`
+
+**BUILT.** Matches this shape exactly, with the same deviation as `/seasons`: `version` is
+always `null`, never a real integer.
 
 Purpose: brand master data
 

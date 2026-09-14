@@ -26,7 +26,7 @@ export default async function IntegrationsPage({
     <div className="flex flex-col">
       <PageHeader
         title="Integrations"
-        description="API keys for the read-only integration API. /health and /seasons are live today — more endpoints are added one at a time."
+        description="API keys for the read-only integration API. /health, /seasons and /brands are live today — more endpoints are added one at a time."
         action={
           <>
             <Button variant="outline" nativeButton={false} render={<Link href="/management/integrations/docs" />}>

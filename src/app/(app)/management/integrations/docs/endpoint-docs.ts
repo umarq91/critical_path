@@ -241,10 +241,10 @@ export const ENDPOINT_DOCS: EndpointDoc[] = [
   {
     method: "GET",
     path: "/brands",
-    status: "planned",
+    status: "live",
     purpose: "Brand master data.",
     queryParams: params("cursor", "page_size", "updated_since", "include_deleted"),
-    note: "Every field maps to a real column except version (same as /seasons) — the next endpoint likely to be built.",
+    note: "`version` is always null — same reasoning as /seasons, no change-counter column exists.",
     exampleResponse: {
       data: [
         {
@@ -255,7 +255,7 @@ export const ENDPOINT_DOCS: EndpointDoc[] = [
           status: "active",
           updated_at: "2026-08-02T08:12:52Z",
           deleted_at: null,
-          version: 3,
+          version: null,
         },
       ],
       meta: { schema_version: "v1", as_of: "2026-08-02T10:15:30Z", next_cursor: "opaque-cursor-value", page_size: 500 },
