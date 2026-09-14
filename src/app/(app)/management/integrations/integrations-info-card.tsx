@@ -47,12 +47,9 @@ export const IntegrationsInfoCard = ({ baseUrl }: IntegrationsInfoCardProps) => 
                 not in a shared doc or chat message.
               </li>
               <li>
-                <code className="rounded bg-muted px-1.5 py-0.5 text-xs text-foreground">GET /integration/v1/health</code>,{" "}
-                <code className="rounded bg-muted px-1.5 py-0.5 text-xs text-foreground">GET /integration/v1/seasons</code>{" "}
-                and <code className="rounded bg-muted px-1.5 py-0.5 text-xs text-foreground">GET /integration/v1/brands</code>{" "}
-                are live today — see the{" "}
-                <span className="text-foreground">Docs</span> button above for the full endpoint list, what&apos;s live
-                vs. planned, and example responses. More endpoints are added one at a time; a key created now will work
+                Not every endpoint in the spec is live yet — see the{" "}
+                <span className="text-foreground">Docs</span> button above for the full list, what&apos;s live vs.
+                planned, and example responses. More endpoints are added one at a time; a key created now will work
                 against those as they land, no new key needed.
               </li>
               <li>

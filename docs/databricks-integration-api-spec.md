@@ -6,11 +6,11 @@
 > **Status: in progress, built incrementally.** Originally out of scope (see `plan.md` §8's
 > history of that decision), now reversed by explicit client direction. The foundation — API-key
 > issuance/management (`/management/integrations`) and the auth check every endpoint below
-> shares — is live, along with `GET /health` (proof-of-life) and `GET /seasons` / `GET /brands`
-> (the first real data endpoints — every field each needs maps to a real column except
-> `version`, sent as `null` rather than invented; see below). **Every other endpoint in this
-> document is still just a
-> target shape, not something built yet** — most of the `tasks` fields below (`blocked_status`,
+> shares — is live. **Each `###` section below is marked `BUILT` once its endpoint is live —
+> that marker, and `/management/integrations/docs` in the app, are the actual source of truth
+> for what exists; nothing in this banner names specific endpoints, since that would need
+> editing every time one lands.** Everything not marked `BUILT` is still just a
+> target shape, not something built yet — most of the `tasks` fields below (`blocked_status`,
 > `delay_reason_code`, `is_milestone`, `planned_*`/`actual_*` dates, `version`, `comments_count`,
 > …) have no column to back them in the current schema, and
 > `task_dependencies`/`delay_reason_codes`/`task_history_snapshots` don't exist as tables at all.
@@ -335,6 +335,12 @@ Query parameters: `cursor`, `page_size`, `updated_since`, `include_deleted`
 ```
 
 ### `GET /users`
+
+**BUILT.** Two fields are always `null`, not derived from something adjacent: `last_active_at`
+(no sign-in tracking exists on `profiles`) and `deleted_at` (users are deactivated via `status`,
+never deleted — deriving it from `status !== 'active'` would misrepresent that). `version` is
+`null` like every endpoint. `include_deleted` is accepted but is a no-op — there's nothing for
+it to toggle. `role_name` IS real data (e.g. "Administrator"), not a gap.
 
 Purpose: user master data
 

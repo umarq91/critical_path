@@ -1134,14 +1134,18 @@ re-scheduled from scratch (not `cron.alter_job`'d), carry this value forward.
 
 ## Integrations / API keys (`/management/integrations`, `/integration/v1/*`)
 
-**Only three of the spec's endpoints are built — `GET /health`, `GET /seasons`, `GET /brands`.**
-`docs/databricks-integration-api-spec.md` describes ~19; this pass built the piece every future
-one shares (API-key issuance + the auth check), the one endpoint needing no data mapping at all
-(`/health`), and the two data endpoints whose fields map to real columns with a single gap
-(`version`, see below) — `seasons` first, `brands` right after on the identical pattern
-(`lib/integration/brands.ts` mirrors `lib/integration/seasons.ts` field-for-field). **Before
-adding another endpoint from that spec, check whether its fields actually exist as columns
-first** — most of the
+**Check `/management/integrations/docs` (or `ENDPOINT_DOCS` in `endpoint-docs.ts`) for which
+endpoints are actually live before assuming — this section doesn't keep a duplicate running
+list, since it drifted immediately the first time.** As of `/users` landing: `/health`,
+`/seasons`, `/brands`, `/users`. `docs/databricks-integration-api-spec.md` describes ~19 total;
+each new one gets built against real columns only, with any genuinely missing field sent as
+`null` (see `version`, below — every endpoint sends `null` for it, since no table has a
+change-counter column). `seasons`/`brands` are near-identical mirrors of each other
+(`lib/integration/brands.ts` copies `lib/integration/seasons.ts` field-for-field); `users`
+(`lib/integration/users.ts`) needed a join (`department` via `profiles.department_id`) and a
+label map (`role_name` via the same `ROLE_LABEL` the UI's role badges use) — see its own bullet
+below for the two fields it sends `null` and why. **Before adding another endpoint from that
+spec, check whether its fields actually exist as columns first** — most of the
 `tasks` shape in that doc (`blocked_status`, `delay_reason_code`, `is_milestone`,
 `planned_*`/`actual_*` dates distinct from `start_date`/`end_date`, `version`, `comments_count`,
 `attachments_count`, …) has no backing column, and `task_dependencies`/`delay_reason_codes`/
@@ -1222,10 +1226,19 @@ already there), not a rename-and-ship exercise.
   doesn't error the request.
 - **`version` is always `null` on every endpoint, on purpose, by explicit client direction** —
   this schema has no change-counter column on any table, and rather than add one speculatively
-  for a spec field nothing else needs yet, every endpoint sends `null` for it (`/seasons` and
-  `/brands` both do this today). Follow this same rule for any other spec field with no backing
-  column: send `null`, don't invent a value and don't silently drop the key — the response
-  shape should still match the spec.
+  for a spec field nothing else needs yet, every endpoint sends `null` for it (`/seasons`,
+  `/brands`, `/users` all do this today). Follow this same rule for any other spec field with no
+  backing column: send `null`, don't invent a value and don't silently drop the key — the
+  response shape should still match the spec.
+- **`/users` sends `last_active_at` and `deleted_at` as `null` too, for a different reason than
+  `version`** — not "no column anywhere," but "no equivalent concept for this entity."
+  `profiles` tracks no sign-in timestamp at all, and a user is deactivated (`status`), never
+  deleted — mapping `deleted_at` from `status !== 'active'` would misrepresent a deactivation as
+  a deletion, so it stays `null` rather than being derived. `include_deleted` is accepted (it's
+  in the spec's query param list for this endpoint) but is a no-op for the same reason — there
+  is nothing for it to toggle. `role_name` is real data, not a gap: `lib/integration/users.ts`
+  reuses `ROLE_LABEL` (`constants/roles.ts`), the same map the UI's own role badges read from,
+  rather than re-deriving "Administrator" from "admin" a second time.
 - **`integrations-info-card.tsx` is the one explanation of "where does the key go"** — base URL,
   the `apikey` header (not `Authorization`, not a query param), which endpoints are actually
   live, and what a `null` field means (genuinely unset vs. "this schema doesn't track that data,

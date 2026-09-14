@@ -23,7 +23,12 @@ export interface EndpointDoc {
   queryParams?: EndpointParam[];
   exampleResponse: unknown;
   /** A deviation from the spec's literal shape, or another as-built caveat worth calling out
-   *  right next to the example that would otherwise contradict it. */
+   *  right next to the example that would otherwise contradict it. **Required on every `"live"`
+   *  endpoint that sends `null` for a spec field with no backing column** (name each one and
+   *  say why — "no column exists" and "the column exists but means something different" are
+   *  different caveats, and a consumer needs to know which). This is the one place that
+   *  actually gets read before someone maps a field, so it carries the detail — the "How this
+   *  works" card deliberately doesn't repeat it endpoint-by-endpoint. */
   note?: string;
 }
 
@@ -264,9 +269,10 @@ export const ENDPOINT_DOCS: EndpointDoc[] = [
   {
     method: "GET",
     path: "/users",
-    status: "planned",
+    status: "live",
     purpose: "User master data.",
     queryParams: params("cursor", "page_size", "updated_since", "include_deleted"),
+    note: "`last_active_at` and `deleted_at` are always null — no sign-in tracking exists, and users are deactivated via `status`, never deleted. `include_deleted` is accepted but has no effect for the same reason. `version` is always null like every other endpoint. `role_name` is real (e.g. \"Administrator\"), from the same label map the UI's role badges use.",
     exampleResponse: {
       data: [
         {
@@ -276,10 +282,10 @@ export const ENDPOINT_DOCS: EndpointDoc[] = [
           department: "IT",
           role_name: "Administrator",
           status: "active",
-          last_active_at: "2026-08-02T08:12:52Z",
+          last_active_at: null,
           updated_at: "2026-08-02T08:12:52Z",
           deleted_at: null,
-          version: 7,
+          version: null,
         },
       ],
       meta: { schema_version: "v1", as_of: "2026-08-02T10:15:30Z", next_cursor: "opaque-cursor-value", page_size: 500 },

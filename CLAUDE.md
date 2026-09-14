@@ -143,12 +143,13 @@ npx tsc --noEmit # Type check
 │   │   │   └── v1/                       # Read-only external API (Databricks/Kong) — key-auth'd via
 │   │   │       │                         #   requireIntegrationApiKey(), NOT under /api/* (base path
 │   │   │       │                         #   is dictated by docs/databricks-integration-api-spec.md)
-│   │   │       ├── health/route.ts       # BUILT.
-│   │   │       ├── seasons/route.ts      # BUILT.
-│   │   │       └── brands/route.ts       # BUILT. Every other endpoint in the spec is still a target
-│   │   │                                 #   shape — see things-to-know.md before adding one; a field
-│   │   │                                 #   with no backing column (e.g. `version`, everywhere) is
-│   │   │                                 #   sent as null, never invented
+│   │   │       └── <endpoint>/route.ts   # One folder per live endpoint — check endpoint-docs.ts
+│   │   │                                 #   ((app)/management/integrations/docs/) for the current
+│   │   │                                 #   list rather than trusting this comment to stay in sync.
+│   │   │                                 #   Every other endpoint in the spec is still a target shape
+│   │   │                                 #   — see things-to-know.md before adding one; a field with
+│   │   │                                 #   no backing column (e.g. `version`, everywhere) is sent
+│   │   │                                 #   as null, never invented
 │   │   ├── layout.tsx
 │   │   ├── page.tsx                      # Redirect → /dashboard
 │   │   └── globals.css
@@ -313,7 +314,7 @@ npx tsc --noEmit # Type check
 | **Scheduled jobs** (reminders, status rollover, holiday sync, group sync) | `src/app/api/cron/*/route.ts` | Route Handler, triggered by Vercel Cron, protected by a shared-secret header (`lib/cron-auth.ts`). This is the one legitimate `/api/*` use case — an external scheduler, not an internal client. |
 | **OAuth code exchange** | `src/app/auth/callback/route.ts` | Route Handler — the OAuth redirect carries a query param that only a Route Handler can receive. |
 | **Export (CSV/Excel/PDF)** | `src/app/(app)/tasks/export/route.ts` | Route Handler — returns a binary/file response, which Server Actions can't do. Reuses `data/tasks.ts` + `columns.tsx`, doesn't re-implement filtering. |
-| **Integration API** (external read-only access, e.g. Databricks/Kong) | `src/app/integration/v1/*/route.ts` | Route Handler, protected by `requireIntegrationApiKey()` (`lib/integration/auth.ts`) checking a per-key hash in `api_keys`, issued/revoked at `/management/integrations`. Lives at `/integration/v1/*`, **not** under `/api/*` — the base path is dictated by `docs/databricks-integration-api-spec.md`, and it's deliberately outside `PROTECTED_PREFIXES` (a machine caller has no Supabase session). `GET /health`, `GET /seasons` and `GET /brands` exist so far, one endpoint at a time — see `things-to-know.md`'s Integrations section before adding another. |
+| **Integration API** (external read-only access, e.g. Databricks/Kong) | `src/app/integration/v1/*/route.ts` | Route Handler, protected by `requireIntegrationApiKey()` (`lib/integration/auth.ts`) checking a per-key hash in `api_keys`, issued/revoked at `/management/integrations`. Lives at `/integration/v1/*`, **not** under `/api/*` — the base path is dictated by `docs/databricks-integration-api-spec.md`, and it's deliberately outside `PROTECTED_PREFIXES` (a machine caller has no Supabase session). a handful of endpoints exist so far, added one at a time — see `/management/integrations/docs` (or `endpoint-docs.ts`) for exactly which, and `things-to-know.md`'s Integrations section before adding another. |
 
 ### Rules
 
