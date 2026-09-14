@@ -26,7 +26,7 @@ export default async function ManagementLogsPage({
     <div className="flex flex-col">
       <PageHeader
         title="Logs"
-        description="Who created, edited, reassigned or deleted a task, and when. Entries are recorded automatically and can't be edited or removed."
+        description="Who created, edited, reassigned or deleted a task — and who issued or revoked an API key — and when. Entries are recorded automatically and can't be edited or removed."
       />
       <div className="flex flex-col gap-4 px-6 pb-6">
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

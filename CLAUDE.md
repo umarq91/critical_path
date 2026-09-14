@@ -139,6 +139,12 @@ npx tsc --noEmit # Type check
 │   │   │       ├── status-rollover/route.ts  # Flags tasks overdue once due_date passes
 │   │   │       ├── holiday-sync/route.ts     # Nightly public holiday API pull
 │   │   │       └── group-sync/route.ts       # Nightly Google Group → role reconciliation
+│   │   ├── integration/
+│   │   │   └── v1/                       # Read-only external API (Databricks/Kong) — key-auth'd via
+│   │   │       │                         #   requireIntegrationApiKey(), NOT under /api/* (base path
+│   │   │       │                         #   is dictated by docs/databricks-integration-api-spec.md)
+│   │   │       └── health/route.ts       # BUILT. Everything else in the spec is still a target
+│   │   │                                 #   shape — see things-to-know.md before adding an endpoint
 │   │   ├── layout.tsx
 │   │   ├── page.tsx                      # Redirect → /dashboard
 │   │   └── globals.css
@@ -303,14 +309,15 @@ npx tsc --noEmit # Type check
 | **Scheduled jobs** (reminders, status rollover, holiday sync, group sync) | `src/app/api/cron/*/route.ts` | Route Handler, triggered by Vercel Cron, protected by a shared-secret header (`lib/cron-auth.ts`). This is the one legitimate `/api/*` use case — an external scheduler, not an internal client. |
 | **OAuth code exchange** | `src/app/auth/callback/route.ts` | Route Handler — the OAuth redirect carries a query param that only a Route Handler can receive. |
 | **Export (CSV/Excel/PDF)** | `src/app/(app)/tasks/export/route.ts` | Route Handler — returns a binary/file response, which Server Actions can't do. Reuses `data/tasks.ts` + `columns.tsx`, doesn't re-implement filtering. |
+| **Integration API** (external read-only access, e.g. Databricks/Kong) | `src/app/integration/v1/*/route.ts` | Route Handler, protected by `requireIntegrationApiKey()` (`lib/integration-auth.ts`) checking a per-key hash in `api_keys`, issued/revoked at `/management/integrations`. Lives at `/integration/v1/*`, **not** under `/api/*` — the base path is dictated by `docs/databricks-integration-api-spec.md`, and it's deliberately outside `PROTECTED_PREFIXES` (a machine caller has no Supabase session). Only `GET /health` exists so far — see `things-to-know.md`'s Integrations section before adding another endpoint here. |
 
 ### Rules
 
 - **Server Components read.** Never fetch in `useEffect` what you can fetch in a Server Component.
 - **Client Components mutate** via Server Actions imported directly.
-- **Never create a `/api/…` route for internal mutations.** The only legitimate `/api/*` routes here are cron triggers, the OAuth callback, and file-producing exports — all genuinely external or non-JSON surfaces.
+- **Never create a `/api/…` route for internal mutations.** The only legitimate `/api/*` routes here are cron triggers, the OAuth callback, and file-producing exports — all genuinely external or non-JSON surfaces. (`/integration/v1/*` is a separate, narrower exception of its own — external read-only access, key-authenticated, not session-authenticated — and isn't under `/api/*` at all; see the table above.)
 - **Always re-check `auth.getUser()` and role inside every Server Action** via `lib/permissions.ts`. The proxy and RLS are defense in depth, not the only checks.
-- **Never expose `SUPABASE_SERVICE_ROLE_KEY` to the client.** It's used only in `lib/supabase/admin.ts`, imported only by Route Handlers (cron, export) that need to bypass RLS for system-level reads/writes — never by Server Actions serving a single user's request, which always use the per-user `server.ts` client so RLS applies.
+- **Never expose `SUPABASE_SERVICE_ROLE_KEY` to the client.** It's used only in `lib/supabase/admin.ts`, imported only by Route Handlers (cron, export, `/integration/v1/*`) that need to bypass RLS for system-level reads/writes — never by Server Actions serving a single user's request, which always use the per-user `server.ts` client so RLS applies.
 - **Locking is enforced in three places that must stay consistent**: RLS policy on `tasks.due_date` updates, `lib/permissions.ts` check inside `updateTask`, and the disabled state on the due-date field in `task-form.tsx`. If you change the lock rule, update all three.
 - **Every `DataTable`-backed list paginates, filters, and sorts server-side — never fetch-all-then-slice client-side, and never keep that state in `useState`.** This is not optional per table; it's the only supported shape. Concretely, for a new `data/<domain>.ts` list function:
   - Its query function takes `{ page, pageSize, sortBy, sortDir, filters }` (see `ListSeasonsParams` in `data/seasons.ts`), applies each filter as a real Postgrest clause (`.ilike`/`.eq`/date-range, never a client-side `.filter()`), and returns `{ data, rowCount }` using `.range()` + `{ count: 'exact' }` — `data` is one page, never the whole table.

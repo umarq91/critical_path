@@ -33,7 +33,11 @@ export type Action =
   // Reading the audit log is its own capability, not part of admin.manage_users: it spans
   // every entity and every actor in the organisation, so granting it should be a deliberate
   // decision rather than something that rides along with editing a user's department.
-  | "admin.view_audit_log";
+  | "admin.view_audit_log"
+  // Same reasoning as admin.view_audit_log, one step further: a leaked API key isn't a record
+  // of what already happened, it's a standing credential for whatever the integration API
+  // exposes going forward. Its own action, not folded into admin.manage_users.
+  | "admin.manage_integrations";
 
 const STANDARD_USER_ALLOWED: ReadonlySet<Action> = new Set<Action>([
   "profile.update_own",

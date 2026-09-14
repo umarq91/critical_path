@@ -3,11 +3,17 @@
 > Source: `TBO Critical Path Integration API Spec.pdf`, supplied by the client's data engineer.
 > Transcribed verbatim (structure preserved) on 2026-08-16 for version control and searchability.
 >
-> **Status: out of scope for the current engagement** — see `plan.md` §8. This is the *target* shape for a
-> future read-only integration, not something being built now. It is kept here so that (a) we can hand it
-> back to the client's team once this project ships, and (b) the Postgres schema for this app is designed
-> so that a future implementation of this spec isn't a rebuild — see `plan.md` §4 for the naming
-> consistency this implies (`key_stage`, `season_code`, `brand_code`, etc.).
+> **Status: in progress, built incrementally.** Originally out of scope (see `plan.md` §8's
+> history of that decision), now reversed by explicit client direction. The foundation — API-key
+> issuance/management (`/management/integrations`) and the auth check every endpoint below will
+> share — is live, along with `GET /health` as a proof-of-life endpoint. **Every other endpoint
+> in this document is still just a target shape, not something built yet** — most of the `tasks`
+> fields below (`blocked_status`, `delay_reason_code`, `is_milestone`, `planned_*`/`actual_*`
+> dates, `version`, `comments_count`, …) have no column to back them in the current schema, and
+> `task_dependencies`/`delay_reason_codes`/`task_history_snapshots` don't exist as tables at all.
+> Each endpoint gets built one at a time, against real columns only — see
+> `things-to-know.md`'s Integrations section for the as-built auth mechanism and what's live so
+> far, and don't build a data endpoint here by inventing the columns it would need.
 
 ## Purpose
 

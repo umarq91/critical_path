@@ -12,6 +12,7 @@ import {
   Building2,
   Bell,
   Settings,
+  KeyRound,
   type LucideIcon,
 } from "lucide-react";
 import { can, type Action } from "@/lib/permissions";
@@ -61,6 +62,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { title: "Users", href: "/management/users", icon: User, requiredAction: "admin.manage_users" },
       { title: "Teams / Departments", href: "/management/teams", icon: Building2, requiredAction: "admin.manage_lookups" },
       { title: "Logs", href: "/management/logs", icon: ScrollText, requiredAction: "admin.view_audit_log" },
+      { title: "Integrations", href: "/management/integrations", icon: KeyRound, requiredAction: "admin.manage_integrations" },
     ],
   },
   {

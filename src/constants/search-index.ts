@@ -15,6 +15,7 @@ import {
   Bell,
   Settings,
   Trash2,
+  KeyRound,
   type LucideIcon,
 } from "lucide-react";
 import { can, type Action } from "@/lib/permissions";
@@ -163,6 +164,15 @@ export const SEARCH_INDEX: SearchItem[] = [
     section: "Management",
     keywords: ["audit", "activity", "history", "who changed", "changes", "audit log"],
     requiredAction: "admin.view_audit_log",
+  },
+  {
+    title: "Integrations",
+    description: "API keys for the read-only integration API",
+    href: "/management/integrations",
+    icon: KeyRound,
+    section: "Management",
+    keywords: ["api key", "api keys", "databricks", "kong", "integration api", "token", "developer"],
+    requiredAction: "admin.manage_integrations",
   },
   {
     title: "Email notifications",

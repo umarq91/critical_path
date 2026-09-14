@@ -11,11 +11,13 @@ export const AUDIT_ACTION = {
   // owners and people involved in a single confirmed action, and splitting that into two log
   // rows made one edit look like two.
   TASK_PARTICIPANTS_CHANGE: "task.participants_change",
+  API_KEY_CREATE: "api_key.create",
+  API_KEY_REVOKE: "api_key.revoke",
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTION)[keyof typeof AUDIT_ACTION];
 
-export const AUDIT_ENTITY_TYPE = { TASK: "task" } as const;
+export const AUDIT_ENTITY_TYPE = { TASK: "task", API_KEY: "api_key" } as const;
 
 // Same soft-fill + border + text token trio as every other badge config — no new colours.
 // Create/delete borrow the complete/overdue status tokens because that's the semantic
@@ -41,6 +43,14 @@ export const AUDIT_ACTION_CONFIG: StatusBadgeConfig = {
   [AUDIT_ACTION.TASK_PARTICIPANTS_CHANGE]: {
     label: "Reassigned",
     className: "border border-border-strong bg-primary-tint text-primary",
+  },
+  [AUDIT_ACTION.API_KEY_CREATE]: {
+    label: "Created",
+    className: "border border-status-complete-base bg-status-complete-soft text-status-complete-text",
+  },
+  [AUDIT_ACTION.API_KEY_REVOKE]: {
+    label: "Revoked",
+    className: "border border-status-overdue-base bg-status-overdue-soft text-status-overdue-text",
   },
 };
 

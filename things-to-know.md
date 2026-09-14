@@ -1129,3 +1129,73 @@ putting a stock 5s timeout right on the coin-flip line. Below this value, some r
 the route's own logic ever executes — indistinguishable from a real hang unless you check
 `net._http_response.timed_out`/`error_msg`, not just `status_code`. If the job is ever
 re-scheduled from scratch (not `cron.alter_job`'d), carry this value forward.
+
+---
+
+## Integrations / API keys (`/management/integrations`, `/integration/v1/*`)
+
+**Only the foundation is built — one endpoint, `GET /health`.** `docs/databricks-integration-api-spec.md`
+describes 17 endpoints; this pass built the piece every future one will share (API-key issuance +
+the auth check) plus the one endpoint that needs no data mapping at all. **Before adding another
+endpoint from that spec, check whether its fields actually exist as columns first** — most of the
+`tasks` shape in that doc (`blocked_status`, `delay_reason_code`, `is_milestone`,
+`planned_*`/`actual_*` dates distinct from `start_date`/`end_date`, `version`, `comments_count`,
+`attachments_count`, …) has no backing column, and `task_dependencies`/`delay_reason_codes`/
+`task_history_snapshots` don't exist as tables. Returning fabricated or always-null values for a
+field Databricks will actually consume is worse than not shipping the endpoint yet — each one is
+its own scoping decision (does this need a migration first, or can it honestly map to what's
+already there), not a rename-and-ship exercise.
+
+- **Key format is `cpi_` + 32 random bytes (base64url), hashed with SHA-256, never stored raw.**
+  `lib/integration-keys.ts`. Deliberately not bcrypt/scrypt — those trade against brute-forcing a
+  *low-entropy* human password, and a 256-bit random token has no such weakness; a fast hash
+  looked up as an exact indexed match (`.eq("key_hash", …)`) is the correct and standard choice
+  here (same pattern GitHub/Stripe tokens use).
+- **The raw key is shown exactly once**, in `create-api-key-dialog.tsx`'s "reveal" step,
+  immediately after `createApiKey()` returns it. It is never persisted anywhere — only
+  `key_hash` (for lookup) and `key_prefix` (first 12 chars, for the admin list to be
+  recognisable) survive past that one response. Losing it means revoking and reissuing, not
+  recovering — there is nothing to recover from.
+- **Revoked, never deleted** — same idiom as deactivating a user or soft-deleting a task.
+  `api_keys.status` (`active`/`revoked`) plus `revoked_at`/`revoked_by`; `0025_api_keys.sql` has
+  no delete policy at all, so a key's row (and its place in the audit trail) is permanent.
+- **`/integration/v1/*` is deliberately NOT in `PROTECTED_PREFIXES`.** That list exists to force
+  a Supabase session before `proxy.ts` lets a request through — exactly wrong for a machine
+  caller authenticating with an `apikey` header instead. Adding this prefix there would break
+  every integration endpoint, not secure it. Read `src/proxy.ts` before assuming a new top-level
+  route needs to be added to that list; most of this app's routes do, this one specifically must
+  not.
+- **`requireIntegrationApiKey()` uses the service-role client** (`lib/supabase/admin.ts`), not
+  the per-user one — same reasoning as cron and export routes: the caller has no Supabase
+  session, and `api_keys`' RLS is admin-only, so there is no per-user client that could read it
+  anyway. `last_used_at` is bumped best-effort in the same call; a failed bump must not turn a
+  valid request into a 500.
+- **`admin.manage_integrations` is its own permission**, not folded into `admin.manage_users` —
+  same reasoning `lib/permissions.ts` already gives for `admin.view_audit_log` being separate:
+  granting access to something this sensitive should be a deliberate decision. Once real data
+  endpoints exist behind these keys, a leaked one is a standing org-wide read, at least as
+  sensitive as the audit log itself.
+- **Key create/revoke events land in the same `audit_log` table as task events** (`entity_type =
+  "api_key"`, `AUDIT_ACTION.API_KEY_CREATE`/`API_KEY_REVOKE`) — `audit_log` was already built
+  entity-agnostic for exactly this (see `0020`'s own comment), so this needed no migration. They
+  show up on `/management/logs` alongside task events; the "Task" column header there still says
+  "Task" even for one of these rows — a pre-existing generic-log-viewer label, not something
+  introduced here, and not worth a rename just for this one new entity type.
+- **`X-Request-Id`/`X-Correlation-Id` are echoed, not enforced.** The spec lists them as required
+  Kong headers; a request missing either still succeeds — Kong's actual outgoing header set
+  isn't confirmed yet, and rejecting on a header this app doesn't otherwise use would be
+  guessing at a contract nobody's verified. What's real: `withIntegrationTraceHeaders()`
+  (`lib/integration-auth.ts`) copies whichever of the two arrived straight onto every response,
+  success or 401, so a caller can match a response back to the request that produced it and
+  correlate against their own sync-run logs. No server-side logging or request-log table backs
+  this — `console.log` is barred in production code (CLAUDE.md) and a persistence layer for
+  request tracing is its own scope decision, not a two-header echo. Enforcing these as
+  hard-required (400 on missing) is a one-line tightening in `requireIntegrationApiKey()` if
+  Kong's real config is ever confirmed to always send them — don't add it speculatively.
+- **`integrations-info-card.tsx` is the one explanation of "where does the key go"** — base URL,
+  the `apikey` header (not `Authorization`, not a query param), and "only `/health` exists so
+  far" restated in plain language for whoever's wiring up Kong/Databricks, not just for someone
+  reading this file. Same collapsible-card pattern as `settings/notifications`' own info card
+  (open by default, `Collapsible` from `components/ui/collapsible`) — update both this card and
+  the bullets above together if the mechanism changes; they're meant to say the same thing at
+  two altitudes, not drift into two different explanations.

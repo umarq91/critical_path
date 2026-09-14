@@ -63,6 +63,7 @@ export const PERMISSION_CATALOG: PermissionCatalogGroup[] = [
       { action: "admin.manage_users", label: "Manage users", description: "Create external users, set roles, deactivate accounts" },
       { action: "admin.manage_lookups", label: "Manage lookups", description: "Edit seasons, key stages, templates, holidays, leave, reminder rules" },
       { action: "admin.view_audit_log", label: "View logs", description: "Read the activity log of who created, edited, reassigned or deleted a task" },
+      { action: "admin.manage_integrations", label: "Manage integrations", description: "Issue and revoke API keys for the integration API" },
       { action: "profile.update_own", label: "Edit own profile", description: "Update their own name and details" },
     ],
   },

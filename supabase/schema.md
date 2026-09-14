@@ -322,6 +322,21 @@ Exists so "tasks relevant to me" stays one query rather than the three hops (me 
 
 **RLS: zero policies.** RLS is enabled but nothing grants access — not even a `profile_id = auth.uid()` self-read, since these are live API credentials, not display data. The only access path is `lib/google/oauth-tokens.ts`, which always goes through the service-role client (`lib/supabase/admin.ts`) and scopes every query to a specific `profile_id` in application code.
 
+### `api_keys`
+*Migration: `0025_api_keys.sql`. Backs `/management/integrations` and auth for the read-only integration API (`/integration/v1/*`) — see things-to-know.md's Integrations section and `docs/databricks-integration-api-spec.md`.*
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid, PK | |
+| `name` | text, not null | admin-chosen label, e.g. "Databricks — Production" |
+| `key_prefix` | text, not null | first 12 chars of the raw key (`cpi_` + entropy), shown in the UI so a key is recognisable without the secret ever being stored |
+| `key_hash` | text, not null, unique | SHA-256 hex digest of the raw key — the raw value itself is never persisted anywhere |
+| `status` | text, not null, default `active` | `active` \| `revoked` — no delete policy; a key is revoked, never removed, same idiom as deactivating a user |
+| `created_by` / `revoked_by` | uuid, FK → `profiles.id`, nullable, `on delete set null` | |
+| `created_at` / `revoked_at` / `last_used_at` | timestamptz | `last_used_at` is bumped best-effort by `requireIntegrationApiKey()` on every authenticated request |
+
+**RLS:** admin-only in every direction (`is_admin()`, same shape as `audit_log`'s select policy) — a leaked key is a standing read into whatever the integration API exposes, at least as sensitive as the audit log itself. No delete policy.
+
 ---
 
 ## Migration log
@@ -349,6 +364,7 @@ Exists so "tasks relevant to me" stays one query rather than the three hops (me 
 | `0019_one_way_calendar_sync.sql` | Drops `external_calendar_events` and its RLS; re-comments `tasks.google_synced_at`/`google_calendar_owner_id` for one-way push semantics. Google Calendar can no longer write to a task. |
 | `0020_audit_log.sql` | `audit_log` table (actor / action / entity / jsonb `changes`), four indexes, admin-only select + own-row insert and **no update or delete policy** (append-only), plus a rerun-safe backfill of create/update/delete events from `tasks`' tracking columns. Backs Management → Logs. |
 | `0021_external_links.sql` | `external_links` table (title + description + url), internal-read/admin-write RLS, and a partial index on `title` for the default alphabetical ordering. Backs the External Links page. |
+| `0025_api_keys.sql` | `api_keys` table (hashed key + prefix, admin-only RLS, revoke-not-delete) for the integration API's Kong-style Key Auth. Backs `/management/integrations` and `requireIntegrationApiKey()`. |
 
 ## Not built yet
 
