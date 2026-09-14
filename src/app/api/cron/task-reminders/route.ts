@@ -69,10 +69,14 @@ async function handleTaskReminders(request: NextRequest) {
 
       await recordReminderSent(reminder.ruleId, reminder.taskId, reminder.offsetDays);
       sent++;
-    } catch {
+    } catch (error) {
       // A genuine send failure (relay rejected it, network error, etc.) is also left un-logged
-      // — the next run (15 minutes later, still within the same matching hour) retries it
-      // rather than silently dropping it for the day.
+      // in notifications_log — the next run (15 minutes later, still within the same matching
+      // hour) retries it rather than silently dropping it for the day. Still surface it to
+      // console so a run with partial failures is diagnosable instead of just showing up as a
+      // lower `sent` count with no trail (net._http_response.content only captures the response
+      // body, not console output, but this is at least visible in the platform's function logs).
+      console.error("task-reminders: send failed", { taskId: reminder.taskId, ruleId: reminder.ruleId }, error);
       failed++;
     }
   }
