@@ -934,14 +934,20 @@ express (that one is "show only this status").
 half-built. If either lands later, it's a new column/table plus real UI, not a toggle bolted onto
 the existing board.
 
-## Reminders (`/my-tasks`, `data/reminders.ts`, `/api/cron/task-reminders`)
+## Reminders (`/settings/notifications`, `data/reminders.ts`, `/api/cron/task-reminders`)
 
 **Self-service, not an admin rule.** `reminder_rules` is one row per profile, configured by that
-person on the two cards below the My Tasks table — there is no admin-facing management screen,
-and `plan.md`'s original org-wide `reminder_rules` sketch is superseded by this, not implemented
+person on the two cards on the Settings → Notifications page (moved out of My Tasks; the whole
+implementation — `notify-timing-card.tsx`, `notify-tasks-card.tsx`,
+`notify-task-picker-dialog.tsx`, `reminder-schema.ts`, `_reminder-actions.ts` — now lives under
+`app/(app)/settings/notifications/`) — there is no admin-facing management screen, and
+`plan.md`'s original org-wide `reminder_rules` sketch is superseded by this, not implemented
 alongside it. Every Server Action here is gated on `profile.update_own` (already granted to
 every role, admin included) rather than a new `Action` — this isn't a distinct capability
-decision, it's "manage your own settings," same as the profile itself.
+decision, it's "manage your own settings," same as the profile itself. Because of that, the
+`Email notifications` sidebar entry (`constants/nav.ts`) deliberately carries no `requiredAction`
+unlike the rest of the Settings group (which is `admin.manage_lookups`-gated) — it must stay
+visible to every role, including `external`.
 
 **Scope is specific tasks only — v1 deliberately dropped "by season"/"by owner" as separate
 scope types.** `reminder_rule_tasks` is a plain join (`rule_id`, `task_id`); season and owner

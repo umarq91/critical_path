@@ -11,7 +11,6 @@ import {
   User,
   Building2,
   Bell,
-  Puzzle,
   Settings,
   type LucideIcon,
 } from "lucide-react";
@@ -67,8 +66,10 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: "Settings",
     items: [
-      { title: "Notifications", href: "/settings/notifications", icon: Bell, requiredAction: "admin.manage_lookups" },
-      { title: "Integrations", href: "/settings/integrations", icon: Puzzle, requiredAction: "admin.manage_lookups" },
+      // No requiredAction — these are the signed-in user's own email reminder preferences
+      // (profile.update_own, granted to every role), not an admin lookup like the rest of
+      // Settings.
+      { title: "Email notifications", href: "/settings/notifications", icon: Bell },
       { title: "General Settings", href: "/settings/general", icon: Settings, requiredAction: "admin.manage_lookups" },
     ],
   },

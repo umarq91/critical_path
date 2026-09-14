@@ -13,8 +13,8 @@ import {
   REMINDER_OFFSET_PRESETS,
   REMINDER_HOUR_OPTIONS,
   reminderTimingSchema,
-} from "@/app/(app)/my-tasks/reminder-schema";
-import { updateReminderTiming } from "@/app/(app)/my-tasks/_reminder-actions";
+} from "@/app/(app)/settings/notifications/reminder-schema";
+import { updateReminderTiming } from "@/app/(app)/settings/notifications/_reminder-actions";
 import type { ReminderRule } from "@/data/reminders";
 
 function hourLabel(hour: number) {

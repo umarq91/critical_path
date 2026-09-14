@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requirePermission } from "@/lib/require-permission";
 import { listTasksForProfile, type ListTasksParams } from "@/data/tasks";
-import { reminderTimingSchema, reminderTasksSchema } from "@/app/(app)/my-tasks/reminder-schema";
+import { reminderTimingSchema, reminderTasksSchema } from "@/app/(app)/settings/notifications/reminder-schema";
 import type { createClient } from "@/lib/supabase/server";
 
 type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
@@ -58,7 +58,7 @@ export async function updateReminderTiming(input: unknown) {
     .eq("id", ruleId);
   if (error) return { ok: false as const, error: error.message };
 
-  revalidatePath("/my-tasks");
+  revalidatePath("/settings/notifications");
   return { ok: true as const };
 }
 
@@ -83,6 +83,6 @@ export async function updateReminderTasks(input: unknown) {
     if (insertError) return { ok: false as const, error: insertError.message };
   }
 
-  revalidatePath("/my-tasks");
+  revalidatePath("/settings/notifications");
   return { ok: true as const };
 }

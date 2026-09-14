@@ -7,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { FilterSelect, type FilterSelectOption } from "@/components/shared/filter-select";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
-import { listMyReminderCandidateTasks } from "@/app/(app)/my-tasks/_reminder-actions";
+import { listMyReminderCandidateTasks } from "@/app/(app)/settings/notifications/_reminder-actions";
 import { formatDate } from "@/lib/dates";
 import type { ReminderRuleTask } from "@/data/reminders";
 
