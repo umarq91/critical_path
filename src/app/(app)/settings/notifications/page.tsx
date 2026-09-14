@@ -1,10 +1,16 @@
 import { PageHeader } from "@/components/shared/page-header";
+import { NotificationsInfoCard } from "@/app/(app)/settings/notifications/notifications-info-card";
 import { NotifyTimingCard } from "@/app/(app)/settings/notifications/notify-timing-card";
 import { NotifyTasksCard } from "@/app/(app)/settings/notifications/notify-tasks-card";
-import { getMyReminderRule } from "@/data/reminders";
+import { getMyReminderRule, REMINDER_ORG_TIMEZONE } from "@/data/reminders";
 import { listSeasonOptions } from "@/data/seasons";
 import { listPartyOptions } from "@/data/parties";
 import { requirePageAccess } from "@/lib/require-page-access";
+
+// "Australia/Sydney" -> "Sydney" — good enough for the one fixed org timezone (see
+// REMINDER_ORG_TIMEZONE's own comment); revisit if that constant ever stops being a plain
+// "Region/City" IANA name.
+const TIMEZONE_LABEL = REMINDER_ORG_TIMEZONE.split("/").pop()?.replace(/_/g, " ") ?? REMINDER_ORG_TIMEZONE;
 
 // Gated on "profile.update_own", not "admin.manage_lookups" — these are the signed-in user's
 // own email reminder preferences (see things-to-know.md's Reminders section), granted to every
@@ -28,6 +34,7 @@ export default async function SettingsNotificationsPage() {
         description="Email configuration for your own task reminders — choose when reminder emails go out and which tasks they cover."
       />
       <div className="grid grid-cols-1 gap-4 px-6 pb-6 lg:grid-cols-2">
+        <NotificationsInfoCard timezoneLabel={TIMEZONE_LABEL} />
         <NotifyTimingCard initialRule={reminderRule} />
         <NotifyTasksCard
           initialTasks={reminderRule?.tasks ?? []}
