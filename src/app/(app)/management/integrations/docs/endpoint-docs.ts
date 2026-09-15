@@ -350,7 +350,7 @@ export const ENDPOINT_DOCS: EndpointDoc[] = [
     status: "live",
     purpose: "Calendar sync metadata tied to tasks and due dates.",
     queryParams: params("cursor", "page_size", "updated_since", "include_deleted"),
-    note: 'Rows are tasks WHERE google_event_id IS NOT NULL, not one row per task — a task never pushed to Google has no row here at all. `sync_status` is always "synced" for the same reason: a failed push never gets an event id (the error is swallowed, columns untouched), so there is no "failed" or "pending" state to report. `provider` is always "google_calendar", the only provider this platform integrates with. `event_deleted` is `true` whenever the task is soft-deleted — a best-effort signal (deleteTask attempts to delete the Google event too, but swallows a failed attempt like every push does), not a guarantee the event is actually gone. `version` is always null like every endpoint.',
+    note: 'One row per task, synced or not — a task never pushed to Google still appears, with `calendar_event_id`/`provider`/`sync_status`/`last_synced_at` sent as `null` rather than the row being omitted (see the second example row below). `sync_status` is `"synced"` only when `google_event_id` is set; it is never `"failed"` or `"pending"` for an unsynced task because a failed push leaves the columns untouched exactly like one never attempted (the error is swallowed) — this schema has no way to tell those two apart, so it doesn\'t claim to. `provider` is `"google_calendar"` when synced, `null` otherwise (it\'s the only provider this platform integrates with). `event_deleted` is `true` when the task is soft-deleted (best-effort signal — the Google-side delete can silently fail) and `false` for a never-synced task, since there was genuinely never an event to delete. `version` is always null like every endpoint.',
     exampleResponse: {
       data: [
         {
@@ -366,6 +366,22 @@ export const ENDPOINT_DOCS: EndpointDoc[] = [
           last_synced_at: "2026-08-02T08:13:00Z",
           event_deleted: false,
           updated_at: "2026-08-02T08:12:52Z",
+          deleted_at: null,
+          version: null,
+        },
+        {
+          calendar_event_id: null,
+          task_id: "3f1e2a4b-5c6d-47e8-9f10-1a2b3c4d5e6f",
+          task_name: "Draft Internal Sign-off",
+          provider: null,
+          season_code: "RES H2'26",
+          brand_name: null,
+          owner_name: "Design",
+          due_date: "2025-09-20",
+          sync_status: null,
+          last_synced_at: null,
+          event_deleted: false,
+          updated_at: "2026-08-01T09:00:00Z",
           deleted_at: null,
           version: null,
         },

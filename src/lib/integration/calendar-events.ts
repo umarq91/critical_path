@@ -18,7 +18,7 @@ interface TaskRow {
   id: string;
   task_name: string;
   due_date: string | null;
-  google_event_id: string;
+  google_event_id: string | null;
   google_synced_at: string | null;
   updated_at: string;
   deleted_at: string | null;
@@ -30,14 +30,15 @@ export interface IntegrationCalendarEventRow extends TaskRow {
   owner_name: string | null;
 }
 
-// Backs GET /integration/v1/calendar-events. Unlike seasons/brands/users/teams (one row per
-// record in that table), this is a filtered view of `tasks`: a "calendar event" only exists
-// where google_event_id is set (one-way push, see things-to-know.md's tasks section) — a task
-// that's never been synced has no row here at all; it is not represented as some "pending"
-// sync_status. sync_status is hardcoded "synced" for every row returned, for the same reason:
-// a failed push never gets an event id in the first place (lib/google/calendar.ts swallows the
-// error and leaves the columns untouched), so there is no "failed" row to represent either —
-// the honest states this schema can distinguish are "has an event" and "doesn't", not three.
+// Backs GET /integration/v1/calendar-events — one row per task (client direction: every field
+// in the spec's shape is always present, null where genuinely not tracked; extended here to
+// rows too, not just fields — see things-to-know.md's Integrations section for the full
+// reasoning). A task that's never been synced to Google still gets a row, with
+// calendar_event_id/provider/sync_status/last_synced_at all null: sync_status is never
+// "pending" or "failed" for such a task because this schema can't honestly distinguish those
+// from "never tried" — a failed push leaves the columns untouched exactly like an unattempted
+// one (lib/google/calendar.ts swallows the error), so there's no signal to report a third
+// state from.
 export async function listCalendarEventsForIntegration({
   pageSize,
   cursor,
@@ -46,7 +47,7 @@ export async function listCalendarEventsForIntegration({
 }: ListCalendarEventsForIntegrationParams): Promise<{ rows: IntegrationCalendarEventRow[]; nextCursor: string | null }> {
   const supabase = createAdminClient();
 
-  let query = supabase.from("tasks").select(TASK_SELECT).not("google_event_id", "is", null);
+  let query = supabase.from("tasks").select(TASK_SELECT);
   if (!includeDeleted) query = query.is("deleted_at", null);
   if (updatedSince) query = query.gte("updated_at", updatedSince);
 
