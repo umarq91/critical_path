@@ -347,9 +347,10 @@ export const ENDPOINT_DOCS: EndpointDoc[] = [
   {
     method: "GET",
     path: "/calendar-events",
-    status: "planned",
+    status: "live",
     purpose: "Calendar sync metadata tied to tasks and due dates.",
     queryParams: params("cursor", "page_size", "updated_since", "include_deleted"),
+    note: 'Rows are tasks WHERE google_event_id IS NOT NULL, not one row per task — a task never pushed to Google has no row here at all. `sync_status` is always "synced" for the same reason: a failed push never gets an event id (the error is swallowed, columns untouched), so there is no "failed" or "pending" state to report. `provider` is always "google_calendar", the only provider this platform integrates with. `event_deleted` is `true` whenever the task is soft-deleted — a best-effort signal (deleteTask attempts to delete the Google event too, but swallows a failed attempt like every push does), not a guarantee the event is actually gone. `version` is always null like every endpoint.',
     exampleResponse: {
       data: [
         {
@@ -366,7 +367,7 @@ export const ENDPOINT_DOCS: EndpointDoc[] = [
           event_deleted: false,
           updated_at: "2026-08-02T08:12:52Z",
           deleted_at: null,
-          version: 9,
+          version: null,
         },
       ],
       meta: { schema_version: "v1", as_of: "2026-08-02T10:15:30Z", next_cursor: "opaque-cursor-value", page_size: 500 },

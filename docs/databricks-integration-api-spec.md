@@ -446,6 +446,14 @@ Query parameters: `cursor`, `page_size`, `updated_since`, `include_deleted`
 
 ### `GET /calendar-events`
 
+**BUILT.** Matches this shape, with deviations: rows are `tasks` WHERE `google_event_id IS NOT
+NULL`, not one row per task — a task never pushed to Google has no row here. `sync_status` is
+always `"synced"` (a failed push never gets an event id, so there's no "failed"/"pending" state
+to report) and `provider` is always `"google_calendar"`, the only provider integrated. `version`
+is always `null`, like every endpoint. `event_deleted` is `true` whenever the task is
+soft-deleted — best-effort (deletion of the Google event itself can silently fail), not a
+guarantee.
+
 Purpose: calendar sync metadata tied to tasks and due dates
 
 Query parameters: `cursor`, `page_size`, `updated_since`, `include_deleted`

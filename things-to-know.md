@@ -1156,13 +1156,15 @@ endpoints are actually live — this section named them once, by count, and was 
 endpoint; it doesn't try again.** `docs/databricks-integration-api-spec.md` describes ~19 total;
 each new one gets built against real columns only, with any genuinely missing field sent as
 `null` (see the `version` bullet below — every endpoint sends `null` for it, since no table has
-a change-counter column). Two shapes have emerged so far: a **straight column mirror**
+a change-counter column). Three shapes have emerged so far: a **straight column mirror**
 (`seasons`/`brands`/`users` — `lib/integration/brands.ts` literally copies
 `lib/integration/seasons.ts` field-for-field; `users` additionally needed a join for
-`department` and a label map for `role_name`, see its own bullet below), and a **real-aggregate
+`department` and a label map for `role_name`, see its own bullet below), a **real-aggregate
 endpoint** (`teams` — `member_count`/`active_tasks_count`/`completed_tasks_count` are computed,
 not missing, so they are NOT sent as `null` the way a genuinely absent field is; see its own
-bullet below for the dedupe logic that makes that safe). **Before adding another endpoint from
+bullet below for the dedupe logic that makes that safe), and a **filtered view of a different
+table** (`calendar-events` — rows are `tasks` WHERE `google_event_id IS NOT NULL`, not one row
+per task; see its own bullet below). **Before adding another endpoint from
 that spec, check whether its fields actually exist as columns (or are honestly computable) first**
 — most of the
 `tasks` shape in that doc (`blocked_status`, `delay_reason_code`, `is_milestone`,
@@ -1276,6 +1278,24 @@ already there), not a rename-and-ship exercise.
   brands/seasons) — a legitimate derivation, unlike `/users`' `deleted_at`, which is NOT derived
   from `status` for the opposite reason (see above) — know which direction is safe to derive in
   before doing it on a new endpoint.
+- **`/calendar-events` is a filtered view of `tasks`, not a mirror of a `calendar_events` table —
+  no such table exists.** `lib/integration/calendar-events.ts` queries `tasks WHERE
+  google_event_id IS NOT NULL`; a task that's never been synced to Google has no row here at
+  all — it is never represented with some "pending" or "not_synced" `sync_status`. `sync_status`
+  is hardcoded `"synced"` for every row returned for the same reason `/teams`' `department`/
+  `lead_name` are `null` rather than guessed at: `lib/google/calendar.ts` swallows a failed push
+  and leaves the task's columns untouched, so a failed sync never produces a row, and there is
+  no third state ("failed") this schema can actually distinguish — claiming one would be
+  inventing data Databricks would then trust. `provider` is hardcoded `"google_calendar"`, the
+  only provider integrated. `owner_name` reuses the same join-into-one-string idiom as the app's
+  own `partyNames()` (`tasks/export/task-record-columns.ts`) — owner is 1..n
+  departments/profiles via `task_participants`, not a column, resolved and joined with `", "`
+  the same way the grid's own owner column does (departments first, then people, alphabetical).
+  `event_deleted` is derived from the task's own `deleted_at`, **not** verified against Google —
+  `deleteTask` (`tasks/_actions.ts`) attempts to delete the calendar event best-effort when a
+  task is soft-deleted, but swallows a failed attempt like every push does, so a task whose
+  Google-side cleanup actually failed still reads `event_deleted: true` here. `version` is `null`
+  like every endpoint.
 - **`integrations-info-card.tsx` is the one explanation of "where does the key go"** — base URL,
   the `apikey` header (not `Authorization`, not a query param), which endpoints are actually
   live, and what a `null` field means (genuinely unset vs. "this schema doesn't track that data,
