@@ -109,9 +109,26 @@ a duplicate and orphaning the original — `syncGoogleCalendar` reports those as
 If per-owner calendar copies are ever wanted, that's a `task_calendar_events(task_id, profile_id,
 event_id)` table, not a tweak to these two columns.
 
-**Push scope is owners resolved through `task_participant_profiles`, not `tasks.assignee_id`.**
-Department-owned tasks are the overwhelming majority (832 of 833 rows), and `assignee_id` is null
-for all of them, so scoping by that superseded column would push almost nothing.
+**Push scope is exactly the My Tasks scope, not just "owner".** `syncGoogleCalendar`
+(`calendar/_actions.ts`) pushes every task this profile created, owns, or is People-Involved
+on — named directly or through their department, via `task_participant_profiles`
+(`taskIdsForProfile`) — the same union `resolvePersonalScope` (`data/tasks.ts`) uses for the My
+Tasks page. It used to filter `task_participant_profiles` to `role = "owner"` only, which
+silently dropped every "Involved" task and made it look like only self-created tasks synced (a
+self-created task is nearly always also owner-participant, so that leg masked the bug). Not
+`tasks.assignee_id` either — department-owned tasks are the overwhelming majority (832 of 833
+rows), and `assignee_id` is null for all of them, so scoping by that superseded column would push
+almost nothing.
+
+**Sync also removes, not just pushes.** `syncGoogleCalendar` first scans every task whose
+`google_calendar_owner_id` is the calling profile and that has since fallen out of their scope
+(soft-deleted, or they were taken off it as owner/involved/creator), deletes that event via
+`deleteTaskCalendarEvent` (best-effort, same as `deleteTask`'s own cleanup), and clears
+`google_event_id`/`google_calendar_owner_id`. This is necessary because the push is one-way and
+event-driven only at task-delete time — removing someone from a task's participants
+(`setTaskParticipants`) does **not** touch their calendar at all, so without this pass a task you
+were taken off of would sit on your Google Calendar forever. Not windowed to `[from, to]` — scope
+is the question here, not date range, and an already-synced event can carry any due date.
 
 **Calendar eligibility is a property of the account, not of token presence.**
 `isGoogleCalendarEligible()` requires a non-`external` role, `calendar.sync_google`, and a

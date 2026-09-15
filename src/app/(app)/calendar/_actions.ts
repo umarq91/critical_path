@@ -6,7 +6,9 @@ import { requirePermission } from "@/lib/require-permission";
 import { getGoogleOAuthEnv } from "@/lib/env.server";
 import { hasGoogleCalendarToken } from "@/lib/google/oauth-tokens";
 import { pushTaskToGoogleCalendar } from "@/lib/google/task-calendar-sync";
+import { deleteTaskCalendarEvent } from "@/lib/google/calendar";
 import { isGoogleCalendarEligible } from "@/lib/calendar-eligibility";
+import { taskIdsForProfile } from "@/data/task-participants";
 
 // Manual, button-triggered ONE-WAY push (see calendar-toolbar.tsx's Sync button) — not a
 // background poller, and not a two-way reconcile. Bounded to a fixed window around today
@@ -44,33 +46,71 @@ export async function syncGoogleCalendar() {
   const from = format(subDays(today, SYNC_WINDOW_DAYS_PAST), "yyyy-MM-dd");
   const to = format(addDays(today, SYNC_WINDOW_DAYS_FUTURE), "yyyy-MM-dd");
 
-  // Tasks this user OWNS, read from task_participants via the task_participant_profiles view
-  // (0015) — so a task owned by their department counts, not only one where they're named
-  // personally. Deliberately not tasks.assignee_id, which 0015 superseded and which is null
-  // for the department-owned tasks that make up almost the whole dataset.
-  const { data: ownerRows, error: ownerError } = await auth.supabase
-    .from("task_participant_profiles")
-    .select("task_id")
-    .eq("profile_id", auth.userId)
-    .eq("role", "owner");
-  if (ownerError) return { ok: false as const, error: ownerError.message };
+  // Same scope as the My Tasks page (resolvePersonalScope in data/tasks.ts): created by them,
+  // OR a participant in ANY role — owner or involved — named directly or through their
+  // department (task_participant_profiles view, 0015). Previously this only looked at
+  // role = "owner", which is why an "Involved" task never synced and made it look like only
+  // self-created tasks pushed (a self-created task is nearly always also owner-participant).
+  // Deliberately not tasks.assignee_id, which 0015 superseded and which is null for the
+  // department-owned tasks that make up almost the whole dataset.
+  const participantTaskIds = await taskIdsForProfile(auth.supabase, auth.userId);
 
-  const ownedTaskIds = (ownerRows ?? []).flatMap((row) => (row.task_id ? [row.task_id] : []));
-  if (ownedTaskIds.length === 0) {
-    return { ok: true as const, pushedCount: 0, skippedCount: 0 };
+  const { data: createdRows, error: createdError } = await auth.supabase
+    .from("tasks")
+    .select("id")
+    .eq("created_by", auth.userId)
+    .is("deleted_at", null);
+  if (createdError) return { ok: false as const, error: createdError.message };
+
+  const scopedIdSet = new Set([...participantTaskIds, ...(createdRows ?? []).map((row) => row.id)]);
+
+  let pushedCount = 0;
+  let skippedCount = 0;
+  let removedCount = 0;
+
+  // Removal pass: every task this profile's Google Calendar currently holds an event for
+  // (google_calendar_owner_id = them), but that has since dropped out of their scope — deleted,
+  // or they were taken off it as owner/involved/creator. Sync is the only trigger for this
+  // check (there's no background poller — see the module comment), which is what "hit sync and
+  // it should come off my calendar" means for a one-way push: the platform never learns about a
+  // removal until the next time it's told to push.
+  //
+  // Deliberately not restricted to the [from, to] window: an event already on the user's
+  // calendar can have any due date, and the question here is scope, not date range.
+  const { data: previouslySyncedRows, error: syncedError } = await auth.supabase
+    .from("tasks")
+    .select("id, google_event_id, deleted_at")
+    .eq("google_calendar_owner_id", auth.userId)
+    .not("google_event_id", "is", null);
+  if (syncedError) return { ok: false as const, error: syncedError.message };
+
+  for (const row of previouslySyncedRows ?? []) {
+    const stillInScope = !row.deleted_at && scopedIdSet.has(row.id);
+    if (stillInScope) continue;
+
+    // Best-effort — an unreachable/already-gone Google event must not block clearing the
+    // stale link on our side (same reasoning as deleteTask's own cleanup call).
+    await deleteTaskCalendarEvent(auth.userId, row.google_event_id!).catch(() => undefined);
+    const { error: clearError } = await auth.supabase
+      .from("tasks")
+      .update({ google_event_id: null, google_calendar_owner_id: null })
+      .eq("id", row.id);
+    if (!clearError) removedCount++;
+  }
+
+  if (scopedIdSet.size === 0) {
+    revalidatePath("/calendar");
+    return { ok: true as const, pushedCount: 0, skippedCount: 0, removedCount };
   }
 
   const { data: tasks, error: tasksError } = await auth.supabase
     .from("tasks")
     .select("id, task_name, due_date, google_event_id, google_calendar_owner_id")
-    .in("id", ownedTaskIds)
+    .in("id", [...scopedIdSet])
     .is("deleted_at", null)
     .gte("due_date", from)
     .lte("due_date", to);
   if (tasksError) return { ok: false as const, error: tasksError.message };
-
-  let pushedCount = 0;
-  let skippedCount = 0;
 
   // The gte/lte range above already guarantees due_date is non-null for every matched row —
   // this narrows the type to match, rather than being a runtime filter.
@@ -93,5 +133,5 @@ export async function syncGoogleCalendar() {
   }
 
   revalidatePath("/calendar");
-  return { ok: true as const, pushedCount, skippedCount };
+  return { ok: true as const, pushedCount, skippedCount, removedCount };
 }
