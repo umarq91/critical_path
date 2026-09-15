@@ -413,6 +413,17 @@ Query parameters: `cursor`, `page_size`, `updated_since`, `include_deleted`
 
 ### `GET /roles`
 
+**BUILT**, with several deviations from the literal shape below — see `endpoint-docs.ts`'s note
+for the full reasoning on each. Summary: this endpoint reads `constants/roles.ts`'s fixed
+4-role enum and `lib/permissions.ts`'s allow-list matrix, not a database table, so `role_id` is
+the role's code (`"admin"`, not a UUID), `permission_key` uses this app's own action strings
+(`"task.create"`, not the spec's illustrative `"tasks.create"`), role-level `access_level` is
+`"full_access"` only for admin (provably true) and `null` otherwise (no other tier is defined),
+and `status`/`updated_at`/`deleted_at`/`version` are constants, not query results — roles have no
+deactivation, timestamp, or deletion concept. `user_count` is real, computed data (profiles per
+role, active or not). Not paginated in practice — only 4 rows will ever exist — but `cursor`/
+`page_size` are still honoured for a request that sets a small `page_size`.
+
 Purpose: role and permission master data
 
 Query parameters: `cursor`, `page_size`, `updated_since`, `include_deleted`

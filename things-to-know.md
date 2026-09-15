@@ -1354,6 +1354,36 @@ already there), not a rename-and-ship exercise.
   `{ schema_version, as_of }` `meta` shape rather than the cursor-list one every other endpoint
   above uses. Row count is bounded by season/brand count (28 seasons today), not task count, so
   this isn't a cut corner.
+- **`/roles` is live, and it's the first endpoint that reads code instead of a table** —
+  `lib/integration/roles.ts` maps `constants/roles.ts`'s fixed 4-role `ROLE` enum and
+  `lib/permissions.ts`'s allow-list matrix directly, with no `profiles` query except for
+  `user_count`. Several fields deviate from the spec's literal shape, each for a reason distinct
+  from a genuinely missing column: `role_id` is the role's code (`"admin"`) rather than a UUID —
+  there's no synthetic row to assign one to, and faking one that looks like a database id would
+  misrepresent this as table-backed. `permission_key` values are this app's own action strings
+  (`"task.create"`, `"admin.manage_users"`, …) rather than the spec's illustrative
+  `"tasks.create"` — real source data wins over cosmetic conformance to an example the spec's own
+  header calls "rough sketches." Per-permission `access_level` is always `"full"`: `can()` is a
+  boolean allow/deny, never graded, so anything present in a role's permission list is by
+  definition granted in full — not a gap, a provably accurate constant. Role-level `access_level`
+  is `"full_access"` **only** when a role's permissions cover every entry in `ALL_ACTIONS` (true
+  for admin, verifiably, since `can(ADMIN, x)` short-circuits to `true` for every `x`) — `null`
+  for the other three roles, since the spec names no other tier and inventing one (`"partial_access"`
+  or similar) would be guessing at a taxonomy nobody's confirmed. `status` is always `"active"` —
+  not derived, just true by construction, since a role either exists in the enum or it doesn't;
+  there's no deactivation concept the way `profiles.status` has one for users. `updated_at`/
+  `deleted_at`/`version` are always `null` — nothing tracks when a role's permission set last
+  changed (that's git history, not a column) and roles are never deleted, only ever added in
+  code; `updated_since`/`include_deleted` are accepted (the spec lists them) but are no-ops for
+  the same reason. **`ALL_ACTIONS` in `roles.ts` must be kept in sync with the `Action` union in
+  `lib/permissions.ts` by hand** — TypeScript's own type has no runtime representation, so a
+  newly added action silently won't appear in any role's `permissions` array (or count toward
+  `access_level`'s "full_access" check) until this list is updated too; there's no automated
+  guard against drift here. Pagination uses a dedicated, much simpler cursor than every other
+  endpoint's `(updated_at, id)` keyset (`lib/integration/cursor.ts`'s `IntegrationCursor`
+  requires a UUID `id` and a real timestamp, neither of which a role has) — a "resume after this
+  role code, in a fixed `ROLE_ORDER` array" scheme instead, sized for a dataset that will only
+  ever have 4 rows.
 - **`integrations-info-card.tsx` is the one explanation of "where does the key go"** — base URL,
   the `apikey` header (not `Authorization`, not a query param), which endpoints are actually
   live, and what a `null` field means (genuinely unset vs. "this schema doesn't track that data,
