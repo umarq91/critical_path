@@ -481,9 +481,10 @@ export const ENDPOINT_DOCS: EndpointDoc[] = [
   {
     method: "GET",
     path: "/reports/overdue-tasks",
-    status: "planned",
+    status: "live",
     purpose: "Optional report endpoint for overdue task lists.",
     queryParams: params("cursor", "page_size", "season_code", "brand_code", "owner_name", "due_from", "due_to"),
+    note: '`status` is always `"overdue"` because that\'s the filter this endpoint runs — but it means this list trusts the stored `tasks.status` column, NOT a live check against `due_date`. Nothing in this schema auto-stamps a task `overdue` yet (no status-rollover cron exists), so a task whose due date has passed but hasn\'t been manually re-statused will not appear here — see things-to-know.md\'s Tasks section ("Is never overdue"). `days_overdue` is computed live (calendar days from `due_date` to today) since this endpoint has no `updated_since`/incremental contract — it\'s a fresh report, not a sync feed. `season_code`/`brand_code`/`owner_name` filters resolve to the underlying record first (exact match), so a code or name that matches nothing returns an empty list rather than an error.',
     exampleResponse: {
       data: [
         {
@@ -530,9 +531,10 @@ export const ENDPOINT_DOCS: EndpointDoc[] = [
   {
     method: "GET",
     path: "/reports/tasks-by-season",
-    status: "planned",
+    status: "live",
     purpose: "Optional report endpoint for season-level grouped metrics.",
     queryParams: params("date_from", "date_to", "brand_code", "owner_name", "status"),
+    note: 'Not paginated — no cursor/page_size, since the row count is bounded by the number of seasons (28 today), not tasks; `meta` is the smaller { schema_version, as_of } shape. `overdue_count` has the same known gap as /reports/overdue-tasks: it trusts stored `tasks.status`, not a live due_date check. `date_from`/`date_to` filter on `due_date`; omitted, every non-deleted task counts regardless of whether it even has a due_date (matching the dashboard\'s own season breakdown, which isn\'t due-date-windowed). Only seasons with at least one matching task are returned — a season with zero results after filtering just doesn\'t appear, it isn\'t sent as a zeroed-out row.',
     exampleResponse: {
       data: [
         {
@@ -552,9 +554,10 @@ export const ENDPOINT_DOCS: EndpointDoc[] = [
   {
     method: "GET",
     path: "/reports/tasks-by-brand",
-    status: "planned",
+    status: "live",
     purpose: "Optional report endpoint for brand-level grouped metrics.",
     queryParams: params("date_from", "date_to", "season_code", "owner_name", "status"),
+    note: "Same shape and same caveats as /reports/tasks-by-season (not paginated, overdue_count trusts stored status). One further gap specific to this endpoint: tasks.brand_id is nullable — plenty of stage work isn't brand-specific — so a task with no brand contributes to NO group here. Summing every group's task_count will not equal the total task count for the same filters; there is no \"unbranded\" bucket in the spec to put those tasks in.",
     exampleResponse: {
       data: [
         {

@@ -632,6 +632,15 @@ Query parameters: `date_from`, `date_to`, `season_code`, `brand_code`, `owner_na
 
 ### `GET /reports/overdue-tasks`
 
+**BUILT.** Matches this shape. **Trusts stored `tasks.status = 'overdue'`, not a live check
+against `due_date`** — no status-rollover cron exists in this codebase yet (see
+things-to-know.md's Tasks section), so a task whose due date has passed but hasn't been
+manually re-statused will not appear here. `days_overdue` is computed live (calendar days from
+`due_date` to today), safe here specifically because this endpoint has no
+`updated_since`/incremental contract — it's a point-in-time report, not a sync feed.
+`season_code`/`brand_code`/`owner_name` resolve to the underlying record first; a code or name
+matching nothing returns an empty list, not an error.
+
 Purpose: optional report endpoint for overdue task lists
 
 Query parameters: `cursor`, `page_size`, `season_code`, `brand_code`, `owner_name`, `due_from`, `due_to`
@@ -696,6 +705,14 @@ Query parameters: `cursor`, `page_size`, `season_code`, `brand_code`, `owner_nam
 
 ### `GET /reports/tasks-by-season`
 
+**BUILT.** Matches this shape, not paginated (no cursor/page_size — the row count is bounded by
+season count, not task count; `meta` is the smaller `{ schema_version, as_of }` form).
+`overdue_count` carries the same stored-status caveat as `/reports/overdue-tasks`.
+`date_from`/`date_to` filter on `due_date`; without them every non-deleted task counts
+regardless of whether it has a due_date at all, matching the dashboard's own season breakdown.
+Only seasons with at least one matching task are returned — no zeroed-out rows for an empty
+group.
+
 Purpose: optional report endpoint for season-level grouped metrics
 
 Query parameters: `date_from`, `date_to`, `brand_code`, `owner_name`, `status`
@@ -722,6 +739,11 @@ Query parameters: `date_from`, `date_to`, `brand_code`, `owner_name`, `status`
 ```
 
 ### `GET /reports/tasks-by-brand`
+
+**BUILT.** Same shape and caveats as `/reports/tasks-by-season`. One further gap: `tasks.brand_id`
+is nullable (plenty of stage work isn't brand-specific), so a task with no brand contributes to
+no group here — summing every group's `task_count` will not equal the total task count for the
+same filters, since there's no "unbranded" bucket in the spec.
 
 Purpose: optional report endpoint for brand-level grouped metrics
 

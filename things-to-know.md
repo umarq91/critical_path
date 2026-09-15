@@ -1162,9 +1162,12 @@ a change-counter column). Three shapes have emerged so far: a **straight column 
 `department` and a label map for `role_name`, see its own bullet below), a **real-aggregate
 endpoint** (`teams` — `member_count`/`active_tasks_count`/`completed_tasks_count` are computed,
 not missing, so they are NOT sent as `null` the way a genuinely absent field is; see its own
-bullet below for the dedupe logic that makes that safe), and a **filtered view of a different
-table** (`calendar-events` — rows are `tasks` WHERE `google_event_id IS NOT NULL`, not one row
-per task; see its own bullet below). **Before adding another endpoint from
+bullet below for the dedupe logic that makes that safe), a **one-to-one reshape of a different
+table** (`calendar-events` — every `tasks` row, one to one, not a mirror of some
+`calendar_events` table that doesn't exist; see its own bullet below), and a **non-paginated
+aggregate report** (`reports/tasks-by-season`/`reports/tasks-by-brand` — grouped counts over the
+whole table, `{ schema_version, as_of }` meta with no cursor, closer in shape to
+`/dashboard-summary` than to the row-level endpoints above). **Before adding another endpoint from
 that spec, check whether its fields actually exist as columns (or are honestly computable) first**
 — most of the
 `tasks` shape in that doc (`blocked_status`, `delay_reason_code`, `is_milestone`,
@@ -1306,6 +1309,51 @@ already there), not a rename-and-ship exercise.
   endpoint still to be built (`/tasks` chief among them)** — the earlier caution in this
   section's own intro paragraph about not shipping a mostly-null `/tasks` was an engineering
   judgment call, not client direction, and the client has since overridden it explicitly.
+- **Three report endpoints are live: `/reports/overdue-tasks`, `/reports/tasks-by-season`,
+  `/reports/tasks-by-brand`.** All three share code rather than each re-deriving it:
+  `lib/integration/task-owners.ts` (owner_name both directions — task→name for display, name→task
+  ids for the `owner_name` filter param; promoted out of `calendar-events.ts` once a second
+  consumer showed up), `lib/integration/lookup-codes.ts` (`season_code`/`brand_code` → internal
+  uuid, since the spec's task-level filters address a season/brand by its stable short code, not
+  the id `tasks` actually stores), and `lib/integration/task-group-facts.ts` (the paginated
+  whole-table fact-fetch + grouping/counting shared by both `tasks-by-*` reports, same
+  page-through-1000-rows shape as `data/dashboard.ts`'s own `listTaskFacts`).
+- **`overdue_count`/`status: "overdue"` across all three report endpoints trusts the STORED
+  `tasks.status` column — it does not derive "is this task overdue" live from `due_date`.**
+  This matters because **nothing in this codebase auto-stamps that status today**: no
+  `status-rollover` cron route exists on disk despite CLAUDE.md's cron table describing one (see
+  this file's own Tasks section, "Is never overdue" — `calendar-task-chip.tsx` is the one place
+  that DOES derive it live, specifically because the calendar view needs same-day accuracy, and
+  says so in its own comment). Every aggregate view already in this app makes the same trade
+  (`data/dashboard.ts`'s status tiles, `data/tasks.ts`'s `listOverdueTasks`), so these three
+  endpoints match the dominant existing convention rather than inventing a fourth, disagreeing
+  definition of "overdue." **Practical effect: a task whose due date has passed but whose status
+  hasn't been manually changed will not show up as overdue in any of these three endpoints,**
+  the same way it wouldn't show up in `/dashboard`'s Overdue tile either. If Databricks' numbers
+  need to be accurate rather than merely consistent with the rest of this app, the fix is
+  building the missing status-rollover cron — not deriving overdue status differently inside the
+  integration layer alone, which would just create a fourth number that disagrees with the other
+  three.
+- **`days_overdue` (`/reports/overdue-tasks`) is computed live — calendar days from `due_date` to
+  today via `differenceInCalendarDays`/`startOfToday()`, matching `lib/dates.ts`'s
+  `parseDateOnly` handling for date-only columns (never `new Date(due_date)` directly).** This is
+  safe specifically because this endpoint's query params have no `updated_since`/incremental
+  contract — it's meant to be re-pulled fresh each time, not walked incrementally by
+  `updated_at`, so a value that silently changes day-to-day without the row's own `updated_at`
+  moving isn't the trap here it would be on a sync-feed endpoint (`/tasks`, when built, must NOT
+  do this same thing for exactly that reason). `null` for a task with `status = 'overdue'` but no
+  `due_date` — a data anomaly, not a computable case.
+- **`/reports/tasks-by-brand` under-represents totals by design, not bug: `tasks.brand_id` is
+  nullable** (plenty of stage work — trend trips, range reviews — isn't brand-specific, see this
+  file's Tasks section), so a task with no brand contributes to no group in that report at all.
+  Summing every returned group's `task_count` will not equal the total qualifying task count for
+  the same filters. `/reports/tasks-by-season` has no equivalent gap — `season_id` is a not-null
+  FK, so every task lands in exactly one season group.
+- **Neither `tasks-by-season` nor `tasks-by-brand` is paginated** — the spec lists no
+  `cursor`/`page_size` for either, matching `/dashboard-summary`'s smaller
+  `{ schema_version, as_of }` `meta` shape rather than the cursor-list one every other endpoint
+  above uses. Row count is bounded by season/brand count (28 seasons today), not task count, so
+  this isn't a cut corner.
 - **`integrations-info-card.tsx` is the one explanation of "where does the key go"** — base URL,
   the `apikey` header (not `Authorization`, not a query param), which endpoints are actually
   live, and what a `null` field means (genuinely unset vs. "this schema doesn't track that data,

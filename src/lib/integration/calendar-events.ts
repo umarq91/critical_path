@@ -1,8 +1,7 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { encodeCursor, type IntegrationCursor } from "@/lib/integration/cursor";
-
-type SupabaseClient = ReturnType<typeof createAdminClient>;
+import { resolveOwnerNames } from "@/lib/integration/task-owners";
 
 export interface ListCalendarEventsForIntegrationParams {
   pageSize: number;
@@ -72,45 +71,4 @@ export async function listCalendarEventsForIntegration({
   const ownerNames = await resolveOwnerNames(supabase, page.map((row) => row.id));
 
   return { rows: page.map((row) => ({ ...row, owner_name: ownerNames.get(row.id) ?? null })), nextCursor };
-}
-
-// Same join-into-one-string idiom as the app's own partyNames()
-// (tasks/export/task-record-columns.ts) — owner is 1..n departments/profiles
-// (task_participants), not a column, so the spec's single owner_name string is a display join,
-// not raw data. Departments first, then people, alphabetical within each — same ordering
-// task-parties.ts uses for the grid, so this reads the same way the app itself does.
-async function resolveOwnerNames(supabase: SupabaseClient, taskIds: string[]): Promise<Map<string, string>> {
-  const names = new Map<string, string>();
-  if (taskIds.length === 0) return names;
-
-  const { data, error } = await supabase
-    .from("task_participants")
-    .select("task_id, profile:profiles(full_name, email), department:departments(name)")
-    .eq("role", "owner")
-    .in("task_id", taskIds);
-  if (error) throw error;
-
-  const byTask = new Map<string, { kind: "department" | "user"; name: string }[]>();
-  for (const row of (data ?? []) as unknown as {
-    task_id: string;
-    profile: { full_name: string | null; email: string } | null;
-    department: { name: string } | null;
-  }[]) {
-    const owner = row.department
-      ? { kind: "department" as const, name: row.department.name }
-      : row.profile
-        ? { kind: "user" as const, name: row.profile.full_name ?? row.profile.email }
-        : null;
-    if (!owner) continue;
-
-    const list = byTask.get(row.task_id) ?? [];
-    list.push(owner);
-    byTask.set(row.task_id, list);
-  }
-
-  for (const [taskId, owners] of byTask) {
-    owners.sort((a, b) => (a.kind === b.kind ? a.name.localeCompare(b.name) : a.kind === "department" ? -1 : 1));
-    names.set(taskId, owners.map((owner) => owner.name).join(", "));
-  }
-  return names;
 }
