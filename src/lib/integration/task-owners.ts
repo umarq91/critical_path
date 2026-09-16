@@ -39,23 +39,25 @@ function chunk<T>(items: T[], size: number): T[][] {
   return batches;
 }
 
-export async function resolveOwnerNames(supabase: SupabaseClient, taskIds: string[]): Promise<Map<string, string>> {
-  const names = new Map<string, string>();
-  if (taskIds.length === 0) return names;
+// Shared by resolveOwnerNames (role='owner', joined into one string) and
+// resolvePeopleInvolvedNames (role='involved', kept as an array) — same batched fetch, same
+// department-then-person/alphabetical ordering, different final shape per caller's role.
+async function fetchParticipantsByRole(supabase: SupabaseClient, taskIds: string[], role: "owner" | "involved"): Promise<Map<string, Owner[]>> {
+  const byTask = new Map<string, Owner[]>();
+  if (taskIds.length === 0) return byTask;
 
   const batches = await Promise.all(
     chunk(taskIds, OWNER_LOOKUP_BATCH_SIZE).map(async (batch) => {
       const { data, error } = await supabase
         .from("task_participants")
         .select("task_id, profile:profiles(full_name, email), department:departments(name)")
-        .eq("role", "owner")
+        .eq("role", role)
         .in("task_id", batch);
       if (error) throw error;
       return (data ?? []) as unknown as OwnerRow[];
     })
   );
 
-  const byTask = new Map<string, Owner[]>();
   for (const row of batches.flat()) {
     const owner: Owner | null = row.department
       ? { kind: "department", name: row.department.name }
@@ -69,9 +71,25 @@ export async function resolveOwnerNames(supabase: SupabaseClient, taskIds: strin
     byTask.set(row.task_id, list);
   }
 
-  for (const [taskId, owners] of byTask) {
-    names.set(taskId, sortOwners(owners).map((owner) => owner.name).join(", "));
-  }
+  for (const [taskId, owners] of byTask) byTask.set(taskId, sortOwners(owners));
+  return byTask;
+}
+
+export async function resolveOwnerNames(supabase: SupabaseClient, taskIds: string[]): Promise<Map<string, string>> {
+  const byTask = await fetchParticipantsByRole(supabase, taskIds, "owner");
+  const names = new Map<string, string>();
+  for (const [taskId, owners] of byTask) names.set(taskId, owners.map((owner) => owner.name).join(", "));
+  return names;
+}
+
+// /tasks and /tasks/{task_id}'s `people_involved` — an array of names, unlike `owner_name`'s
+// single joined string, matching the spec's own literal shape (`["Brand Managers", "Design"]`).
+// A task with no `involved` participants at all is simply absent from the returned map; callers
+// default to `[]`.
+export async function resolvePeopleInvolvedNames(supabase: SupabaseClient, taskIds: string[]): Promise<Map<string, string[]>> {
+  const byTask = await fetchParticipantsByRole(supabase, taskIds, "involved");
+  const names = new Map<string, string[]>();
+  for (const [taskId, parties] of byTask) names.set(taskId, parties.map((party) => party.name));
   return names;
 }
 

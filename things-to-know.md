@@ -1452,6 +1452,55 @@ already there), not a rename-and-ship exercise.
   cursor's field name is opaque internal shape, never read as anything but "resume after this."
   Each row also carries its own `cursor` field (its own resumable position), matching the
   spec's literal per-row shape — every other list endpoint only puts a cursor in `meta`.
+- **`/tasks` and `/tasks/{task_id}` are live** — the big one, previously held back because "most
+  fields have no backing column"; that caution no longer applies per
+  [[integration-api-null-policy]] (client-confirmed: send `null`, don't hold back the endpoint).
+  `lib/integration/tasks.ts` is the source of truth for the field-by-field accounting; the
+  highlights:
+  - **~15 spec fields are always `null`, no backing column at all**: `blocked_status`,
+    `escalation_owner_name`, `is_milestone`, `milestone_flag`, `delay_reason_code`/
+    `delay_reason_text`, `planned_*`/`actual_*` dates, `due_date_zapier`, `comments_count`
+    (no comments table — `notes` is a single free-text field with no count concept),
+    `attachments_count` (attachments are explicitly deferred, not a column gap to close later),
+    `link_url`. The matching query-param filters (`blocked_status`, `escalation_owner_name`,
+    `delay_reason_code`, `is_milestone`) are accepted per the spec but are no-ops.
+  - **`assignee_name` is also always `null` despite `tasks.assignee_id` existing** — that column
+    is superseded by `task_participants` and slated for removal (schema.md's own note: "don't
+    write to it in new code"); reading it here would hand Databricks a column that quietly
+    disagrees with `owner_name`, same reasoning the app's own CSV export
+    (`tasks/export/task-record-columns.ts`) already gives for omitting it. This is the
+    "column exists but means something different" caveat, distinct from a genuine missing column.
+  - **`working_timeline_start_date`/`working_timeline_end_date` ARE real** —
+    `tasks.start_date`/`end_date`. `duration_days` is computed live from them
+    (`computeDurationDays`), and that's safe on an incremental feed specifically because both
+    inputs are static stored columns, not "today" — the value only changes when one of them
+    changes, which `updated_at` already captures.
+  - **`days_late`/`days_at_risk` are ALWAYS `null` here — this is the one place the constraint
+    flagged when `/reports/overdue-tasks` was built actually bites.** That report's
+    `days_overdue` is safe to compute live only because it has no `updated_since` contract; `/tasks`
+    genuinely does, so a live-computed day-count that silently drifts without `updated_at` moving
+    would make an incremental consumer miss the change entirely. Don't "fix" this by copying
+    `computeDaysOverdue` in here — that would reintroduce exactly the bug the earlier endpoint's
+    own note warned against.
+  - **`owner_name` is the usual joined string; `people_involved` is a real array**, not joined —
+    matches the spec's own literal shape (`["Brand Managers", "Design"]`) and is what the app's
+    own CSV export does NOT do (it joins both into strings) — a deliberate divergence from that
+    convention for this one field, because the array is both truer to the spec and no harder to
+    produce from the same underlying participant rows.
+    `lib/integration/task-owners.ts`'s `resolveOwnerNames`/`resolvePeopleInvolvedNames` now share
+    one batched-fetch helper (`fetchParticipantsByRole`) — refactored out when `people_involved`
+    needed the same department-then-person/alphabetical ordering but as an array instead of a
+    joined string, rather than duplicating the batching fix.
+  - **`/tasks/{task_id}` returns the identical full row shape as `/tasks`**, not the narrower
+    field set the spec's own single-item example sketches (missing `season_id`/`season_name`/
+    `brand_id`/`gender`/`notes`/`calendar_*`/`comments_count`/`attachments_count`/`link_url`) —
+    a deliberate unification, since maintaining two different shapes for one entity would drift,
+    and the null-policy already demands every field present regardless. **No `deleted_at`
+    filter** — a consumer fetching a specific id (e.g. one just seen in `/changes`) gets the row
+    back with its real `deleted_at`, not a 404 that hides that it once existed; a genuinely
+    unknown id still 404s.
+  - **`calendar_sync_status` follows the same rule as `/calendar-events`**: `"synced"` only when
+    `google_event_id` is set, never `"failed"`/`"pending"` for an unsynced task.
 - **`integrations-info-card.tsx` is the one explanation of "where does the key go"** — base URL,
   the `apikey` header (not `Authorization`, not a query param), which endpoints are actually
   live, and what a `null` field means (genuinely unset vs. "this schema doesn't track that data,

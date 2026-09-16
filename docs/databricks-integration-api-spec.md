@@ -160,6 +160,14 @@ Query parameters: `cursor`, `page_size`, `entity_type`, `occurred_since`
 
 ### `GET /tasks`
 
+**BUILT**, with about a third of the fields below always `null` — no backing column exists for
+`blocked_status`, `escalation_owner_name`, `assignee_name`, `is_milestone`, `milestone_flag`,
+`delay_reason_code`/`delay_reason_text`, `planned_*`/`actual_*` dates, `due_date_zapier`,
+`comments_count`, `attachments_count`, `link_url`, `version` — see `endpoint-docs.ts`'s note for
+the full field-by-field accounting, including which filters are consequently no-ops and why
+`days_late`/`days_at_risk` are always `null` (unlike `/reports/overdue-tasks`' `days_overdue`,
+this endpoint has a real `updated_since` incremental contract).
+
 Purpose: paginated task snapshot feed
 
 Query parameters: `cursor`, `page_size`, `updated_since`, `include_deleted`, `season_code`,
@@ -225,6 +233,10 @@ Query parameters: `cursor`, `page_size`, `updated_since`, `include_deleted`, `se
 ```
 
 ### `GET /tasks/{task_id}`
+
+**BUILT**, returning the same full row shape as `/tasks` (a superset of the narrower example
+below — see `endpoint-docs.ts`'s note for why). No `deleted_at` filter: a soft-deleted task's id
+still resolves with its real `deleted_at` set rather than 404ing; an unknown id 404s.
 
 Purpose: fetch one task by ID
 
