@@ -123,6 +123,11 @@ Purpose: basic service health check
 
 ### `GET /changes`
 
+**BUILT**, with real deviations from the literal shape below — see `endpoint-docs.ts`'s note.
+Reads `audit_log`, always scoped to `entity_type = 'task'` regardless of the query param (the
+only entity this schema tracks changes for); `record` is the audit row's own stored diff
+payload, not a full current-state task snapshot; `version` is always `null`.
+
 Purpose: global incremental change feed across supported entities
 
 Query parameters: `cursor`, `page_size`, `entity_type`, `occurred_since`
@@ -136,11 +141,11 @@ Query parameters: `cursor`, `page_size`, `entity_type`, `occurred_since`
       "entity_id": "8d4a29e9-c1c4-4b80-b66b-eeb0b6277f3a",
       "operation": "updated",
       "occurred_at": "2026-08-02T08:12:52Z",
-      "version": 18,
+      "version": null,
       "record": {
         "task_id": "8d4a29e9-c1c4-4b80-b66b-eeb0b6277f3a",
-        "status": "overdue",
-        "due_date": "2025-09-15"
+        "task_name": "External Showing with Protos",
+        "changes": { "fields": [{ "field": "due_date", "from": "2025-09-10", "to": "2025-09-15" }] }
       }
     }
   ],

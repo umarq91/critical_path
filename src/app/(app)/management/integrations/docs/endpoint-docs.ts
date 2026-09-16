@@ -109,9 +109,10 @@ export const ENDPOINT_DOCS: EndpointDoc[] = [
   {
     method: "GET",
     path: "/changes",
-    status: "planned",
+    status: "live",
     purpose: "Global incremental change feed across supported entities.",
     queryParams: params("cursor", "page_size", "entity_type", "occurred_since"),
+    note: "Reads audit_log, the only change-tracking table in this schema — and it only ever writes entity_type='task' rows for real operational data (it also carries entity_type='api_key' rows for this integration feature's own key lifecycle, deliberately excluded: api_key isn't a spec Core Entity, and it's an administrative event about the integration layer itself, not business data). This endpoint always scopes to entity_type='task' regardless of the query param; entity_type=anything else returns an empty page honestly, not an error — those entities just have no change tracking yet. `record` is the audit row's own stored diff payload (field-level changes / participant changes / created-with-owners, see types/audit.ts's AuditChanges), not a full current-state snapshot of the task — audit_log never stored one, and joining today's tasks row onto a historical event would misrepresent history for anything but the most recent change. `version` is always null like every endpoint. Each row's own `cursor` field and meta.next_cursor use the same opaque (created_at, id) keyset every other list endpoint uses, reused as-is even though this table's ordering field is created_at, not updated_at.",
     exampleResponse: {
       data: [
         {
@@ -120,8 +121,12 @@ export const ENDPOINT_DOCS: EndpointDoc[] = [
           entity_id: "8d4a29e9-c1c4-4b80-b66b-eeb0b6277f3a",
           operation: "updated",
           occurred_at: "2026-08-02T08:12:52Z",
-          version: 18,
-          record: { task_id: "8d4a29e9-c1c4-4b80-b66b-eeb0b6277f3a", status: "overdue", due_date: "2025-09-15" },
+          version: null,
+          record: {
+            task_id: "8d4a29e9-c1c4-4b80-b66b-eeb0b6277f3a",
+            task_name: "External Showing with Protos",
+            changes: { fields: [{ field: "due_date", from: "2025-09-10", to: "2025-09-15" }] },
+          },
         },
       ],
       meta: { schema_version: "v1", as_of: "2026-08-02T10:15:30Z", next_cursor: "opaque-cursor-value", page_size: 500 },

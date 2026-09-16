@@ -1427,6 +1427,31 @@ already there), not a rename-and-ship exercise.
   `/dashboard-summary`'s `owner_id`** — department-or-person by display name
   (`resolveTaskIdsForOwnerName`), not a `profiles.id`-only equality lookup — match whichever one
   a new endpoint's own spec section actually names, they're not interchangeable.
+- **`/changes` is live** — the first endpoint not backed by its own table; it reads `audit_log`
+  instead (`lib/integration/changes.ts`), which is genuinely the only change-tracking mechanism
+  this schema has. `audit_log.entity_type` is `task` for real operational events, plus `api_key`
+  for the integration feature's own key lifecycle (see the `api_keys` bullet above) — this
+  endpoint **always** scopes its underlying query to `entity_type = 'task'`, regardless of the
+  `entity_type` query param. `api_key` rows are deliberately excluded: that entity isn't in the
+  spec's Core Entities list, and a key create/revoke is an administrative event about this
+  integration layer itself, not business data Databricks should ingest through it. Passing
+  `entity_type` for a real Core Entity this schema doesn't audit (season, brand, ...) returns an
+  empty page, not an error — an honest reflection that no tracking exists yet, not a bug.
+  **`record` is the audit row's own stored diff payload** (`{ task_id, task_name, changes }`,
+  where `changes` is exactly `audit_log.changes` — the `AuditFieldChange[]`/`AuditPartyChange[]`/
+  `owners`/`backfilled` shape `types/audit.ts` defines), **not a full current-state snapshot of
+  the task** — `audit_log` was never designed to store one (see its own schema section above),
+  and joining today's `tasks` row onto a historical change event would misrepresent history for
+  every event except the most recent one on that task. `operation` maps `action` →
+  created/updated/deleted via a fixed table in `changes.ts` (`task.create`→created,
+  `task.delete`→deleted, everything else — update, restore, participants_change —→updated); an
+  action this table hasn't been taught about yet degrades to `updated` rather than throwing.
+  `version` is `null` like every endpoint — `audit_log` has no change-counter column either.
+  Cursor pagination reuses `lib/integration/cursor.ts`'s (updated_at, id) keyset verbatim even
+  though this table's real ordering field is `created_at` and is append-only (no updates) — the
+  cursor's field name is opaque internal shape, never read as anything but "resume after this."
+  Each row also carries its own `cursor` field (its own resumable position), matching the
+  spec's literal per-row shape — every other list endpoint only puts a cursor in `meta`.
 - **`integrations-info-card.tsx` is the one explanation of "where does the key go"** — base URL,
   the `apikey` header (not `Authorization`, not a query param), which endpoints are actually
   live, and what a `null` field means (genuinely unset vs. "this schema doesn't track that data,
