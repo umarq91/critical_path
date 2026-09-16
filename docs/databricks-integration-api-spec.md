@@ -609,6 +609,10 @@ Query parameters: `season_code`, `brand_code`, `owner_id`, `date_from`, `date_to
 
 ### `GET /reports/task-summary`
 
+**BUILT**, same shape and gaps as `/dashboard-summary` (see `endpoint-docs.ts`'s note), plus a
+fourth breakdown, `by_owner`, grouped on the same joined `owner_name` string
+`/reports/overdue-tasks` and the `tasks-by-*` reports already surface per task.
+
 Purpose: optional report summary endpoint for filtered report views
 
 Query parameters: `date_from`, `date_to`, `season_code`, `brand_code`, `owner_name`, `status`

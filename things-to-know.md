@@ -1318,6 +1318,20 @@ already there), not a rename-and-ship exercise.
   the id `tasks` actually stores), and `lib/integration/task-group-facts.ts` (the paginated
   whole-table fact-fetch + grouping/counting shared by both `tasks-by-*` reports, same
   page-through-1000-rows shape as `data/dashboard.ts`'s own `listTaskFacts`).
+- **`resolveOwnerNames()` (`lib/integration/task-owners.ts`) batches its `task_participants`
+  lookup in chunks of 250 ids, not one `.in("task_id", ids)` call** — found the hard way building
+  `/reports/task-summary`: called unfiltered over this app's ~800-task dataset, one unbatched call
+  produced a query string long enough that the request failed outright (caught by the route's
+  generic try/catch and surfaced as a misleading `400 Invalid query parameters`, not a 5xx, which
+  is what made it easy to miss in a quick smoke test — always test the *unfiltered* call for any
+  endpoint that fans out into a `resolveOwnerNames()` lookup, not just filtered ones with a small
+  result set). `/reports/overdue-tasks` was never actually safe here either — it just happened to
+  only ever call this with one page's worth of ids (≤ `page_size`, max 2000) instead of a whole
+  unfiltered table. Every current caller of `resolveOwnerNames()` (`overdue-tasks.ts`,
+  `task-summary.ts`) gets the fix for free; no caller-side chunking needed. (`tasks-by-season.ts`/
+  `tasks-by-brand.ts` only call this file's *other* export, `resolveTaskIdsForOwnerName` — the
+  `owner_name` filter direction, not the per-task display-name lookup — so they were never
+  exposed to this bug in the first place.)
 - **`overdue_count`/`status: "overdue"` across all three report endpoints trusts the STORED
   `tasks.status` column — it does not derive "is this task overdue" live from `due_date`.**
   This matters because **nothing in this codebase auto-stamps that status today**: no
@@ -1400,6 +1414,19 @@ already there), not a rename-and-ship exercise.
   groups with ≥1 matching task, same "don't zero-fill an empty group" convention the two
   `tasks-by-*` reports use; `by_brand` under-counts against `totals.total_tasks` for the same
   reason `/reports/tasks-by-brand` does (`tasks.brand_id` is nullable).
+- **`/reports/task-summary` is live** — same non-paginated single-object shape and gaps as
+  `/dashboard-summary` (`lib/integration/task-summary.ts` reuses the same `fetchTaskGroupFacts`),
+  plus a fourth breakdown neither `/dashboard-summary` nor the `tasks-by-*` reports have:
+  `by_owner`. It groups on the exact same joined `owner_name` string `/reports/overdue-tasks`/
+  `/calendar-events` already compute per task via `resolveOwnerNames` (departments first, then
+  people, alphabetical, comma-joined) — a task with two owners is its own bucket
+  ("Product Development, Vendor"), not split across two buckets, since that's how `owner_name`
+  reads everywhere else in this API. A task with no owner participant at all is skipped from
+  `by_owner`, same "omit rather than zero-fill" convention the other breakdowns already use for
+  an empty group. **This endpoint's `owner_name` filter is a different shape than
+  `/dashboard-summary`'s `owner_id`** — department-or-person by display name
+  (`resolveTaskIdsForOwnerName`), not a `profiles.id`-only equality lookup — match whichever one
+  a new endpoint's own spec section actually names, they're not interchangeable.
 - **`integrations-info-card.tsx` is the one explanation of "where does the key go"** — base URL,
   the `apikey` header (not `Authorization`, not a query param), which endpoints are actually
   live, and what a `null` field means (genuinely unset vs. "this schema doesn't track that data,

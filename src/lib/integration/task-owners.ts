@@ -25,19 +25,38 @@ function sortOwners(owners: Owner[]) {
 // Same join-into-one-string idiom as the app's own partyNames() (tasks/export/task-record-columns.ts):
 // departments first, then people, alphabetical within each — same ordering task-parties.ts uses
 // for the grid, so this reads the same way the app itself does.
+// Batched rather than one `.in("task_id", taskIds)` call — a GET request's query string grows
+// with every id (36 chars each), and PostgREST/the Supabase edge in front of it rejects a URL
+// past a few KB. 250 ids/batch keeps every request comfortably under that regardless of caller;
+// `/reports/overdue-tasks` was previously safe by accident (never called with more than one
+// page's worth of ids), `/reports/task-summary` calling this over an unfiltered ~800-task result
+// set is what surfaced the bug.
+const OWNER_LOOKUP_BATCH_SIZE = 250;
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const batches: T[][] = [];
+  for (let i = 0; i < items.length; i += size) batches.push(items.slice(i, i + size));
+  return batches;
+}
+
 export async function resolveOwnerNames(supabase: SupabaseClient, taskIds: string[]): Promise<Map<string, string>> {
   const names = new Map<string, string>();
   if (taskIds.length === 0) return names;
 
-  const { data, error } = await supabase
-    .from("task_participants")
-    .select("task_id, profile:profiles(full_name, email), department:departments(name)")
-    .eq("role", "owner")
-    .in("task_id", taskIds);
-  if (error) throw error;
+  const batches = await Promise.all(
+    chunk(taskIds, OWNER_LOOKUP_BATCH_SIZE).map(async (batch) => {
+      const { data, error } = await supabase
+        .from("task_participants")
+        .select("task_id, profile:profiles(full_name, email), department:departments(name)")
+        .eq("role", "owner")
+        .in("task_id", batch);
+      if (error) throw error;
+      return (data ?? []) as unknown as OwnerRow[];
+    })
+  );
 
   const byTask = new Map<string, Owner[]>();
-  for (const row of (data ?? []) as unknown as OwnerRow[]) {
+  for (const row of batches.flat()) {
     const owner: Owner | null = row.department
       ? { kind: "department", name: row.department.name }
       : row.profile

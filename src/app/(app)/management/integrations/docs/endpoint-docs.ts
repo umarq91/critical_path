@@ -479,9 +479,10 @@ export const ENDPOINT_DOCS: EndpointDoc[] = [
   {
     method: "GET",
     path: "/reports/task-summary",
-    status: "planned",
+    status: "live",
     purpose: "Optional report summary endpoint for filtered report views.",
     queryParams: params("date_from", "date_to", "season_code", "brand_code", "owner_name", "status"),
+    note: "Same shape and gaps as /dashboard-summary (overdue_tasks trusts stored tasks.status; by_brand under-counts against totals.total_tasks since tasks.brand_id is nullable), plus a fourth breakdown, by_owner, dashboard-summary doesn't have. Unlike /dashboard-summary's owner_id (a profiles.id only), owner_name here matches a department or person by display name, same as /reports/overdue-tasks and the tasks-by-* reports. by_owner groups on the same joined owner_name string those endpoints already surface per task (departments first, then people, alphabetical, comma-joined for multi-owner tasks) — a task jointly owned by two parties is its own bucket, not split into two; a task with no owner participant at all is omitted from by_owner entirely. by_status/by_season/by_brand/by_owner all omit empty groups rather than zero-filling them. Not paginated — no cursor/page_size, one aggregate object; as_of and generated_at are the same instant.",
     exampleResponse: {
       data: {
         as_of: "2026-08-02T10:30:00Z",
@@ -489,7 +490,12 @@ export const ENDPOINT_DOCS: EndpointDoc[] = [
         metric_definition_version: "v1",
         filters: { date_from: "2026-05-01", date_to: "2026-05-31", season_code: null, brand_code: null, owner_name: null, status: null },
         totals: { total_tasks: 248, completed_tasks: 98, in_progress_tasks: 65, overdue_tasks: 10 },
-        breakdowns: { by_status: [], by_season: [], by_brand: [], by_owner: [] },
+        breakdowns: {
+          by_status: [{ status: "completed", count: 98 }],
+          by_season: [{ season_code: "RES H2'26", count: 42, percent: 16.9 }],
+          by_brand: [{ brand_name: "Brand A", count: 30, percent: 12.1 }],
+          by_owner: [{ owner_name: "Brand Managers", count: 25, percent: 10.1 }],
+        },
       },
       meta: { schema_version: "v1", as_of: "2026-08-02T10:30:00Z" },
     },
