@@ -34,7 +34,8 @@ export function AppSidebar({ role }: { role: Role }) {
             priority
             className="h-10 w-auto object-contain"
           />
-          <span className="text-overline italic text-foreground">Critical Path</span>
+          {/* text-overline's size/tracking doubled just for this wordmark, not the shared utility other labels still use. */}
+          <span className="text-[22px] font-bold uppercase tracking-[0.02em] text-foreground">Critical Path</span>
         </div>
       </SidebarHeader>
       <SidebarContent className="gap-6 px-1 py-2">
