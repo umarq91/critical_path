@@ -33,10 +33,13 @@ export function GoogleButton({ next }: { next: string }) {
           // boundary on its own — the callback route re-verifies the signed-in email's
           // domain server-side, since `hd` can be bypassed client-side.
           hd: publicEnv.NEXT_PUBLIC_GOOGLE_WORKSPACE_DOMAIN,
-          // consent (not just select_account) is required every sign-in to reliably get a
-          // refresh_token back — Google only issues one on the first-ever consent otherwise.
           access_type: "offline",
-          prompt: "select_account consent",
+          // select_account only — NOT "consent". Forcing consent shows the permission screen
+          // on every sign-in, forever. Google only returns a refresh_token on the first-ever
+          // grant regardless of this setting; every sign-in after that comes back without one,
+          // and saveGoogleTokens (lib/google/oauth-tokens.ts) already keeps the one already on
+          // file in that case — so there's nothing to force here after the first consent.
+          prompt: "select_account",
         },
       },
     });
