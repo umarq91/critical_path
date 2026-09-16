@@ -10,7 +10,7 @@ import { TextField } from "@/components/form-fields/text-field";
 import { createClient } from "@/lib/supabase/client";
 import { passwordSignInSchema, type PasswordSignInInput } from "@/app/auth/schema";
 
-const DEACTIVATED_MESSAGE = "This account has been deactivated. Contact an administrator.";
+const DEACTIVATED_MESSAGE = "Unable to log in, please contact techsupport@threebyone.com.au";
 
 function isBannedError(error: { code?: string; message: string }): boolean {
   return error.code === "user_banned" || error.message.toLowerCase().includes("banned");

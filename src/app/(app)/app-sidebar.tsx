@@ -25,7 +25,7 @@ export function AppSidebar({ role }: { role: Role }) {
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="px-2 pt-4 pb-2">
-        <div className="flex h-14 items-center px-2 group-data-[collapsible=icon]:hidden">
+        <div className="flex flex-col items-center gap-1 px-2 group-data-[collapsible=icon]:hidden">
           <Image
             src="/icons/logo.jpeg"
             alt="Three by one"
@@ -34,6 +34,7 @@ export function AppSidebar({ role }: { role: Role }) {
             priority
             className="h-10 w-auto object-contain"
           />
+          <span className="text-overline italic text-foreground">Critical Path</span>
         </div>
       </SidebarHeader>
       <SidebarContent className="gap-6 px-1 py-2">

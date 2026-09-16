@@ -9,7 +9,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   domain: "Please sign in with your Threebyone Google Workspace account.",
   external_account:
     "This account signs in with an email and password, not with Google. Use the form below.",
-  deactivated: "This account has been deactivated. Contact an administrator.",
+  deactivated: "Unable to log in, please contact techsupport@threebyone.com.au",
 };
 
 export default async function SignInPage({ searchParams }: PageProps<"/auth/sign-in">) {
