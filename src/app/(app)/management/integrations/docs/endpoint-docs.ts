@@ -456,9 +456,10 @@ export const ENDPOINT_DOCS: EndpointDoc[] = [
   {
     method: "GET",
     path: "/dashboard-summary",
-    status: "planned",
+    status: "live",
     purpose: "Optional summary endpoint for the dashboard headline values.",
     queryParams: params("season_code", "brand_code", "owner_id", "date_from", "date_to"),
+    note: "`overdue_tasks` trusts the stored `tasks.status` column, not a live check against `due_date` — same known gap as every /reports/* endpoint (no status-rollover cron exists yet, see things-to-know.md's Tasks section). `owner_id` means a `profiles.id` specifically, unlike every other endpoint's `owner_name` — a task owned only by a department (Vendor, Supplier, ...) can never match this filter, which is correct given the spec's literal wording, not a gap. `by_status`/`by_season`/`by_brand` only include groups with at least one matching task — a status/season/brand with zero results after filtering is omitted, not sent as a zeroed-out row. `by_brand` under-counts relative to `totals.total_tasks` for the same reason /reports/tasks-by-brand does: `tasks.brand_id` is nullable, so a task with no brand contributes to no group. Not paginated — no cursor/page_size, since this is one aggregate object, not a row list; `as_of` and `generated_at` are the same instant.",
     exampleResponse: {
       data: {
         as_of: "2026-08-02T10:30:00Z",

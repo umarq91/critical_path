@@ -92,3 +92,15 @@ export async function resolveTaskIdsForOwnerName(supabase: SupabaseClient, owner
 
   return [...new Set((data ?? []).map((row) => row.task_id))];
 }
+
+// /dashboard-summary's `owner_id` param, per the spec, means a `profiles.id` specifically —
+// unlike `owner_name` above, this can never match a department-only owner (Vendor, Supplier,
+// ...), which is correct given the spec's literal wording ("owner profile id"), not a gap. No
+// name resolution needed since the caller already has the id; a direct equality filter on the
+// polymorphic `task_participants.profile_id` column.
+export async function resolveTaskIdsForOwnerProfileId(supabase: SupabaseClient, ownerId: string): Promise<string[]> {
+  const { data, error } = await supabase.from("task_participants").select("task_id").eq("role", "owner").eq("profile_id", ownerId);
+  if (error) throw error;
+
+  return [...new Set((data ?? []).map((row) => row.task_id))];
+}

@@ -1384,6 +1384,22 @@ already there), not a rename-and-ship exercise.
   requires a UUID `id` and a real timestamp, neither of which a role has) — a "resume after this
   role code, in a fixed `ROLE_ORDER` array" scheme instead, sized for a dataset that will only
   ever have 4 rows.
+- **`/dashboard-summary` is live** — the first endpoint to combine `totals` + multiple
+  `breakdowns` in one non-paginated aggregate object (same `{ schema_version, as_of }` meta shape
+  as `tasks-by-season`/`tasks-by-brand`, since there's nothing to page through). Reuses
+  `lib/integration/task-group-facts.ts`'s `fetchTaskGroupFacts` — the same whole-table fact fetch
+  the two `tasks-by-*` reports already use — then buckets the result three ways in
+  `lib/integration/dashboard-summary.ts` rather than three separate queries. `overdue_tasks`
+  carries the same trusted-stored-status gap as every other aggregate here. **`owner_id` is a
+  genuinely different filter than every other endpoint's `owner_name`** — the spec's own param
+  name for this endpoint, and it means a `profiles.id` specifically
+  (`lib/integration/task-owners.ts`'s `resolveTaskIdsForOwnerProfileId`, a direct equality
+  lookup, no name search needed since the caller already has the id). A task owned only by a
+  department (Vendor, Supplier, ...) can never match `owner_id`, by design — it's a different
+  filter from `owner_name`, not a lesser one. `by_status`/`by_season`/`by_brand` only include
+  groups with ≥1 matching task, same "don't zero-fill an empty group" convention the two
+  `tasks-by-*` reports use; `by_brand` under-counts against `totals.total_tasks` for the same
+  reason `/reports/tasks-by-brand` does (`tasks.brand_id` is nullable).
 - **`integrations-info-card.tsx` is the one explanation of "where does the key go"** — base URL,
   the `apikey` header (not `Authorization`, not a query param), which endpoints are actually
   live, and what a `null` field means (genuinely unset vs. "this schema doesn't track that data,

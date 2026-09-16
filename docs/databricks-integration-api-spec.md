@@ -564,6 +564,12 @@ Query parameters: `cursor`, `page_size`, `updated_since`, `include_deleted`
 
 ### `GET /dashboard-summary`
 
+**BUILT**, with a couple of deviations from the literal shape below — see `endpoint-docs.ts`'s
+note. `owner_id` matches a `profiles.id` only (this endpoint's own param, distinct from every
+other endpoint's `owner_name`, which also matches a department); `overdue_tasks` trusts stored
+`tasks.status` like every other aggregate in this API; `by_status`/`by_season`/`by_brand` omit
+empty groups rather than zeroing them.
+
 Purpose: optional summary endpoint for the dashboard headline values
 
 Query parameters: `season_code`, `brand_code`, `owner_id`, `date_from`, `date_to`
