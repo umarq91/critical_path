@@ -3,7 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { requirePermission } from "@/lib/require-permission";
 import { listTasksForProfile, type ListTasksParams } from "@/data/tasks";
-import { reminderTimingSchema, reminderTasksSchema } from "@/app/(app)/settings/notifications/reminder-schema";
+import {
+  reminderTimingSchema,
+  reminderTasksSchema,
+  reminderEnabledSchema,
+} from "@/app/(app)/settings/notifications/reminder-schema";
 import type { createClient } from "@/lib/supabase/server";
 
 type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
@@ -53,8 +57,28 @@ export async function updateReminderTiming(input: unknown) {
     .update({
       offset_days: parsed.data.offsetDays,
       notify_hour: parsed.data.notifyHour,
-      is_enabled: parsed.data.isEnabled,
     })
+    .eq("id", ruleId);
+  if (error) return { ok: false as const, error: error.message };
+
+  revalidatePath("/settings/notifications");
+  return { ok: true as const };
+}
+
+// Backs the top-level "Email reminders" toggle (notify-enabled-card.tsx), which gates whether
+// Step 1/Step 2 are even usable — kept separate from updateReminderTiming so flipping it doesn't
+// require (or clobber) whatever offsetDays/notifyHour are currently unsaved in the timing card.
+export async function updateReminderEnabled(input: unknown) {
+  const auth = await requirePermission("profile.update_own");
+  if (!auth.ok) return auth;
+
+  const parsed = reminderEnabledSchema.safeParse(input);
+  if (!parsed.success) return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid input" };
+
+  const ruleId = await ensureReminderRuleId(auth.supabase, auth.userId);
+  const { error } = await auth.supabase
+    .from("reminder_rules")
+    .update({ is_enabled: parsed.data.isEnabled })
     .eq("id", ruleId);
   if (error) return { ok: false as const, error: error.message };
 

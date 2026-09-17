@@ -16,13 +16,17 @@ interface NotifyTasksCardProps {
   initialTasks: ReminderRuleTask[];
   seasonOptions: FilterSelectOption[];
   ownerOptions: FilterSelectOption[];
+  /** True while the top-level "Email reminders" toggle (notify-enabled-card.tsx) is off — the
+   *  card stays visible but inert, so the user can see what Step 1 involves without being able
+   *  to touch it, rather than it vanishing outright. */
+  disabled?: boolean;
 }
 
 // "Which tasks?" — v1's one and only scope mechanism: specific tasks the user picks, from the
 // same set My Tasks shows them (see listMyReminderCandidateTasks). Season/owner are filters
 // *inside* the picker dialog, not a second scope type to keep in step with this one (see
 // reminder_rule_tasks in schema.md).
-export const NotifyTasksCard = ({ initialTasks, seasonOptions, ownerOptions }: NotifyTasksCardProps) => {
+export const NotifyTasksCard = ({ initialTasks, seasonOptions, ownerOptions, disabled = false }: NotifyTasksCardProps) => {
   const [selected, setSelected] = useState<Map<string, ReminderRuleTask>>(
     () => new Map(initialTasks.map((task) => [task.id, task]))
   );
@@ -74,10 +78,24 @@ export const NotifyTasksCard = ({ initialTasks, seasonOptions, ownerOptions }: N
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Which tasks?</CardTitle>
-        <CardDescription>Pick which of your own tasks you want reminded about.</CardDescription>
+        <CardTitle className="flex items-center gap-2">
+          <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
+            1
+          </span>
+          Which tasks?
+        </CardTitle>
+        <CardDescription>
+          Start here — pick which of your own tasks you want reminded about. Nothing gets emailed for a task
+          that isn&apos;t selected here, no matter what you set in Step 2.
+        </CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col gap-4">
+      <CardContent
+        className={disabled ? "flex flex-col gap-4 opacity-50" : "flex flex-col gap-4"}
+        // `inert` (React 19+ supports it natively) blocks all pointer/keyboard interaction in
+        // the subtree, unlike pointer-events-none alone which still leaves buttons tab-focusable
+        // and clickable via Enter/Space.
+        inert={disabled}
+      >
         <FormDialog
           title="Select tasks"
           description="Only your own tasks — created by, owned by, or involving you — are shown."
@@ -85,7 +103,7 @@ export const NotifyTasksCard = ({ initialTasks, seasonOptions, ownerOptions }: N
           open={isDialogOpen}
           onOpenChange={setIsDialogOpen}
           trigger={
-            <Button variant="outline" className="w-fit gap-1.5">
+            <Button variant="outline" className="w-fit gap-1.5" disabled={disabled}>
               <Plus />
               Select tasks...
             </Button>
@@ -131,9 +149,17 @@ export const NotifyTasksCard = ({ initialTasks, seasonOptions, ownerOptions }: N
           <p className="text-sm text-muted-foreground">No tasks selected yet — you won&apos;t get any reminder emails.</p>
         )}
 
-        <Button onClick={handleSave} disabled={isSaving} className="self-start">
-          {isSaving ? "Saving…" : "Save"}
-        </Button>
+        <div className="flex flex-col gap-2">
+          <Button onClick={handleSave} disabled={isSaving || disabled} className="self-start">
+            {isSaving ? "Saving…" : "Save"}
+          </Button>
+          {selectedTasks.length > 0 ? (
+            <p className="text-xs text-muted-foreground">
+              Saved your picks? Head to <span className="font-medium text-foreground">Step 2</span> below to set when
+              you&apos;ll be emailed about them.
+            </p>
+          ) : null}
+        </div>
       </CardContent>
     </Card>
   );

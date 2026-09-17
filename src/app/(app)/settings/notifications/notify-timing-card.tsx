@@ -7,7 +7,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   REMINDER_OFFSET_PRESETS,
@@ -25,6 +24,13 @@ function hourLabel(hour: number) {
 
 interface NotifyTimingCardProps {
   initialRule: ReminderRule | null;
+  /** From the server-rendered task count as of last save (Step 1) — used only for the
+   *  "you haven't picked any tasks yet" nudge below, not for anything that affects sending. */
+  hasSelectedTasks: boolean;
+  timezoneLabel: string;
+  /** True while the top-level "Email reminders" toggle (notify-enabled-card.tsx) is off — the
+   *  card stays visible but inert, same treatment as notify-tasks-card.tsx's Step 1. */
+  disabled?: boolean;
 }
 
 // "Notify me" — the reminder's timing: which day-offsets before due_date to send at, and what
@@ -36,10 +42,9 @@ interface NotifyTimingCardProps {
 // group, chip list, a Select) with nothing resembling a registered <input>, so RHF would add a
 // dependency without buying anything — validation is one reminderTimingSchema.safeParse() call
 // on submit instead.
-export const NotifyTimingCard = ({ initialRule }: NotifyTimingCardProps) => {
+export const NotifyTimingCard = ({ initialRule, hasSelectedTasks, timezoneLabel, disabled = false }: NotifyTimingCardProps) => {
   const [offsetDays, setOffsetDays] = useState<number[]>(initialRule?.offsetDays ?? []);
   const [notifyHour, setNotifyHour] = useState(initialRule?.notifyHour ?? 9);
-  const [isEnabled, setIsEnabled] = useState(initialRule?.isEnabled ?? true);
   const [customInput, setCustomInput] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -66,7 +71,7 @@ export const NotifyTimingCard = ({ initialRule }: NotifyTimingCardProps) => {
   }
 
   async function handleSave() {
-    const parsed = reminderTimingSchema.safeParse({ offsetDays, notifyHour, isEnabled });
+    const parsed = reminderTimingSchema.safeParse({ offsetDays, notifyHour });
     if (!parsed.success) {
       setError(parsed.error.issues[0]?.message ?? "Invalid input");
       return;
@@ -87,14 +92,24 @@ export const NotifyTimingCard = ({ initialRule }: NotifyTimingCardProps) => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Notify me</CardTitle>
-        <CardDescription>Choose when to get an email reminder before a task&apos;s due date.</CardDescription>
+        <CardTitle className="flex items-center gap-2">
+          <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
+            2
+          </span>
+          Notify me
+        </CardTitle>
+        <CardDescription>
+          Then choose when to get an email reminder before a task&apos;s due date — this applies only to the
+          tasks you selected in Step 1.
+        </CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col gap-5">
-        <label className="flex items-center gap-2 text-sm text-foreground">
-          <Checkbox checked={isEnabled} onCheckedChange={(checked) => setIsEnabled(!!checked)} />
-          <Label className="cursor-pointer font-normal">Reminders on</Label>
-        </label>
+      <CardContent className={disabled ? "flex flex-col gap-5 opacity-50" : "flex flex-col gap-5"} inert={disabled}>
+        {!hasSelectedTasks ? (
+          <p className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+            You haven&apos;t selected any tasks yet in Step 1 — timing settings here won&apos;t send any email until
+            you do.
+          </p>
+        ) : null}
 
         <div className="flex flex-col gap-2">
           <span className="text-sm font-medium text-foreground">When</span>
@@ -154,9 +169,13 @@ export const NotifyTimingCard = ({ initialRule }: NotifyTimingCardProps) => {
               ))}
             </SelectContent>
           </Select>
+          <p className="text-xs text-muted-foreground">
+            Your email goes out within about 15 minutes of this time, in {timezoneLabel} time — not at the exact
+            minute.
+          </p>
         </div>
 
-        <Button type="button" onClick={handleSave} disabled={isSaving} className="self-start">
+        <Button type="button" onClick={handleSave} disabled={isSaving || disabled} className="self-start">
           {isSaving ? "Saving…" : "Save"}
         </Button>
       </CardContent>

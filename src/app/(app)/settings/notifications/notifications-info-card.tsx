@@ -30,15 +30,20 @@ export const NotificationsInfoCard = ({ timezoneLabel }: NotificationsInfoCardPr
         <CollapsibleContent>
           <CardContent className="pt-0">
             <ul className="list-disc space-y-1.5 pl-5 text-sm text-muted-foreground">
-              <li>Reminders are personal — only the tasks you pick below get emailed to you, no one else.</li>
               <li>
-                Choose one or more &quot;days before due date&quot; timings and a time of day below; your email goes
-                out within about 15 minutes of that time, in {timezoneLabel} time.
+                Turn on <strong className="font-medium text-foreground">Email reminders</strong> above to reveal two
+                steps, both required: <strong className="font-medium text-foreground">Step 1</strong> pick your
+                tasks, <strong className="font-medium text-foreground">Step 2</strong> choose when to be emailed
+                about them. Reminders are personal — only the tasks you pick get emailed to you, no one else.
+              </li>
+              <li>
+                In Step 2, choose one or more &quot;days before due date&quot; timings and a time of day; your
+                email goes out within about 15 minutes of that time, in {timezoneLabel} time.
               </li>
               <li>A task needs a due date to be reminded about — anything without one is skipped, even if selected.</li>
               <li>Completed or deleted tasks are dropped automatically, even if still on your list.</li>
               <li>Each timing only ever sends once per task, so you won&apos;t get the same reminder twice.</li>
-              <li>Turn &quot;Reminders on&quot; off any time to pause everything without losing your saved tasks or timings.</li>
+              <li>Turn the top toggle off any time to pause everything without losing your saved tasks or timings.</li>
             </ul>
           </CardContent>
         </CollapsibleContent>

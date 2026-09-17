@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { reconcileProfileRole } from "@/lib/google/role-sync";
 import { saveGoogleTokens } from "@/lib/google/oauth-tokens";
 import { isWorkspaceEmail } from "@/lib/calendar-eligibility";
+import { isBannedError } from "@/lib/auth-errors";
 import { ROLE } from "@/constants/roles";
 import { ROUTES } from "@/constants/routes";
 
@@ -29,15 +30,28 @@ export async function GET(request: Request) {
   const supabase = await createClient();
   const { data: exchangeData, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
   if (exchangeError) {
-    return NextResponse.redirect(new URL(`${ROUTES.signIn}?error=auth`, url.origin));
+    // A deactivated account is banned in Supabase Auth (management/users/_actions.ts), so the
+    // exchange itself fails here — it never reaches the profile.status check below, since
+    // there's no session/user yet to look a profile up for. isBannedError (lib/auth-errors.ts)
+    // is the same check password-form.tsx uses for its own banned-user case: `.code` alone isn't
+    // reliably populated for this rejection, so the message substring is the check that actually
+    // fires in practice, not just a fallback.
+    const errorCode = isBannedError(exchangeError) ? "deactivated" : "auth";
+    return NextResponse.redirect(new URL(`${ROUTES.signIn}?error=${errorCode}`, url.origin));
   }
 
   const {
     data: { user },
+    error: getUserError,
   } = await supabase.auth.getUser();
 
   if (!user?.email) {
-    return NextResponse.redirect(new URL(`${ROUTES.signIn}?error=auth`, url.origin));
+    // For the Google/PKCE flow, a banned account's rejection surfaces here rather than at
+    // exchangeCodeForSession above — that call can succeed (tokens minted) even for a banned
+    // user, with the ban only enforced on this subsequent /user lookup. Password sign-in doesn't
+    // have this two-step shape, which is why isBannedError only needed checking once there.
+    const errorCode = getUserError && isBannedError(getUserError) ? "deactivated" : "auth";
+    return NextResponse.redirect(new URL(`${ROUTES.signIn}?error=${errorCode}`, url.origin));
   }
 
   // Read through the service role: this runs before the domain decision below, so it has to

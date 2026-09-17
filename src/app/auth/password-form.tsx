@@ -9,12 +9,9 @@ import { Form } from "@/components/ui/form";
 import { TextField } from "@/components/form-fields/text-field";
 import { createClient } from "@/lib/supabase/client";
 import { passwordSignInSchema, type PasswordSignInInput } from "@/app/auth/schema";
+import { isBannedError } from "@/lib/auth-errors";
 
 const DEACTIVATED_MESSAGE = "Unable to log in, please contact techsupport@threebyone.com.au";
-
-function isBannedError(error: { code?: string; message: string }): boolean {
-  return error.code === "user_banned" || error.message.toLowerCase().includes("banned");
-}
 
 // Email + password sign-in, for external platform users an admin created (see
 // management/users). Google Workspace staff use the Google button above this and never have

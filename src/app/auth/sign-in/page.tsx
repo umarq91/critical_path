@@ -4,12 +4,19 @@ import { GoogleButton } from "@/app/auth/google-button";
 import { PasswordForm } from "@/app/auth/password-form";
 import { ROUTES } from "@/constants/routes";
 
+// "auth" is deliberately the same text as "deactivated": in practice almost every hit of the
+// generic auth-failure branch in callback/route.ts turns out to be a banned/deactivated account
+// whose exact error shape didn't match isBannedError()'s check, not a genuine transient failure —
+// see things-to-know.md's Auth section. Showing the deactivated message by default is more often
+// right than "try again" would be.
+const DEACTIVATED_MESSAGE = "Unable to log in, please contact techsupport@threebyone.com.au";
+
 const ERROR_MESSAGES: Record<string, string> = {
-  auth: "Something went wrong signing you in. Please try again.",
+  auth: DEACTIVATED_MESSAGE,
   domain: "Please sign in with your Threebyone Google Workspace account.",
   external_account:
     "This account signs in with an email and password, not with Google. Use the form below.",
-  deactivated: "Unable to log in, please contact techsupport@threebyone.com.au",
+  deactivated: DEACTIVATED_MESSAGE,
 };
 
 export default async function SignInPage({ searchParams }: PageProps<"/auth/sign-in">) {
@@ -28,9 +35,9 @@ export default async function SignInPage({ searchParams }: PageProps<"/auth/sign
           priority
           className="h-14 w-auto object-contain"
         />
-        {/* Same treatment as the sidebar's wordmark (app-sidebar.tsx) — same hex, sampled from
-            the logo's own ink, so both instances of this text match the logo exactly. */}
-        <span className="text-2xl font-bold uppercase tracking-[0.02em] text-[#393A3C]">Critical Path</span>
+        {/* Same treatment as the sidebar's wordmark (app-sidebar.tsx) — same hex, weight, and font-serif,
+            matching the logo's own ink and typeface, so both instances match the logo exactly. */}
+        <span className="text-2xl font-light uppercase tracking-[0.02em] text-[#3B3D3F] font-serif">Critical Path</span>
         {/* <p className="text-sm text-muted-foreground">Threebyone Pty Ltd</p> */}
       </div>
 

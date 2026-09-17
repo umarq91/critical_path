@@ -1,7 +1,6 @@
 import { PageHeader } from "@/components/shared/page-header";
 import { NotificationsInfoCard } from "@/app/(app)/settings/notifications/notifications-info-card";
-import { NotifyTimingCard } from "@/app/(app)/settings/notifications/notify-timing-card";
-import { NotifyTasksCard } from "@/app/(app)/settings/notifications/notify-tasks-card";
+import { NotificationsConfig } from "@/app/(app)/settings/notifications/notifications-config";
 import { getMyReminderRule, REMINDER_ORG_TIMEZONE } from "@/data/reminders";
 import { listSeasonOptions } from "@/data/seasons";
 import { listPartyOptions } from "@/data/parties";
@@ -31,15 +30,17 @@ export default async function SettingsNotificationsPage() {
     <div className="flex flex-col">
       <PageHeader
         title="Email notifications"
-        description="Email configuration for your own task reminders — choose when reminder emails go out and which tasks they cover."
+        description="Turn reminders on, then pick your tasks and set when to be emailed about them."
       />
       <div className="grid grid-cols-1 gap-4 px-6 pb-6 lg:grid-cols-2">
         <NotificationsInfoCard timezoneLabel={TIMEZONE_LABEL} />
-        <NotifyTimingCard initialRule={reminderRule} />
-        <NotifyTasksCard
+        <NotificationsConfig
+          initialIsEnabled={reminderRule?.isEnabled ?? true}
           initialTasks={reminderRule?.tasks ?? []}
+          initialRule={reminderRule}
           seasonOptions={seasonOptions}
           ownerOptions={parties}
+          timezoneLabel={TIMEZONE_LABEL}
         />
       </div>
     </div>

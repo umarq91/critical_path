@@ -35,8 +35,9 @@ export function AppSidebar({ role }: { role: Role }) {
             className="h-10 w-auto object-contain"
           />
           {/* text-overline's size/tracking doubled just for this wordmark, not the shared utility other labels still use.
-              Color is sampled from the logo.jpeg wordmark ink (#393A3C), not --foreground, so this text visually matches the logo. */}
-          <span className="text-[22px] font-bold uppercase tracking-[0.02em] text-[#393A3C]">Critical Path</span>
+              #3B3D3F and font-light are a deliberate close match to the logo's own ink and weight, not --foreground.
+              font-serif matches the logo's serif typeface (Tailwind's default stack, e.g. Georgia — the app body text stays font-sans). */}
+          <span className="text-[22px] font-light uppercase tracking-[0.02em] text-[#3B3D3F] font-serif">Critical Path</span>
         </div>
       </SidebarHeader>
       <SidebarContent className="gap-6 px-1 py-2">

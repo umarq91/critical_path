@@ -58,9 +58,28 @@ role, which is true but meaningless, since the action only bites once a task is 
 "deactivating" a user changed a badge. It is now enforced in **five** places that must stay
 consistent — change one, check the rest:
 1. `updateUser` bans the account in Supabase Auth (`ban_duration`), so no token is issued at all.
-2. `password-form.tsx` maps a banned-user error to the deactivated message, and re-checks status
-   after a successful sign-in.
-3. `auth/callback/route.ts` refuses the Google path for a non-active profile.
+2. `password-form.tsx` maps a banned-user error to the deactivated message via the shared
+   `isBannedError()` (`lib/auth-errors.ts`), checking both `error.code === "user_banned"` and a
+   `.message` substring, and this reliably works for that flow.
+   **The Google/PKCE flow (`auth/callback/route.ts`) never reliably surfaced the ban as a
+   detectable error at all**, despite two attempts: first checking `exchangeCodeForSession`'s
+   error, then also `getUser()`'s (the exchange can succeed — tokens minted — with the ban
+   possibly enforced one call later, unlike `signInWithPassword`'s single-step rejection). Both
+   real deactivated-account test logins (`cp.test1@`, `cp.test3@threebyone.com.au`, both confirmed
+   genuinely banned via the GoTrue admin API) still fell through to the generic case, meaning
+   whatever error Supabase actually returns here doesn't match `isBannedError()`'s code or message
+   check at either point — the exact shape was never pinned down.
+   **Current state is a deliberate workaround, not a fix**: `sign-in/page.tsx`'s `ERROR_MESSAGES`
+   makes `"auth"` display the same text as `"deactivated"`, on the reasoning that a real "auth"
+   hit is far more often a mis-detected ban than a genuine transient failure. This means a
+   non-deactivated user hitting a real Google sign-in error also sees the deactivated/contact-
+   support message, which is a real (accepted) regression in message accuracy for that rare case.
+   If the exact Supabase error shape for this flow is ever captured (e.g. via Vercel function
+   logs during a live repro), `isBannedError()`/the two checks in `callback/route.ts` should be
+   corrected and this override in `sign-in/page.tsx` reverted to a real "something went wrong"
+   message.
+3. The profile.status check in `callback/route.ts` is a backstop for the pre-`0018` case where an
+   account is inactive but never got banned, not the normal path.
 4. `is_active_user()` in every task/participant/profile RLS policy.
 5. `requirePermission()` in every Server Action, plus the `DeactivatedNotice` branch in
    `(app)/layout.tsx`.
