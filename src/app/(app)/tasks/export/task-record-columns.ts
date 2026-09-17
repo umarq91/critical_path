@@ -54,7 +54,7 @@ export const TASK_RECORD_COLUMN_GROUPS: ExportColumnGroup<Task>[] = [
       {
         key: "gender",
         label: "Gender",
-        description: "The range this task's work belongs to — men, women, or unisex.",
+        description: "The range this task's work belongs to — guys or girls (legacy tasks may still say unisex).",
         category: "basic",
         defaultSelected: true,
         dataType: "string",

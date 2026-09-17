@@ -1,10 +1,12 @@
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { ProfileForm } from "@/app/(app)/settings/general/profile-form";
+import { ProfileDetails } from "@/app/(app)/settings/general/profile-details";
 import { requirePageAccess } from "@/lib/require-page-access";
 
 // Gated on "profile.update_own" (granted to every role) rather than "admin.manage_lookups" —
-// this page is "manage your own account," open to everyone, unlike the rest of Settings.
+// this page is "see your own account," open to everyone, unlike the rest of Settings. It's
+// read-only in full now: name joined email/role/department as a field an admin manages instead
+// (/management/users), per client request — see things-to-know.md's General Settings section.
 export default async function SettingsGeneralPage() {
   const profile = await requirePageAccess("profile.update_own");
 
@@ -15,13 +17,10 @@ export default async function SettingsGeneralPage() {
         <Card className="max-w-lg">
           <CardHeader>
             <CardTitle>Profile</CardTitle>
-            <CardDescription>
-              Update your display name. Email, role, and department are managed by your organisation and can&apos;t be
-              changed here.
-            </CardDescription>
+            <CardDescription>Managed by your organisation. Contact an admin to change any of these.</CardDescription>
           </CardHeader>
           <CardContent>
-            <ProfileForm
+            <ProfileDetails
               fullName={profile.full_name ?? ""}
               email={profile.email}
               role={profile.role}

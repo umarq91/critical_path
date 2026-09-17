@@ -30,10 +30,10 @@ export const TASK_STATUS_VIZ_COLORS = {
   overdue: "var(--status-overdue-base)",
 } as const;
 
+// No "unisex" entry — see constants/task-gender.ts, it's retired from the app layer entirely.
 export const TASK_GENDER_VIZ_COLORS = {
-  men: "var(--gender-men-base)",
-  women: "var(--gender-women-base)",
-  unisex: "var(--gender-unisex-base)",
+  guys: "var(--gender-guys-base)",
+  girls: "var(--gender-girls-base)",
 } as const;
 
 // Deterministic color pick from the palette above, for entities with no stored color of

@@ -124,7 +124,7 @@ export default async function DashboardPage() {
           <TasksByBrandCard groups={metrics.byBrand} className="lg:col-span-2" />
           <BreakdownDonutCard
             title="Tasks by Gender"
-            description="Range split across men, women and unisex"
+            description="Range split across guys and girls"
             allLabel="All Gender"
             groups={toGenderGroups(metrics.byGender)}
           />

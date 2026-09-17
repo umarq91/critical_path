@@ -34,7 +34,7 @@ policy — see `0006_tasks.sql`.
 | `user_role` | `admin`, `standard_user`, `viewer`, `external` | `profiles.role`. `external` (`0017`) = a platform user who is **not** in the client's Google Workspace: created by an admin, signs in with email + password, never through Google. Role and account type are one and the same thing — there is no separate `auth_provider` column, deliberately, so the two can't disagree |
 | `season_status` | `planning`, `upcoming`, `active`, `completed` | `seasons.status` |
 | `brand_status` | `active`, `inactive` | `brands.status` |
-| `task_gender` | `men`, `women`, `unisex` | `tasks.gender` |
+| `task_gender` | `guys`, `girls`, `unisex` | `tasks.gender`. Renamed from `men`/`women` in `0026_task_gender_rename.sql` (`ALTER TYPE ... RENAME VALUE`, so every existing row kept its data). `unisex` is retired — still a legal enum value for old rows, but no longer offered anywhere in the app (`taskGenderValues` in `tasks/schema.ts` is just `guys`/`girls`); see things-to-know.md's Tasks section |
 | `task_status` | `not_started`, `in_progress`, `completed`, `overdue` | `tasks.status` |
 | `task_priority` | `high`, `med`, `low` | `tasks.priority` |
 | `task_dpsp_category` | `demand`, `product`, `sales`, `profit` | `tasks.dpsp_category` |
@@ -73,7 +73,7 @@ policy — see `0006_tasks.sql`.
 | `created_at` | timestamptz | |
 | `updated_at` | timestamptz | auto |
 
-**RLS (rewritten in `0018`):** reading your own row is unconditional — a deactivated user must still be able to load their own profile, or `(app)/layout.tsx` can't distinguish "deactivated" from "signed out" and ping-pongs against `proxy.ts`. Beyond that: an active internal user reads every profile (needed for owner/assignee pickers); an active `external` user reads only profiles sharing a task with them (`profile_shares_task_with_current_user`); an inactive user reads nothing else. Update allowed for self or admin — but a trigger blocks anyone except admin/service-role from changing `role`, `status`, `department_id`, or `google_group_id`, even on their own row. No insert/delete policies — rows are only created by the `handle_new_user` trigger on sign-up, never hard-deleted (deactivate via `status` instead).
+**RLS (rewritten in `0018`):** reading your own row is unconditional — a deactivated user must still be able to load their own profile, or `(app)/layout.tsx` can't distinguish "deactivated" from "signed out" and ping-pongs against `proxy.ts`. Beyond that: an active internal user reads every profile (needed for owner/assignee pickers); an active `external` user reads only profiles sharing a task with them (`profile_shares_task_with_current_user`); an inactive user reads nothing else. Update allowed for self or admin — but a trigger blocks anyone except admin/service-role from changing `role`, `status`, `department_id`, or `google_group_id`, even on their own row. `full_name` is NOT in that guarded list — self-editing it is still possible at the database layer, it's just no longer exposed anywhere in the app (see General Settings in things-to-know.md). No insert/delete policies — rows are only created by the `handle_new_user` trigger on sign-up, never hard-deleted (deactivate via `status` instead).
 
 *Migration: `0004_profiles_guard_allow_dashboard.sql`.* The privileged-column guard also exempts direct dashboard/DB connections (`session_user in ('postgres', 'supabase_admin')`) — stopgap so the Supabase project owner can hand-edit `role`/`status`/`department_id`/`google_group_id` via the SQL Editor / Table Editor before an admin-bootstrap flow exists. Tighten this back up once that flow lands.
 
@@ -185,7 +185,7 @@ Seeded from real client data — see `supabase/seed-departments.sql` and the Dep
 | `season_id` | uuid, FK → `seasons.id`, not null | |
 | `brand_id` | uuid, FK → `brands.id`, **nullable** since `0016_tasks_brand_optional.sql` | Optional, unlike `season_id` — plenty of stage work (trend trips, range reviews, shipping) isn't brand-specific, and the client's export has no BRAND column at all. FK left as restrict, not `set null`: brands are soft-deleted, so a brand vanishing under a task should surface, not silently blank the column |
 | `key_stage_id` | uuid, FK → `key_stages.id`, nullable, `on delete set null` | optional — a task isn't required to belong to a key stage |
-| `gender` | `task_gender`, not null | `men` \| `women` \| `unisex` |
+| `gender` | `task_gender`, not null | `guys` \| `girls` \| `unisex` (retired — see enum table above) |
 | `due_date` | date, nullable since `0022_tasks_due_date_optional.sql` | Some of the client's historical data has no known due date. A task with `due_date is null` still appears on the Tasks grid, is never counted as overdue, and is excluded from the Calendar, Gantt/Timeline, and the Dashboard's due-date-bucketed Completion Trend (it still counts in the all-time status/season/brand/gender tiles) |
 | `assignee_id` | uuid, FK → `profiles.id`, nullable, `on delete set null` | **Superseded by `task_participants` (`0015`)** — owner is 1..n parties, each a profile *or* a department, not one profile. Backfilled and left in place during the expand phase; a follow-up migration drops it. Don't write to it in new code |
 | `status` | `task_status`, default `not_started` | `not_started` \| `in_progress` \| `completed` \| `overdue` |
@@ -365,6 +365,7 @@ Exists so "tasks relevant to me" stays one query rather than the three hops (me 
 | `0020_audit_log.sql` | `audit_log` table (actor / action / entity / jsonb `changes`), four indexes, admin-only select + own-row insert and **no update or delete policy** (append-only), plus a rerun-safe backfill of create/update/delete events from `tasks`' tracking columns. Backs Management → Logs. |
 | `0021_external_links.sql` | `external_links` table (title + description + url), internal-read/admin-write RLS, and a partial index on `title` for the default alphabetical ordering. Backs the External Links page. |
 | `0025_api_keys.sql` | `api_keys` table (hashed key + prefix, admin-only RLS, revoke-not-delete) for the integration API's Kong-style Key Auth. Backs `/management/integrations` and `requireIntegrationApiKey()`. |
+| `0026_task_gender_rename.sql` | `ALTER TYPE task_gender RENAME VALUE` — `men` → `guys`, `women` → `girls`. `unisex` untouched (can't be cleanly dropped, and the client said not to worry about existing data); the app layer just stops offering it. |
 
 ## Not built yet
 

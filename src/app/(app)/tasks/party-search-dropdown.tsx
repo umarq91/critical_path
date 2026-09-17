@@ -122,10 +122,15 @@ export const PartySearchDropdown = ({ excludeKeys, onAdd, disabled, placeholder 
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           onFocus={() => setOpen(true)}
-          // This input lives inside the task form — without this, Enter submits the task
-          // instead of doing nothing useful.
+          // This input lives inside the task form — without preventDefault, Enter would submit
+          // the task instead. Enter adds the top result (same as clicking its Add button) so
+          // typing a name and hitting Enter is enough; it's a no-op while results are still
+          // catching up with what's typed, same guard as the "no matches" empty state below.
           onKeyDown={(event) => {
-            if (event.key === "Enter") event.preventDefault();
+            if (event.key === "Enter") {
+              event.preventDefault();
+              if (!isLoading && results.length > 0) onAdd(results[0]);
+            }
             if (event.key === "Escape") setOpen(false);
           }}
           placeholder={placeholder ?? "Search departments and people..."}

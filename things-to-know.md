@@ -268,6 +268,25 @@ future-dated tasks carry it, 63 past-due tasks don't), so it's ignored rather th
 their own end dates; the sheet's `Duration (Days)` is negative on exactly those rows, so it's
 bad data at source, not a mapping error.
 
+**Gender is Guys/Girls now, not Men/Women, and Unisex is retired.** Client decision, applied by
+`0026_task_gender_rename.sql` via `ALTER TYPE ... RENAME VALUE` — every existing row kept its
+data (a `men` row is `guys` after the rename, same row). `unisex` is a different case: the client
+said only two values should exist going forward and explicitly didn't want existing data
+migrated, but Postgres has no `DROP VALUE` for enums, so it stays a legal `task_gender` value at
+the database layer — it's just gone from `taskGenderValues`/`TASK_GENDER_CONFIG`
+(`tasks/schema.ts` / `constants/task-gender.ts`), meaning nothing in the app can select it
+anymore, new or edited. Two concrete effects worth knowing:
+- **Every seeded historical task is `unisex`** (the source export never carried a gender column
+  at all — see above), so this isn't a rare edge case; it's the *entire* pre-existing dataset. A
+  legacy `unisex` task's badge falls back to `StatusBadge`'s unstyled raw-value display since
+  there's no config entry for it anymore.
+- **The Dashboard's gender breakdown silently drops them.** `data/dashboard.ts` seeds
+  `genderGroups` from `taskGenderValues` (now just Guys/Girls) and skips counting a fact whose
+  gender has no matching group — so every legacy `unisex` task (again, the whole pre-existing
+  dataset) is invisible to that one chart specifically, undercounting its total the same way
+  `tasks-by-brand` already under-represents totals for a null `brand_id`. Accepted, not a bug:
+  this is what "don't care about existing data, focus on upcoming data" was asked for.
+
 ---
 
 ## Priority (hidden) & optional Due Date
@@ -1030,6 +1049,22 @@ express (that one is "show only this status").
 (a target-state/gap deliverable; an external sheet connection) and were scoped out rather than
 half-built. If either lands later, it's a new column/table plus real UI, not a toggle bolted onto
 the existing board.
+
+## General Settings (`/settings/general`)
+
+**Fully read-only.** Client decision: users should not be able to edit their own display name.
+Name joined email/role/department as a disabled input rendered by `profile-details.tsx`
+(`ProfileDetails`, a plain presentational component — no react-hook-form, no schema, no Server
+Action; there's nothing left on this page to submit). An admin can still change a user's name,
+via `/management/users` (`user-form.tsx`).
+
+**App layer only, deliberately.** The old `updateOwnProfile` Server Action and
+`profileUpdateSchema` were deleted outright rather than left unused — that's what actually
+removes the capability, since it was the only path to a self-service name edit. `full_name` is
+NOT in `enforce_profile_column_permissions()`'s guarded column list the way
+`role`/`status`/`department_id`/`google_group_id` are — a direct DB write to your own
+`full_name` would still succeed. Client call: app-layer removal is enough here, no DB trigger
+needed.
 
 ## Reminders (`/settings/notifications`, `data/reminders.ts`, `/api/cron/task-reminders`)
 

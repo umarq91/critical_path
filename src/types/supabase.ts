@@ -813,7 +813,7 @@ export type Database = {
       brand_status: "active" | "inactive"
       season_status: "planning" | "upcoming" | "active" | "completed"
       task_dpsp_category: "demand" | "product" | "sales" | "profit"
-      task_gender: "men" | "women" | "unisex"
+      task_gender: "guys" | "girls" | "unisex"
       task_participant_role: "owner" | "involved"
       task_priority: "high" | "med" | "low"
       task_status: "not_started" | "in_progress" | "completed" | "overdue"
@@ -948,7 +948,7 @@ export const Constants = {
       brand_status: ["active", "inactive"],
       season_status: ["planning", "upcoming", "active", "completed"],
       task_dpsp_category: ["demand", "product", "sales", "profit"],
-      task_gender: ["men", "women", "unisex"],
+      task_gender: ["guys", "girls", "unisex"],
       task_priority: ["high", "med", "low"],
       task_status: ["not_started", "in_progress", "completed", "overdue"],
       user_role: ["admin", "standard_user", "viewer", "external"],

@@ -49,7 +49,7 @@ export const TaskForm = ({ onSuccess, seasonOptions, brandOptions, keyStageOptio
       brand_id: brandOptions[0]?.value ?? "",
       key_stage_id: keyStageOptions[0]?.value ?? "",
       dpsp_category: dpspCategoryValues[0],
-      gender: "unisex",
+      gender: taskGenderValues[0],
       due_date: "",
       start_date: "",
       end_date: "",
@@ -101,7 +101,7 @@ export const TaskForm = ({ onSuccess, seasonOptions, brandOptions, keyStageOptio
       <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col">
         <div className="flex flex-col gap-5">
           <FormSection title="Details">
-            <TextField control={form.control} name="task_name" label="Task Name" placeholder="Creative Direction & Range Formation" />
+            <TextField control={form.control} name="task_name" label="Task Name" placeholder="INITIAL CDM DUE" />
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <SelectField control={form.control} name="season_id" label="Season" options={seasonOptions} />
               <SelectField control={form.control} name="brand_id" label="Brand" options={brandOptions} />

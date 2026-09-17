@@ -39,3 +39,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local-only Claude Code skills (not tracked in this client repo)
+/.claude/skills/
+/.claude/skills-lock.json
+/skills-lock.json
