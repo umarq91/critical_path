@@ -10,10 +10,6 @@ import { taskReminderEmail } from "@/lib/mailer/templates/task-reminder";
 // (listDueReminders already excludes anything notifications_log says was already sent), sends
 // each by email, and logs it. One failed send never blocks the rest of the batch.
 //
-// ⚠️ TEMPORARY: while SMTP_* is unset, a "skipped" reminder is logged to notifications_log
-// anyway (see the comment at that call below) so it's visible in Supabase during testing.
-// Remove that once real SMTP_* creds are in — see things-to-know.md's Reminders section.
-//
 // Both GET and POST hit the same handler: `net.http_post()` (the pg_cron/pg_net call this
 // route is actually triggered by) always issues a POST, while a manual curl during
 // development defaults to GET — this route doesn't care which, since either way it's the
@@ -56,14 +52,9 @@ async function handleTaskReminders(request: NextRequest) {
       );
 
       if (!result.sent) {
-        // TEMPORARY, while SMTP_* isn't configured yet: log this exact reminder to
-        // notifications_log as if it sent, so its presence is verifiable in Supabase before
-        // the real relay is wired up. Revert this back to a plain `continue` (no log write)
-        // once SMTP_* is set — leaving it in place after that point means every reminder whose
-        // SMTP send fails also gets silently marked "done" and never retried, which defeats
-        // the whole point of the dedupe log. See things-to-know.md's Reminders section.
+        // SMTP_* isn't configured — leave this un-logged so the next run retries it once the
+        // relay is set up. See things-to-know.md's Reminders section.
         skippedNoSmtp++;
-        await recordReminderSent(reminder.ruleId, reminder.taskId, reminder.offsetDays);
         continue;
       }
 

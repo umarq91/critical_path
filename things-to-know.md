@@ -1144,15 +1144,27 @@ a real send, and the route counts it as `skippedNoSmtp` rather than `sent` or `f
 what let the cron/pg_cron wiring and the matching logic be stood up and verified before the
 client's Workspace SMTP relay was provisioned.
 
-**⚠️ TEMPORARY, current state: a `skippedNoSmtp` reminder is still logged to
-`notifications_log`**, in `app/api/cron/task-reminders/route.ts` — a deliberate, explicitly
-requested testing convenience so a "would-have-sent" reminder is visible in Supabase
-(`select * from notifications_log`) while there's no SMTP relay to actually check against. The
-trade-off: once real `SMTP_*` creds land, any (rule, task, offset) that already got logged this
-way will **not** actually send — the dedupe log already thinks it's done. **Remove the
-`await recordReminderSent(...)` call from the `!result.sent` branch (revert to a plain
-`continue`) before relying on real email delivery** — otherwise every SMTP failure also gets
-silently marked "done" and never retried, which defeats the entire purpose of the dedupe log.
+**`SMTP_HOST` is `smtp.gmail.com`, not `smtp-relay.gmail.com`, despite the "Workspace SMTP
+relay" language elsewhere in this doc and in CLAUDE.md's stack list.** The client provisioned
+a mailbox (`techsupport@threebyone.com.au`) + Google App Password, which is direct Gmail SMTP
+submission credentials, not Workspace SMTP Relay service credentials — the two are different
+products. Pointing them at `smtp-relay.gmail.com` authenticates fine (`transport.verify()`
+passes) but every real send bounces with `550 5.7.1 Invalid credentials for relay [<ip>]`,
+because that service also gate-checks the sending IP/domain against the admin console's
+"Allowed senders" config, which isn't set up for this. `smtp.gmail.com` skips that check
+entirely since it's authenticating as the mailbox itself. If the client ever wants to send
+through the relay service instead (e.g. to send-as multiple domain addresses from one config),
+that requires a Workspace admin to open it up in Admin Console → Apps → Google Workspace →
+Gmail → Routing → SMTP relay service first — it is not a code-side fix.
+
+**Real `SMTP_*` creds are now live (`techsupport@threebyone.com.au` via `smtp.gmail.com`).**
+The testing-only shortcut that used to log a `skippedNoSmtp` reminder to `notifications_log` as
+if it had sent (so a "would-have-sent" reminder was visible in Supabase before the relay was
+provisioned) has been removed from `app/api/cron/task-reminders/route.ts` — the `!result.sent`
+branch is a plain `continue` again. Any (rule, task, offset) rows that got logged that way before
+this fix will **not** retry on their own: the dedupe log already thinks they're done. Check for
+leftover rows with `select * from notifications_log where <timestamp before the fix>` and delete
+any you want to actually go out for real; new rows only get logged on a genuine send from here on.
 
 **Completed or soft-deleted tasks never get reminded about**, checked in `listDueReminders()`
 itself (`status = 'completed'` or `deleted_at is not null` excludes the candidate) — a reminder
