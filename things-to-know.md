@@ -231,6 +231,15 @@ same reason.
 (`calendar/_actions.ts`) still reads it, which is why it can't be dropped yet — that's the
 follow-up `0016`, gated on the one-way calendar rework.
 
+**Minimum fields to create a task (client-confirmed): Task Name, Season, Brand, Key Stage,
+Gender, DPSP Category, Owners, People Involved.** Enforced only in `taskCreateSchema`
+(`tasks/schema.ts`) — `brand_id`/`key_stage_id`/`dpsp_category` require a real value (no "none"
+sentinel) and `people_involved` requires at least one entry, on top of `taskSchema`'s existing
+`task_name`/`season_id`/`gender`/`owners` requirements. `taskUpdateSchema` (inline-edit,
+`taskSchema.partial()`) is deliberately untouched: an existing task can still have any of these
+cleared back to null/empty, since the DB columns stay nullable and older/seeded tasks (see
+below — seeded `brand_id` is null for every row) predate this rule.
+
 **Filtering by a participant costs an extra round trip.** PostgREST can't express
 `id in (select task_id from …)` inline, so `listTasks` resolves the id set first — via
 `task_participants` for the Owner filter, via the `task_participant_profiles` view for

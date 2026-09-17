@@ -21,16 +21,18 @@ export const taskParticipantsSchema = z.object({
 export const taskSchema = z.object({
   task_name: z.string().min(1, "Task name is required").max(200),
   season_id: z.string().uuid("Season is required"),
-  // brand_id and key_stage_id are both optional, unlike season_id — a task always sits on a
-  // season's critical path, but plenty of stage work isn't brand-specific. Kept as loose
-  // strings (not .uuid()) so the form/inline-edit "No brand" / "No key stage" options can
-  // submit their "none" sentinel, which _actions.ts normalises to null before the DB write
-  // (see normaliseOptionalId).
+  // brand_id and key_stage_id are optional here (though taskCreateSchema below requires both
+  // at creation) because inline-edit reuses this base via taskUpdateSchema and still needs to
+  // null one back out on an existing task — a season's critical path always has a season, but
+  // plenty of stage work isn't brand-specific. Kept as loose strings (not .uuid()) so
+  // inline-edit's "No brand" / "No key stage" options can submit their "none" sentinel, which
+  // _actions.ts normalises to null before the DB write (see normaliseOptionalId).
   brand_id: z.string().optional(),
   key_stage_id: z.string().optional(),
   // Loose string, not z.enum(dpspCategoryValues) — same "none" sentinel pattern as brand_id/
-  // key_stage_id above, since dpsp_category is an optional DPSP Flywheel grouping (see
-  // schema.md), not a required classification like gender/status.
+  // key_stage_id above, for the same inline-edit reason (taskCreateSchema requires a real
+  // value at creation; this base stays loose only so an existing task's category can be
+  // cleared again later).
   dpsp_category: z.string().optional(),
   gender: z.enum(taskGenderValues),
   // Nullable since 0022_tasks_due_date_optional.sql — some of the client's historical data has
@@ -44,8 +46,21 @@ export const taskSchema = z.object({
   notes: z.string().max(2000).optional(),
 });
 
-// What the create form submits: the task columns plus its participant sets.
-export const taskCreateSchema = taskSchema.merge(taskParticipantsSchema);
+// What the create form submits: the task columns plus its participant sets. brand_id,
+// key_stage_id, dpsp_category and people_involved are optional on taskSchema/
+// taskParticipantsSchema (inline-edit still needs to null them back out on an existing task —
+// see normaliseOptionalId/normaliseDpspCategory in _actions.ts), but the client's confirmed
+// minimum-fields-to-create-a-task list requires all of them up front, so creation overrides
+// them here to be mandatory instead of loosening the shared base schema for everyone.
+export const taskCreateSchema = taskSchema.merge(taskParticipantsSchema).extend({
+  brand_id: z.string().uuid("Brand is required"),
+  key_stage_id: z.string().uuid("Key Stage is required"),
+  dpsp_category: z
+    .string()
+    .min(1, "DPSP Category is required")
+    .refine((value) => (dpspCategoryValues as readonly string[]).includes(value), "DPSP Category is required"),
+  people_involved: z.array(partyKeySchema).min(1, "At least one person involved is required"),
+});
 
 // Inline-edit/patch schema — the task columns only, made partial for single-field patches.
 // Participants are deliberately NOT patchable here: they're rows in another table, so they go
