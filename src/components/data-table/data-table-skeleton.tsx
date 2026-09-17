@@ -37,12 +37,12 @@ export const DataTableSkeleton = ({
         <TableHeader>
           <TableRow className="bg-muted/40 hover:bg-muted/40">
             {showSelectionColumn ? (
-              <TableCell className="px-4 py-3.5">
+              <TableCell className="px-3 py-2.5">
                 <Skeleton className="size-4 rounded-sm" />
               </TableCell>
             ) : null}
             {columns.map((_, index) => (
-              <TableCell key={index} className="px-4 py-3.5">
+              <TableCell key={index} className="px-3 py-2.5">
                 <Skeleton className="h-4 w-20" />
               </TableCell>
             ))}
@@ -52,12 +52,12 @@ export const DataTableSkeleton = ({
           {rows.map((_, rowIndex) => (
             <TableRow key={rowIndex} className="hover:bg-transparent">
               {showSelectionColumn ? (
-                <TableCell className="px-4 py-3.5">
+                <TableCell className="px-3 py-2.5">
                   <Skeleton className="size-4 rounded-sm" />
                 </TableCell>
               ) : null}
               {columns.map((_, colIndex) => (
-                <TableCell key={colIndex} className="px-4 py-3.5">
+                <TableCell key={colIndex} className="px-3 py-2.5">
                   <Skeleton className="h-4 w-full max-w-24" />
                 </TableCell>
               ))}

@@ -942,11 +942,13 @@ but the split keeps both files readable; `participantRows()` moved to `lib/party
 
 **Columns are fixed-width, not content-sized.** Each one declares `meta.width` from the five-step
 scale in `column-widths.ts` (defaulting to `md`), `DataTable` emits those as a `<colgroup>`, and
-the table lays out `table-fixed` with `min-width` set to their sum. Below that width it scrolls;
-above it, the columns share the slack proportionally rather than leaving a gutter. This is what
-stops one long task name or description from dragging a column — and the whole page — sideways.
-Adding a column without a `width` silently gets `md` (176px), which is usually wrong for a badge
-or a count.
+the table lays out `table-fixed` at exactly the sum of those widths (both `width` and `min-width`
+on the `<table>` itself). Below that width it scrolls; above it, the leftover space now sits
+outside the table as a plain gutter — it used to stretch every column proportionally to fill the
+screen instead (no gutter, ever), but on a wide monitor with mostly short/empty values that read
+as columns full of dead air, so client feedback reversed it. This is what stops one long task name
+or description from dragging a column — and the whole page — sideways. Adding a column without a
+`width` silently gets `md` (176px), which is usually wrong for a badge or a count.
 
 **Cells clip, so pick the width for the typical value, not the longest one.** `td`/`th` carry
 `truncate`; anything that doesn't fit ellipsises. `showTitleWhenTruncated` (on `onMouseEnter`)

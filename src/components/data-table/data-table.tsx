@@ -181,7 +181,11 @@ export const DataTable = <TData extends Record<string, unknown>>({
       <div ref={scrollRef} className="relative">
         <Table
           className={cn("table-fixed transition-opacity", isBusy && "pointer-events-none opacity-50")}
-          style={{ minWidth: tableMinWidth }}
+          // Fixed width, not just a min-width floor: on a screen wider than the columns' own sum,
+          // this stops the table stretching every column proportionally to fill the leftover
+          // space (the old behaviour, which read as columns full of dead air for a short value).
+          // Leftover space now sits outside the table as a plain gutter instead.
+          style={{ width: tableMinWidth, minWidth: tableMinWidth }}
         >
           <colgroup>
             {visibleColumns.map((column, index) => (
@@ -195,7 +199,7 @@ export const DataTable = <TData extends Record<string, unknown>>({
                   <TableHead
                     key={header.id}
                     className={cn(
-                      "truncate px-4 py-3.5",
+                      "truncate px-3 py-2.5",
                       getStickyCellClassName(
                         header.column.columnDef.meta as DataTableColumnMeta | undefined,
                         "bg-surface-header",
@@ -234,7 +238,7 @@ export const DataTable = <TData extends Record<string, unknown>>({
                     <TableCell
                       key={cell.id}
                       className={cn(
-                        "truncate px-4 py-3.5",
+                        "truncate px-3 py-2.5",
                         getStickyCellClassName(
                           cell.column.columnDef.meta as DataTableColumnMeta | undefined,
                           STICKY_BODY_BACKGROUND,
