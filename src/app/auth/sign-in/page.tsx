@@ -31,7 +31,7 @@ export default async function SignInPage({ searchParams }: PageProps<"/auth/sign
         {/* Same treatment as the sidebar's wordmark (app-sidebar.tsx) — same hex, sampled from
             the logo's own ink, so both instances of this text match the logo exactly. */}
         <span className="text-2xl font-bold uppercase tracking-[0.02em] text-[#393A3C]">Critical Path</span>
-        <p className="text-sm text-muted-foreground">Threebyone Pty Ltd</p>
+        {/* <p className="text-sm text-muted-foreground">Threebyone Pty Ltd</p> */}
       </div>
 
       <Card className="w-full shadow-lg">
