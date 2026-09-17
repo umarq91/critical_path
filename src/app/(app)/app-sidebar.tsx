@@ -28,7 +28,7 @@ export function AppSidebar({ role }: { role: Role }) {
         <div className="flex flex-col items-center gap-1 px-2 group-data-[collapsible=icon]:hidden">
           <Image
             src="/icons/logo.jpeg"
-            alt="Three by one"
+            alt="Threebyone"
             width={1600}
             height={328}
             priority
