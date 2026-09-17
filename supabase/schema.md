@@ -111,7 +111,7 @@ policy — see `0006_tasks.sql`.
 | `created_at` / `updated_at` | timestamptz | |
 | `deleted_at` | timestamptz, nullable | soft delete |
 
-**RLS:** any authenticated user reads; only admin writes — matches `brand.view` being granted to every role in `lib/permissions.ts`, while `brand.manage`/`brand.delete` stay admin-only (Brands has its own granular row on the client's Role-Based Access screen, unlike most other lookups which still fall under `admin.manage_lookups`).
+**RLS:** any authenticated user reads; only admin writes — kept permissive at the table level (same as `seasons`/`key_stages`/`departments`, see the note above `profiles`) so every role's own task rows can still resolve a `brand_id` to a name. The `/brands` admin **page** itself is stricter: `brand.view` in `lib/permissions.ts` is admin-only, so `standard_user`/`viewer`/`external` never see the page or its nav link even though the underlying rows stay joinable. `brand.manage`/`brand.delete` stay admin-only at both layers (Brands has its own granular row on the client's Role-Based Access screen, unlike most other lookups which still fall under `admin.manage_lookups`).
 
 **Deliberately not a column:** brand's task count — shown on the admin Brands page but computed from `tasks` once that table exists, same reasoning as `seasons`.
 

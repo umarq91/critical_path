@@ -1,5 +1,4 @@
 import { Skeleton } from "@/components/ui/skeleton";
-import { StatCardSkeleton } from "@/components/shared/stat-card-skeleton";
 import { DataTableSkeleton } from "@/components/data-table/data-table-skeleton";
 
 export default function BrandsLoading() {
@@ -16,13 +15,6 @@ export default function BrandsLoading() {
         </div>
       </div>
       <div className="flex flex-col gap-4 px-6 pb-6">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <StatCardSkeleton />
-          <StatCardSkeleton />
-          <StatCardSkeleton />
-          <StatCardSkeleton />
-        </div>
-
         <DataTableSkeleton filterCount={2} columnCount={8} rowCount={10} />
       </div>
     </div>

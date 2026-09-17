@@ -67,29 +67,6 @@ export async function listBrandsForExport(params: Omit<ListBrandsParams, "page" 
   return { data, rowCount, truncated: rowCount > MAX_LOOKUP_EXPORT_ROWS };
 }
 
-// Stat cards — must reflect the whole dataset, not whatever page listBrands() currently has
-// loaded, so this is a separate, narrow-column query rather than derived from the page.
-export async function listBrandSummary() {
-  const supabase = await createClient();
-  const { data, error } = await supabase.from("brands").select("status, created_at").is("deleted_at", null);
-  if (error) throw error;
-
-  const rows = data ?? [];
-  const currentYear = new Date().getFullYear();
-  const statusCounts = Object.fromEntries(brandStatusValues.map((status) => [status, 0])) as Record<
-    (typeof brandStatusValues)[number],
-    number
-  >;
-  let addedThisYear = 0;
-
-  for (const row of rows) {
-    statusCounts[row.status]++;
-    if (new Date(row.created_at).getFullYear() === currentYear) addedThisYear++;
-  }
-
-  return { total: rows.length, statusCounts, addedThisYear };
-}
-
 // The brand leg of the task grid's search box: ids whose name matches a free-text term.
 // Unlike listBrandOptions this does NOT filter to active brands — a task can belong to a brand
 // that has since been deactivated, and it should still be findable by that brand's name.
