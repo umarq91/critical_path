@@ -22,7 +22,7 @@ export default async function SignInPage({ searchParams }: PageProps<"/auth/sign
       <div className="flex flex-col items-center gap-1.5">
         <Image
           src="/icons/logo.jpeg"
-          alt="Three by one"
+          alt="Threebyone"
           width={1600}
           height={328}
           priority
