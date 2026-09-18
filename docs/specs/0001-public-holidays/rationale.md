@@ -4,104 +4,98 @@
 
 The client's confirmed acceptance criteria (a QA sheet, not this codebase) test four rows.
 "Public holiday sync" for Australia, China, India, and Turkey, each checked by viewing the
-Calendar, plus a general "filtering ability." `plan.md`'s original scope sketch names the same
-4 countries, a `public_holidays` table shape (`country, date, label, source`), and flags a real
-risk. Some free tiers rate limit or don't cover Turkey well, so the chosen provider should be
-validated against all 4 countries before committing, not after.
+Calendar, plus a general "filtering ability." `plan.md`'s original scope sketch named the same 4
+countries, a `public_holidays` table shape, and an automatic API sync as the plan, with manual
+add/override as a fallback in case the API missed something.
 
-Nothing holiday related exists in the codebase yet. There is no table, no `lib/holidays/`, no nav
-entry. `CLAUDE.md` anticipates the shape (a nightly cron, a swappable provider interface, an env
-var named `PUBLIC_HOLIDAY_API_KEY`), but none of it is built.
+The first pass of this spec (2026-09-17) took that sketch at face value and designed around it:
+a nightly sync from a paid provider, a swappable provider interface, a cron job, and manual entry
+as the fallback path. That design was cross checked and accepted, but building was deliberately
+paused (`blocker.md`) to get the client's actual answer on the one question that mattered most:
+was automatic sync genuinely wanted, or would manual entry be enough?
 
-Two forces shaped this decision beyond the provider pick itself. First, the project's cron
-infrastructure has already moved on from what `CLAUDE.md` describes. There is no `vercel.json`,
-because Vercel's free plan caps Cron at once a day. The one cron that exists (`task-reminders`)
-is triggered by Supabase's own `pg_cron`/`pg_net` instead. Second, nothing in this schema
-associates a task, profile, or department with a country, which rules out quietly folding
-holidays into the existing due date/overdue calculation without a separate decision about whose
-holidays govern which task.
+The client's answer (2026-09-18) reframed the whole feature. There is no automatic sync at all.
+An admin enters every holiday by hand, either one at a time through a form, or many at once
+through a CSV file they fill in and upload. This is not a small tweak to the original design, it
+replaces its central mechanism, so this update rewrites the Decision, Feature design, and Build
+plan in place rather than only patching a field. Umar's own hint from the first round
+("most probably it will have manually", recorded in `blocker.md`) called this outcome ahead of
+the client's actual answer.
 
 ## Options considered
 
-### Option 1: Calendarific for all 4 countries
+### Option 1 (original, now rejected): automatic sync from Calendarific
 
-A single provider, one integration, one API key, behind the swappable `lib/holidays/provider.ts`
-interface `CLAUDE.md` already anticipates.
-
-**Pros**:
-- Confirmed coverage for all 4 countries in one integration. No per country branching in the
-  sync job.
-- Free tier (500 requests a month) comfortably covers a nightly sync at this volume, about 8
-  calls a night.
-
-**Cons**:
-- Needs a paid signup API key before it can run for real. That is a manual step outside this
-  codebase.
-- The coverage claim rests on the provider's own documentation and a research pass, not an
-  independently fetched API response the way Nager.Date's was. Calendarific requires a key to
-  query, so a keyless spot check isn't possible before that key exists.
-
-### Option 2: Nager.Date (AU, China, Turkey) plus a second provider for India
-
-Keeps the 3 confirmed free, keyless countries on Nager.Date and adds a small second integration
-just for India.
+The first pass's design: a nightly job pulling all 4 countries from Calendarific, an admin manual
+add as a fallback for whatever the API missed, behind a swappable provider interface.
 
 **Pros**:
-- No API key or signup needed for 3 of the 4 countries. Zero cost for most of the sync.
-- Nager.Date's coverage for AU, China, and Turkey was verified directly against its live
-  `AvailableCountries` endpoint during this design, not just claimed.
+- Once running, holiday data updates itself every year with no admin effort.
+- Confirmed coverage for all 4 countries in one integration (see the first pass's research,
+  still valid as a record even though the decision changed).
 
 **Cons**:
-- Two providers behind the one interface for one country's worth of benefit. More moving parts
-  and two failure modes to reason about instead of one, for a feature whose total request volume
-  is already trivial either way.
-- Still needs a second provider decided and integrated for India specifically, which reintroduces
-  the exact coverage risk plan.md flagged, just for a smaller scope.
+- Needs a paid signup API key and an external account, a real ongoing dependency for a company
+  that, per the client's own answer, would rather just type the dates in.
+- Adds a cron job, a provider abstraction, and a column that tracks where a row came from, purely
+  to protect a synced row from being overwritten by the next sync. All of that machinery exists
+  only because of the sync; remove the sync and it has nothing left to protect.
+- Never independently verified: Calendarific's coverage claim rested on its own documentation
+  and a research pass, since testing it required the same paid key this option needed in the
+  first place.
 
-### Option 3: Abstract API for all 4 countries
+### Option 2 (chosen): fully manual entry, single add plus CSV bulk import
 
-A single provider with confirmed coverage and a richer response shape (holiday type, day of
-week).
+An admin is the only source of holiday data. A form for one at a time, a CSV template download
+and upload for many at once, and a results table after a bulk upload so the admin sees exactly
+what happened to each row.
 
 **Pros**:
-- Confirmed coverage for all 4 countries.
-- Data verified monthly by the provider, per its own documentation.
+- No external account, no API key, no cron job, nothing to provision before this can ship.
+- Removes the exact coverage risk Option 1's Cons named: an admin enters exactly the holiday they
+  intend, there is no automated feed that can get China's or Turkey's dates wrong.
+- The CSV path keeps "add a whole year across 4 countries" fast even without automation, which
+  is the actual gap entry with no automation at all would otherwise have.
 
 **Cons**:
-- Paid at meaningful volume ($99 a year for 5,000 requests a month) with no free tier suited to
-  production use, versus Calendarific's free tier already covering this feature's actual volume.
+- Nothing updates on its own. If nobody adds next year's holidays, the Calendar just shows none
+  for that year, and nothing in the system will notice or remind anyone.
+- Relies on whoever enters the data getting country codes and date formats right, since a CSV
+  template is a convention, not a dropdown; the row level validation and results table exist to
+  catch this, but they only catch it after the fact, at upload time.
 
 ## Rationale
 
-Option 1 wins on the same force that ruled out Option 2. This feature's total request volume (4
-countries, 2 years, once a night) is small enough that provider count is the variable to
-minimize, not provider cost, since both Calendarific's free tier and a hybrid approach are
-effectively free at this scale. One integration behind the swappable interface is simpler to
-operate and reason about than two, and Calendarific's confirmed 4 country coverage removes the
-exact risk plan.md called out. Abstract API (Option 3) would be the fallback if Calendarific's
-coverage turns out to be wrong once a real key is provisioned and tested, since its confirmed
-coverage comes at a real but modest cost ($99 a year) rather than Calendarific's free tier.
+Option 2 wins because the actual requirement the client confirmed stopped being "keep 4 countries'
+holiday calendars automatically in sync" and became "let an admin record the holidays that
+matter, quickly." Once that is the real requirement, every piece of Option 1's added complexity
+(the provider interface, the cron job, the source column and the flip it does on every edit, the
+delete and reinsert scoping) is solving a problem, staying correct against a sync, that no longer
+exists.
+Building it anyway would be adding machinery for a scenario the client explicitly said isn't
+theirs.
 
-The one piece of this decision not independently verified is Calendarific's own coverage claim,
-since testing it requires the paid signup key this spec's Follow-up asks for. That is a known,
-accepted gap. `lib/holidays/provider.ts`'s swappable interface exists precisely so that if
-Calendarific's real coverage disappoints once tested, swapping to Abstract API is a new file
-behind the same interface, not a rewrite.
+The tradeoff this decision accepts is real, not free: without a sync, this system will never
+notice on its own that a year's holidays are missing. That risk is named directly in this spec's
+Follow-up rather than solved here, since solving it (a reminder system, or a "data may be stale"
+indicator) is a separate, smaller decision that can be added later without disturbing this one.
 
 ## References
 
 **Project sources** (verifiable, in this repo):
-- `CLAUDE.md`, the cron section and the `PUBLIC_HOLIDAY_API_KEY` placeholder
-- `plan.md`, the original public holidays requirement and its explicit coverage validation risk
-- `things-to-know.md`, the Reminders section's `pg_cron`/`pg_net` wiring
+- `CLAUDE.md`, the `papaparse` stack entry, named for CSV bulk import before this feature existed
+- `plan.md`, the original public holidays requirement (this is the source Option 1 followed
+  literally; the client's actual answer diverged from it)
+- `docs/specs/0001-public-holidays/blocker.md`, the record of what was already confirmed
+  (no effect on due dates, a distinct visual tag, multiple same day holidays allowed) versus what
+  changed with this update (the sync approach itself)
 
 **Practices & standards**:
-- Prefer one integration over two when request volume doesn't force a cost driven split
+- Prefer the requirement actually confirmed by the person who will use the feature over a scope
+  document's original guess, even after design work has already gone into the guess
 
-**Links** (web verified):
-- Nager.Date: https://date.nager.at. Verified directly during this design via its
-  `AvailableCountries` endpoint, which confirms AU, CN, and TR, and confirms India is absent.
-- Calendarific: https://www.calendarific.com. Confirmed via research to cover AU, CN, IN, and TR,
-  free tier 500 requests a month.
-- Abstract API Holidays: https://www.abstractapi.com/holidays-api. Confirmed via research to
-  cover all 4 countries, $99 a year for 5,000 requests a month beyond its more limited free tier.
+**Links** (kept for historical record only, no longer load bearing since Option 1 was not
+chosen): Nager.Date (https://date.nager.at), verified directly during the first pass to cover AU,
+CN, and TR but not India; Calendarific (https://www.calendarific.com), confirmed via research to
+cover all 4 with a free tier of 500 requests a month; Abstract API Holidays
+(https://www.abstractapi.com/holidays-api), confirmed via research to cover all 4 at $99 a year.
