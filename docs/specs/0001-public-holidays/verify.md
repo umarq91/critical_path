@@ -16,6 +16,11 @@ _Steps derived from spec 0001 acceptance criteria. `/check verify` runs these; `
 - [ ] Build and upload a CSV with 501 rows → the whole file is rejected up front with a row-limit message, nothing is created → AC-9 (row cap)
 - [ ] Sign in as a standard_user or viewer → `/calendar` shows holidays and the country filter works → `/holidays` list opens but shows no "Add Holiday" button, no CSV buttons, and no pencil/delete on any row → AC-11
 - [ ] Sign in as an external user → `/calendar` still shows holidays (unrestricted visibility) → confirm `/holidays` itself is inaccessible or read-only per `lookups.view` scoping → AC-11
+- [ ] As an eligible Google Workspace user with Calendar connected, click "Sync to Google" on `/calendar` → toast reports both tasks and holidays pushed → open Google Calendar directly → holidays from the sync window appear as all-day events → AC-12
+- [ ] Click "Sync to Google" a second time with nothing changed → toast reports 0 pushed for both (idempotent, no duplicate events created) → AC-12
+- [ ] Edit an already-synced holiday's name → click "Sync to Google" is not required, the edit itself should refresh the event → check Google Calendar directly, the event's title has updated → AC-12
+- [ ] Delete an already-synced holiday → check Google Calendar directly, the event is gone → AC-12
+- [ ] Have two different eligible users both sync the same holiday → each has their own independent event on their own calendar (not one shared event, no "already claimed" skip the way a task would) → AC-12
 
 ## Commands
 - [ ] `npx tsc --noEmit` → no errors
@@ -31,8 +36,10 @@ _Steps derived from spec 0001 acceptance criteria. `/check verify` runs these; `
 - AC-9 (per-row results, partial success, row cap) — covered by the mixed-validity, in-file-duplicate, and oversized-file steps
 - AC-10 (edits/deletes reflected immediately) — covered by the edit/delete steps
 - AC-11 (non-admin view-only, external visibility) — covered by the role-based steps
+- AC-12 (holidays push to Google Calendar via the existing Sync button) — covered by the sync,
+  idempotent re-sync, edit-refresh, delete-cleanup, and multi-user steps
 
 ## Known gap, not covered here
-Migration `0027_public_holidays.sql` has not been applied to the live Supabase project in this
-environment (no `supabase` CLI / linked project access). None of the steps above can actually run
-until it is. Apply it first, then work through this checklist.
+Migration `0028_holiday_calendar_events.sql` has not been applied to the live Supabase project in
+this environment (no `supabase` CLI / linked project access) — `0027` has been applied. None of
+the AC-12 steps above can run until `0028` is applied too.
