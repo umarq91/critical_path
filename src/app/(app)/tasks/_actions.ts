@@ -5,7 +5,7 @@ import { requirePermission } from "@/lib/require-permission";
 import { taskCreateSchema, taskUpdateSchema, dpspCategoryValues } from "@/app/(app)/tasks/schema";
 import { listTasks, type ListTasksParams } from "@/data/tasks";
 import { parsePartyKey, participantRows } from "@/lib/party";
-import { deleteTaskCalendarEvent } from "@/lib/google/calendar";
+import { deleteCalendarEvent } from "@/lib/google/calendar";
 import { resyncTaskCalendarEvent } from "@/lib/google/task-calendar-sync";
 import { logTaskCreated, logTaskUpdated, logTaskDeleted, logTaskRestored } from "@/app/(app)/tasks/_audit";
 
@@ -183,7 +183,7 @@ export async function deleteTask(id: string) {
   if (task?.google_event_id && task.google_calendar_owner_id) {
     // Best-effort — a failed calendar cleanup shouldn't undo an already-successful task
     // delete, so this is deliberately not awaited into the error path above.
-    await deleteTaskCalendarEvent(task.google_calendar_owner_id, task.google_event_id).catch(() => undefined);
+    await deleteCalendarEvent(task.google_calendar_owner_id, task.google_event_id).catch(() => undefined);
   }
 
   revalidatePath("/tasks");
@@ -197,7 +197,7 @@ export async function deleteTask(id: string) {
 // "deleted by so-and-so" everywhere that column is joined, for a task that's no longer deleted.
 //
 // Deliberately does NOT touch google_event_id/google_calendar_owner_id — a Google event
-// deleted alongside the task is already self-healed by upsertTaskCalendarEvent's fallback (see
+// deleted alongside the task is already self-healed by upsertCalendarEvent's fallback (see
 // lib/google/calendar.ts) the next time this task is pushed, so there's nothing to clean up
 // here.
 export async function restoreTask(id: string) {

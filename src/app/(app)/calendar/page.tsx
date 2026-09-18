@@ -5,6 +5,7 @@ import { getCalendarRange, resolveAnchorDate, toQueryDate } from "@/app/(app)/ca
 import { listTasksByDueDateRange } from "@/data/tasks";
 import { listSeasonOptions } from "@/data/seasons";
 import { listBrandOptions } from "@/data/brands";
+import { listHolidaysByDateRange, listDistinctHolidayCountries } from "@/data/holidays";
 import { getCurrentProfile } from "@/data/profiles";
 import { can } from "@/lib/permissions";
 import { isGoogleCalendarEligible } from "@/lib/calendar-eligibility";
@@ -21,7 +22,7 @@ export default async function CalendarPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const { view, date, seasonId, brandId, status } = await loadCalendarSearchParams(searchParams);
+  const { view, date, seasonId, brandId, status, countries } = await loadCalendarSearchParams(searchParams);
   const anchorDate = resolveAnchorDate(date);
   const range = getCalendarRange(view, anchorDate);
 
@@ -31,7 +32,7 @@ export default async function CalendarPage({
   // for them — the server action refuses the same call independently (see _actions.ts).
   const canSyncGoogleCalendar = !!profile && isGoogleCalendarEligible(profile);
 
-  const [tasks, seasons, brands] = await Promise.all([
+  const [tasks, seasons, brands, holidays, holidayCountries] = await Promise.all([
     listTasksByDueDateRange({
       from: toQueryDate(range.start),
       to: toQueryDate(range.end),
@@ -40,6 +41,14 @@ export default async function CalendarPage({
     }),
     listSeasonOptions(),
     listBrandOptions(),
+    // Visible to every signed-in role including external — a public holiday date isn't
+    // organisation-sensitive the way brand/season lookups are (see docs/specs/0001-public-holidays).
+    listHolidaysByDateRange({
+      from: toQueryDate(range.start),
+      to: toQueryDate(range.end),
+      countries: countries.length > 0 ? countries : undefined,
+    }),
+    listDistinctHolidayCountries(),
   ]);
 
   const seasonOptions = seasons.map((season) => ({ value: season.id, label: season.season_name }));
@@ -54,6 +63,8 @@ export default async function CalendarPage({
           anchorDate={anchorDate}
           range={range}
           tasks={tasks}
+          holidays={holidays}
+          holidayCountryOptions={holidayCountries.map((country) => ({ value: country, label: country }))}
           canAssignPeople={canAssignPeople}
           canSyncGoogleCalendar={canSyncGoogleCalendar}
           seasonOptions={seasonOptions}

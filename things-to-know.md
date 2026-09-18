@@ -142,7 +142,7 @@ almost nothing.
 **Sync also removes, not just pushes.** `syncGoogleCalendar` first scans every task whose
 `google_calendar_owner_id` is the calling profile and that has since fallen out of their scope
 (soft-deleted, or they were taken off it as owner/involved/creator), deletes that event via
-`deleteTaskCalendarEvent` (best-effort, same as `deleteTask`'s own cleanup), and clears
+`deleteCalendarEvent` (best-effort, same as `deleteTask`'s own cleanup), and clears
 `google_event_id`/`google_calendar_owner_id`. This is necessary because the push is one-way and
 event-driven only at task-delete time — removing someone from a task's participants
 (`setTaskParticipants`) does **not** touch their calendar at all, so without this pass a task you
@@ -154,6 +154,18 @@ is the question here, not date range, and an already-synced event can carry any 
 Workspace email. Checking "is there a `google_oauth_tokens` row" instead would be wrong in both
 directions: a token outlives a role change, and an absent token is indistinguishable from an
 expired one.
+
+**`upsertCalendarEvent`/`deleteCalendarEvent` (`lib/google/calendar.ts`) are generic, not
+task-specific — the names were changed from `upsertTaskCalendarEvent`/`deleteTaskCalendarEvent`
+when holidays started using them too.** Nothing about the low-level Google API call ever
+referenced a task; only the two callers built on top of it did (`task-calendar-sync.ts`,
+`holiday-calendar-sync.ts`). The exact `task_calendar_events(task_id, profile_id, event_id)`
+join table sketched two paragraphs up as a hypothetical for per-owner task copies is precisely
+the shape `holiday_calendar_events` (`0028`) actually took — same reasoning, a different entity
+that got there first: a holiday has no owner column at all to begin with, so the join table
+wasn't optional the way it would be for tasks. See the Holidays section below for how the two
+differ (holidays have no first-claim-wins conflict, since every syncing user gets their own
+independent copy).
 
 ---
 
@@ -655,6 +667,99 @@ or the filters, the page would be sliced from a different set than it was fetche
   and conflict rules that don't exist yet.
 
 ---
+
+## Holidays (`/holidays`, Calendar overlay)
+
+**Manual entry only — no sync job, no external API, no `PUBLIC_HOLIDAY_API_KEY`.** An earlier
+design (see `docs/specs/0001-public-holidays/rationale.md`) planned a nightly Calendarific sync;
+the client's actual answer was simpler — an admin enters every holiday by hand, one at a time or
+via CSV bulk import. If this ever needs revisiting, it is a decision (`/architect`), not a quiet
+re-add.
+
+**`country` is plain text, not an enum — deliberately, and this is the second time it changed
+mid-build.** The first version made it a fixed enum (`AU`/`CN`/`IN`/`TR`); Umar asked mid-build
+for room to add a country later without a migration, so it's `text` instead, with the 4 known
+ones offered only as quick-pick buttons in `holiday-form.tsx` and `constants/holiday-country.ts`
+(`KNOWN_HOLIDAY_COUNTRIES`, suggestions only, not a closed list). A country typed into a form or
+a CSV row that isn't in that list is just as valid — it becomes its own DataTable filter chip and
+Calendar checkbox automatically, since both read `listDistinctHolidayCountries()` (a real
+`SELECT DISTINCT`) rather than a hardcoded 4-item constant.
+
+**The admin list's Country column colour is derived, not stored.** No `color` column exists (the
+country isn't a fixed lookup with its own row to hold one), so `columns.tsx` reuses
+`getVizColorForId(country)` — the same deterministic hash-to-palette fallback other entities with
+no stored colour already use. Two different countries typed as different strings (`"Turkey"` vs
+`"TR"`) get different, unrelated colours and are treated as different countries entirely — this
+table does no normalisation between a code and a full name.
+
+**Bulk CSV import is per-row independent, not a transaction.** `bulkImportHolidays` in
+`holidays/_actions.ts` validates and inserts one row at a time against the same `holidaySchema`
+the single "Add Holiday" form uses, and keeps going after a bad row — a typo in row 3 of a
+500-row file never blocks rows 1, 2, and 4. Every row's outcome (`created` / `duplicate` /
+`invalid`) comes back in one array and renders in a results table (`csv-bulk-import.tsx`), styled
+through `HOLIDAY_IMPORT_STATUS_CONFIG` — the same generic `<StatusBadge>` every other per-row or
+per-entity status already uses, a new config map, not a new component.
+
+**Duplicate detection is two-layered.** A real DB row with the same `(country, holiday_date,
+name)` is caught by the unique constraint itself (a Postgres `23505`, mapped to `"duplicate"` in
+the results). Two identical rows *within the same uploaded file* are caught separately, by an
+in-memory `Set` of accepted keys built up as the loop runs — the DB constraint alone can't catch
+that case for two rows inserted one after another in the same request.
+
+**The CSV template's headers and the parser's header matching share one constant**
+(`HOLIDAY_CSV_HEADERS` in `holidays/schema.ts`), so the download and the upload can never drift
+out of sync with each other. The parser (`_actions.ts`'s `FIELD_BY_HEADER`) matches case- and
+spacing-insensitively (`"Event Name"`, `"event_name"`, `"EVENT NAME"` all resolve the same
+column), since a CSV re-opened and re-saved in different spreadsheet software doesn't reliably
+preserve exact header casing.
+
+**The row cap (`MAX_BULK_HOLIDAY_ROWS = 500`) rejects the whole file up front**, before any row
+is written — not a partial import that silently stops at row 500. Sized against
+`lib/export/types.ts`'s `MAX_LOOKUP_EXPORT_ROWS` (1000) for a lookup table, halved since an
+*import* does a write per row instead of an export's single bounded read.
+
+**The Calendar's holiday chip is one consistent style, not colour-coded by country.** Client
+request was "a special tag or highlight", not "a different colour per country" — the country
+checkboxes in the toolbar already do the job of distinguishing countries, so
+`calendar-holiday-chip.tsx` uses a single `accent-teal` treatment for every country. Rendered
+above a day's task chips, in its own row, and does **not** count toward the month view's
+"3 tasks then +N more" overflow — holidays and tasks are separate concerns.
+
+**Unchecking every country checkbox shows every country's holidays, same as checking all of
+them.** `calendar-toolbar.tsx`'s `HolidayCountryFilter` treats an empty selection as "no filter
+applied" (matching nuqs's `parseAsArrayOf(...).withDefault([])`), not "show nothing" — there's no
+way to reach an actual empty state through the UI, by design; a user who doesn't want to see any
+holiday countries just doesn't have a reason to touch this control.
+
+**Holidays also push to Google Calendar, from the same Sync button tasks already use — added
+after the feature first shipped, once `0027` was live.** `syncGoogleCalendar`
+(`calendar/_actions.ts`) now runs two independent passes: the existing task pass (see the Google
+Calendar sync section above), and a holiday pass that pushes every `public_holidays` row in the
+same `[from, to]` window to the calling user's own calendar. See that section's note on
+`holiday_calendar_events` for why holidays needed their own join table instead of reusing a
+task's owner-column trick.
+
+**Every eligible user who syncs gets every holiday — there is no first-claim-wins here, unlike
+tasks.** A holiday has no owner to contest, so there's nothing to skip: 10 users syncing the same
+holiday get 10 independent events, one per calendar, each tracked by its own
+`holiday_calendar_events` row. Not scoped by the Calendar page's own country filter — same "sync
+ignores view state" reasoning the task window already follows.
+
+**Editing a holiday re-pushes it to every calendar that already has it; deleting one tries to
+remove it everywhere, but can leave an orphan.** `updateHoliday` calls
+`resyncHolidayCalendarEvents`, looping every linked profile (best-effort, one failure doesn't
+block the rest). `deleteHoliday` calls `deleteHolidayCalendarEvents` **before** the delete, since
+the link rows needed to find each Google event cascade away the instant the holiday row does. If
+a specific user's Google call fails at that exact moment (expired token, network blip), that one
+event is stuck on their calendar with no later retry path — the tracking row that would have let
+a future sync find and remove it is already gone. Accepted, not fixed: holidays are hard-deleted
+(no `deleted_at` to give a removal pass something to notice later, unlike tasks), and this was a
+known tradeoff of that choice, not a new gap.
+
+**Migrations `0027_public_holidays.sql` and `0028_holiday_calendar_events.sql` need to be applied
+manually** (this environment has no `supabase` CLI / linked project access) — run them via your
+normal deploy step, then regenerate types (`supabase gen types typescript --linked >
+src/types/supabase.ts`; hand-edited in the meantime to keep the build green).
 
 ## External Links (`/external-links`)
 

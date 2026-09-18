@@ -7,9 +7,11 @@ import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TaskDetailDrawer } from "@/app/(app)/tasks/task-detail-drawer";
 import { CalendarTaskChip } from "@/app/(app)/calendar/calendar-task-chip";
+import { CalendarHolidayChip } from "@/app/(app)/calendar/calendar-holiday-chip";
 import { toDateKey, toQueryDate, type CalendarRange } from "@/app/(app)/calendar/calendar-utils";
 import type { CalendarView } from "@/app/(app)/calendar/calendar-search-params";
 import type { Task } from "@/data/tasks";
+import type { Holiday } from "@/data/holidays";
 
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -29,6 +31,7 @@ interface CalendarBoardProps {
   anchorDate: Date;
   range: CalendarRange;
   tasks: Task[];
+  holidays: Holiday[];
   canAssignPeople: boolean;
   isPending: boolean;
   hasActiveFilters: boolean;
@@ -40,6 +43,7 @@ export const CalendarBoard = ({
   anchorDate,
   range,
   tasks,
+  holidays,
   canAssignPeople,
   isPending,
   hasActiveFilters,
@@ -55,6 +59,10 @@ export const CalendarBoard = ({
   const tasksByDate = useMemo(
     () => groupByDate(tasks, (task) => toDateKey(task.due_date as string)),
     [tasks]
+  );
+  const holidaysByDate = useMemo(
+    () => groupByDate(holidays, (holiday) => toDateKey(holiday.holiday_date)),
+    [holidays]
   );
 
   // Keying the active grid by its range forces a remount on every Prev/Next/Today/view
@@ -79,6 +87,7 @@ export const CalendarBoard = ({
               range={range}
               anchorDate={anchorDate}
               tasksByDate={tasksByDate}
+              holidaysByDate={holidaysByDate}
               onSelectTask={setSelectedTask}
               onNavigateToDate={onNavigateToDate}
             />
@@ -88,6 +97,7 @@ export const CalendarBoard = ({
               key={gridKey}
               range={range}
               tasksByDate={tasksByDate}
+              holidaysByDate={holidaysByDate}
               onSelectTask={setSelectedTask}
               onNavigateToDate={onNavigateToDate}
             />
@@ -97,6 +107,7 @@ export const CalendarBoard = ({
               key={gridKey}
               anchorDate={anchorDate}
               tasksByDate={tasksByDate}
+              holidaysByDate={holidaysByDate}
               onSelectTask={setSelectedTask}
             />
           ) : null}
@@ -153,12 +164,14 @@ function MonthGrid({
   range,
   anchorDate,
   tasksByDate,
+  holidaysByDate,
   onSelectTask,
   onNavigateToDate,
 }: {
   range: CalendarRange;
   anchorDate: Date;
   tasksByDate: Map<string, Task[]>;
+  holidaysByDate: Map<string, Holiday[]>;
   onSelectTask: (task: Task) => void;
   onNavigateToDate: (date: Date) => void;
 }) {
@@ -178,6 +191,7 @@ function MonthGrid({
           {days.map((day) => {
             const dateKey = toDateKey(day);
             const dayTasks = tasksByDate.get(dateKey) ?? [];
+            const dayHolidays = holidaysByDate.get(dateKey) ?? [];
             const inCurrentMonth = isSameMonth(day, anchorDate);
             const today = isToday(day);
             const weekend = isWeekend(day);
@@ -196,6 +210,9 @@ function MonthGrid({
               >
                 <DayNumberButton day={day} today={today} dimmed={!inCurrentMonth} onNavigateToDate={onNavigateToDate} />
                 <div className="flex flex-col gap-1.5">
+                  {dayHolidays.map((holiday) => (
+                    <CalendarHolidayChip key={holiday.id} holiday={holiday} variant="compact" />
+                  ))}
                   {visibleTasks.map((task) => (
                     <CalendarTaskChip key={task.id} task={task} onSelect={onSelectTask} variant="compact" />
                   ))}
@@ -222,11 +239,13 @@ function MonthGrid({
 function WeekAgenda({
   range,
   tasksByDate,
+  holidaysByDate,
   onSelectTask,
   onNavigateToDate,
 }: {
   range: CalendarRange;
   tasksByDate: Map<string, Task[]>;
+  holidaysByDate: Map<string, Holiday[]>;
   onSelectTask: (task: Task) => void;
   onNavigateToDate: (date: Date) => void;
 }) {
@@ -237,6 +256,7 @@ function WeekAgenda({
       {days.map((day) => {
         const dateKey = toDateKey(day);
         const dayTasks = tasksByDate.get(dateKey) ?? [];
+        const dayHolidays = holidaysByDate.get(dateKey) ?? [];
         const today = isToday(day);
         const weekend = isWeekend(day);
 
@@ -254,6 +274,9 @@ function WeekAgenda({
               <DayNumberButton day={day} today={today} onNavigateToDate={onNavigateToDate} />
             </div>
             <div className="flex flex-col gap-2">
+              {dayHolidays.map((holiday) => (
+                <CalendarHolidayChip key={holiday.id} holiday={holiday} variant="compact" />
+              ))}
               {dayTasks.length === 0 ? (
                 <span className="text-sm text-muted-foreground">No tasks</span>
               ) : (
@@ -272,20 +295,30 @@ function WeekAgenda({
 function DayAgenda({
   anchorDate,
   tasksByDate,
+  holidaysByDate,
   onSelectTask,
 }: {
   anchorDate: Date;
   tasksByDate: Map<string, Task[]>;
+  holidaysByDate: Map<string, Holiday[]>;
   onSelectTask: (task: Task) => void;
 }) {
   const dateKey = toDateKey(anchorDate);
   const dayTasks = tasksByDate.get(dateKey) ?? [];
+  const dayHolidays = holidaysByDate.get(dateKey) ?? [];
 
   return (
     <div className="animate-in fade-in-0 slide-in-from-bottom-1 flex flex-col gap-3 rounded-lg border border-border p-4 duration-300">
       <span className="text-h3 text-foreground">
         {isSameDay(anchorDate, new Date()) ? "Today" : format(anchorDate, "EEEE")}
       </span>
+      {dayHolidays.length > 0 ? (
+        <div className="flex flex-col gap-2">
+          {dayHolidays.map((holiday) => (
+            <CalendarHolidayChip key={holiday.id} holiday={holiday} variant="full" />
+          ))}
+        </div>
+      ) : null}
       {dayTasks.length === 0 ? (
         <p className="text-body text-muted-foreground">No tasks due on this day.</p>
       ) : (
