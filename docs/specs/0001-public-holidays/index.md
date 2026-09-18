@@ -95,7 +95,7 @@ either.
 - No PII, no regulated data. No compliance scope applies.
 
 **Configuration required**: none. The original design's `PUBLIC_HOLIDAY_API_KEY` is no longer
-needed; see Follow-up.
+needed and has been removed from `CLAUDE.md`.
 
 **Critical test scenarios**:
 - Happy path, single add: an admin fills the "Add Holiday" form (date, event name, description,
@@ -244,20 +244,18 @@ Action that validates and writes it.
 **Neutral**:
 - `papaparse` is a new dependency (previously named as intended in `CLAUDE.md` but never actually
   installed).
-- `PUBLIC_HOLIDAY_API_KEY` is no longer used anywhere; it can stay as an unused placeholder in
-  `CLAUDE.md`'s environment list or be removed, at Umar's discretion (see Follow-up).
+- `PUBLIC_HOLIDAY_API_KEY` is no longer used anywhere. Removed from `CLAUDE.md`'s environment
+  list rather than left as a dead placeholder.
 - `upsertTaskCalendarEvent`/`deleteTaskCalendarEvent` (`lib/google/calendar.ts`) were renamed to
   `upsertCalendarEvent`/`deleteCalendarEvent` to reflect that holidays now share them too. A
   mechanical rename, no behavior change for tasks.
 
 ## Follow-up
 
-- [ ] Migration `0028_holiday_calendar_events.sql` needs to be applied manually, same as `0027`
-      (see that Follow-up item below), since this environment has no `supabase` CLI / linked project
-      access.
-- [ ] Remove (or explicitly keep, if another future feature might still want it) the
-      `PUBLIC_HOLIDAY_API_KEY` placeholder in `CLAUDE.md`'s environment section, now that nothing
-      in this build reads it.
+- [x] Migrations `0027_public_holidays.sql` and `0028_holiday_calendar_events.sql` applied to the
+      live Supabase project.
+- [x] Removed the unused `PUBLIC_HOLIDAY_API_KEY` placeholder from `CLAUDE.md`'s environment
+      section, since nothing in this build reads it.
 - [ ] Consider a standing yearly reminder (outside this codebase, e.g. a calendar note for
       whoever administers this) to add next year's holidays before the current year's data runs
       out, since nothing here does that automatically anymore.
