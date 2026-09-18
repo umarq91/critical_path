@@ -5,6 +5,7 @@ import Papa from "papaparse";
 import { requirePermission } from "@/lib/require-permission";
 import { holidaySchema, MAX_BULK_HOLIDAY_ROWS } from "@/app/(app)/holidays/schema";
 import { listHolidays, type ListHolidaysParams } from "@/data/holidays";
+import { resyncHolidayCalendarEvents, deleteHolidayCalendarEvents } from "@/lib/google/holiday-calendar-sync";
 
 // Powers the isolated "Refresh" icon on the holidays table (see useRefreshableData) — a plain
 // read, not a mutation, same reasoning as every other lookup's refresh action.
@@ -39,13 +40,22 @@ export async function updateHoliday(id: string, patch: unknown) {
   const parsed = holidaySchema.partial().safeParse(patch);
   if (!parsed.success) return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid input" };
 
-  const { error } = await auth.supabase.from("public_holidays").update(parsed.data).eq("id", id);
+  const { data: updated, error } = await auth.supabase
+    .from("public_holidays")
+    .update(parsed.data)
+    .eq("id", id)
+    .select()
+    .single();
   if (error) {
     return {
       ok: false as const,
       error: error.code === "23505" ? "A holiday with that name already exists on that date for that country" : error.message,
     };
   }
+
+  // Best-effort — refreshes the event on every calendar that already has this holiday synced
+  // (see holiday-calendar-sync.ts). A Google outage must not fail an otherwise valid edit.
+  await resyncHolidayCalendarEvents(auth.supabase, updated).catch(() => undefined);
 
   revalidatePath("/holidays");
   revalidatePath("/calendar");
@@ -55,6 +65,11 @@ export async function updateHoliday(id: string, patch: unknown) {
 export async function deleteHoliday(id: string) {
   const auth = await requirePermission("admin.manage_lookups");
   if (!auth.ok) return auth;
+
+  // Read before delete: holiday_calendar_events rows cascade-delete with the holiday (0028),
+  // so the (profile, event id) pairs needed to clean up the Google side have to be gathered
+  // first, or that link is gone the moment the row is.
+  await deleteHolidayCalendarEvents(auth.supabase, id).catch(() => undefined);
 
   const { error } = await auth.supabase.from("public_holidays").delete().eq("id", id);
   if (error) return { ok: false as const, error: error.message };

@@ -65,17 +65,20 @@ export const CalendarToolbar = ({
       toast.error(result.error);
       return;
     }
-    if (result.pushedCount === 0 && result.removedCount === 0) {
+    if (result.tasksPushedCount === 0 && result.holidaysPushedCount === 0 && result.removedCount === 0) {
       toast.success("Google Calendar is already up to date");
       return;
     }
     // Skipped tasks aren't a failure: a task already lives on a co-owner's calendar, and one
     // task maps to exactly one event (see _actions.ts). Reported so the count adds up.
     const skipped = result.skippedCount > 0 ? `, ${result.skippedCount} already on a co-owner's calendar` : "";
-    const pushed =
-      result.pushedCount > 0
-        ? `Pushed ${result.pushedCount} ${result.pushedCount === 1 ? "task" : "tasks"} to Google Calendar${skipped}`
-        : "";
+    const pushedItems = [
+      result.tasksPushedCount > 0 ? `${result.tasksPushedCount} ${result.tasksPushedCount === 1 ? "task" : "tasks"}` : "",
+      result.holidaysPushedCount > 0
+        ? `${result.holidaysPushedCount} ${result.holidaysPushedCount === 1 ? "holiday" : "holidays"}`
+        : "",
+    ].filter(Boolean);
+    const pushed = pushedItems.length > 0 ? `Pushed ${pushedItems.join(" and ")} to Google Calendar${skipped}` : "";
     const removed =
       result.removedCount > 0
         ? `Removed ${result.removedCount} ${result.removedCount === 1 ? "task" : "tasks"} no longer yours from Google Calendar`

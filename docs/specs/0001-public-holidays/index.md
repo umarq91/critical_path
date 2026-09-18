@@ -145,6 +145,11 @@ needed; see Follow-up.
 - **AC-11**: Someone who isn't an admin (standard_user, viewer, or external) can view holidays on
   the Calendar and the admin holidays list, but cannot add, edit, delete, or bulk import one, in
   the UI or via a direct Server Action call.
+- **AC-12** (added after initial build, real scope gap the original design missed): clicking the
+  Calendar's existing "Sync to Google" button also pushes every holiday in the sync window to the
+  calling user's own Google Calendar, alongside their tasks. Editing a holiday refreshes it on
+  every calendar that already has it; deleting one best effort removes it from every calendar
+  that does.
 
 ## Decision
 
@@ -197,6 +202,20 @@ Action that validates and writes it.
     bulk import, and the permission split between viewing on the Calendar and managing the admin
     list. Note in both that the original sync design was dropped, so a reader doesn't go looking
     for a cron route or a provider file that no longer exist.
+11. Migration `0028_holiday_calendar_events.sql`: a join table (`holiday_id`, `profile_id`,
+    `google_event_id`, unique on the pair). A holiday has no owner column to reuse the way a
+    task's own `google_event_id`/`google_calendar_owner_id` does, since it can be pushed to many
+    users' calendars independently. Satisfies **AC-12**.
+12. Generalize `lib/google/calendar.ts`'s `upsertTaskCalendarEvent`/`deleteTaskCalendarEvent` to
+    `upsertCalendarEvent`/`deleteCalendarEvent` (already fully entity agnostic underneath, just
+    named after tasks), then add `lib/google/holiday-calendar-sync.ts`
+    (`pushHolidayToGoogleCalendar`/`resyncHolidayCalendarEvents`/`deleteHolidayCalendarEvents`)
+    mirroring `task-calendar-sync.ts`. Satisfies **AC-12**.
+13. Extend `syncGoogleCalendar` (`calendar/_actions.ts`) with a second pass alongside the
+    existing task pass: every holiday in the same `[from, to]` window, pushed to the calling
+    user's own calendar. No first claim wins rule needed here, unlike tasks: every user gets
+    their own copy. Extend `createHoliday`/`updateHoliday`/`deleteHoliday` to resync or best
+    effort clean up every affected user's event. Satisfies **AC-12**.
 
 ## Consequences
 
@@ -216,15 +235,26 @@ Action that validates and writes it.
   not a technical gap this spec can close.
 - Holidays still do not affect due date or overdue calculation in this pass. A task due on a
   public holiday is still simply due that day.
+- If deleting a holiday's best effort Google cleanup fails for a given user (expired token,
+  network blip), that one event is stuck on their calendar with no later retry path. The
+  tracking row that would let a future sync find and remove it is gone the moment the holiday
+  row is (hard delete, no `deleted_at`). A known, accepted tradeoff of the earlier hard delete
+  decision, not a new gap this addition introduces.
 
 **Neutral**:
 - `papaparse` is a new dependency (previously named as intended in `CLAUDE.md` but never actually
   installed).
 - `PUBLIC_HOLIDAY_API_KEY` is no longer used anywhere; it can stay as an unused placeholder in
   `CLAUDE.md`'s environment list or be removed, at Umar's discretion (see Follow-up).
+- `upsertTaskCalendarEvent`/`deleteTaskCalendarEvent` (`lib/google/calendar.ts`) were renamed to
+  `upsertCalendarEvent`/`deleteCalendarEvent` to reflect that holidays now share them too. A
+  mechanical rename, no behavior change for tasks.
 
 ## Follow-up
 
+- [ ] Migration `0028_holiday_calendar_events.sql` needs to be applied manually, same as `0027`
+      (see that Follow-up item below), since this environment has no `supabase` CLI / linked project
+      access.
 - [ ] Remove (or explicitly keep, if another future feature might still want it) the
       `PUBLIC_HOLIDAY_API_KEY` placeholder in `CLAUDE.md`'s environment section, now that nothing
       in this build reads it.

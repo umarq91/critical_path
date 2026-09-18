@@ -340,6 +340,23 @@ Exists so "tasks relevant to me" stays one query rather than the three hops (me 
 
 **RLS: zero policies.** RLS is enabled but nothing grants access — not even a `profile_id = auth.uid()` self-read, since these are live API credentials, not display data. The only access path is `lib/google/oauth-tokens.ts`, which always goes through the service-role client (`lib/supabase/admin.ts`) and scopes every query to a specific `profile_id` in application code.
 
+### `holiday_calendar_events`
+*Migration: `0028_holiday_calendar_events.sql`. Tracks which `public_holidays` row has been pushed to which user's Google Calendar — the join table a task doesn't need (a task has exactly one owner, so its own `google_event_id`/`google_calendar_owner_id` columns are enough), because a holiday has none: it can be pushed to many users' calendars independently.*
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid, PK | |
+| `holiday_id` | uuid, FK → `public_holidays.id`, not null, `on delete cascade` | |
+| `profile_id` | uuid, FK → `profiles.id`, not null, `on delete cascade` | |
+| `google_event_id` | text, not null | |
+| `synced_at` | timestamptz, not null | when this profile's copy was last pushed |
+
+**Unique on `(holiday_id, profile_id)`** — at most one Google event per holiday per user, the same "exactly one slot" guarantee a task's own columns give it for free.
+
+**RLS: self or admin**, same shape as `profiles_update_self_or_admin` — a user manages only their own sync links (`profile_id = auth.uid()`); `deleteHoliday`/`updateHoliday` need the broader `is_admin()` leg because cleaning up or refreshing a deleted/edited holiday's events means touching every affected user's row, not just the acting admin's own.
+
+**On delete, read before you cascade.** Deleting a holiday cascades its `holiday_calendar_events` rows away immediately — so `deleteHoliday` (`holidays/_actions.ts`) reads every `(profile_id, google_event_id)` pair *first* and best-effort deletes each Google event, because that link is unrecoverable the moment the row is gone. If a Google call fails at that moment (network blip, revoked token), the event is orphaned on that one user's calendar with no later retry path — accepted, not fixed, see `things-to-know.md`'s Holidays section.
+
 ### `api_keys`
 *Migration: `0025_api_keys.sql`. Backs `/management/integrations` and auth for the read-only integration API (`/integration/v1/*`) — see things-to-know.md's Integrations section and `docs/databricks-integration-api-spec.md`.*
 
@@ -385,6 +402,7 @@ Exists so "tasks relevant to me" stays one query rather than the three hops (me 
 | `0025_api_keys.sql` | `api_keys` table (hashed key + prefix, admin-only RLS, revoke-not-delete) for the integration API's Kong-style Key Auth. Backs `/management/integrations` and `requireIntegrationApiKey()`. |
 | `0026_task_gender_rename.sql` | `ALTER TYPE task_gender RENAME VALUE` — `men` → `guys`, `women` → `girls`. `unisex` untouched (can't be cleanly dropped, and the client said not to worry about existing data); the app layer just stops offering it. |
 | `0027_public_holidays.sql` | `public_holidays` table (`country` as plain text, not an enum — see the table's own notes above), unique on `country, holiday_date, name`, RLS (any authenticated reads, admin writes). Backs `/holidays` and the Calendar's holiday overlay. |
+| `0028_holiday_calendar_events.sql` | `holiday_calendar_events` join table (holiday × profile → Google event id), unique per pair, self-or-admin RLS. Backs pushing holidays to Google Calendar from the existing Sync button, alongside tasks. |
 
 ## Not built yet
 

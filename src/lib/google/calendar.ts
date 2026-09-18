@@ -43,14 +43,15 @@ async function getCalendarClientForProfile(profileId: string) {
   return google.calendar({ version: "v3", auth: oauth2Client });
 }
 
-// Tasks only carry a due_date, no time — a synced task is always pushed as an all-day event.
-// Google's all-day convention is an exclusive end date, so `end.date` is one day after start.
+// Generic all-day event push — shared by tasks (task-calendar-sync.ts) and holidays
+// (holiday-calendar-sync.ts), neither of which carries a time of day. Google's all-day
+// convention is an exclusive end date, so `end.date` is one day after start.
 //
 // Returns the event id and Google's `updated` timestamp; the caller stores the id to find
-// this event again and stamps google_synced_at to record that the push happened. Neither
-// value is ever compared against the task to decide who "wins" — there is no conflict to
-// resolve when only one side can write.
-export async function upsertTaskCalendarEvent(
+// this event again and stamps its own "last pushed" column. Neither value is ever compared
+// against the source row to decide who "wins" — there is no conflict to resolve when only one
+// side can write (0019).
+export async function upsertCalendarEvent(
   profileId: string,
   { eventId, title, date }: { eventId: string | null; title: string; date: string }
 ): Promise<{ id: string; updatedAt: string } | null> {
@@ -86,13 +87,13 @@ async function upsertEvent(calendar: calendar_v3.Calendar, eventId: string | nul
   }
 }
 
-export async function deleteTaskCalendarEvent(profileId: string, eventId: string): Promise<void> {
+export async function deleteCalendarEvent(profileId: string, eventId: string): Promise<void> {
   const calendar = await getCalendarClientForProfile(profileId);
   if (!calendar) return;
   try {
     await calendar.events.delete({ calendarId: "primary", eventId });
   } catch (error) {
-    // Best-effort cleanup — already gone / unreachable shouldn't block the task's own delete.
+    // Best-effort cleanup — already gone / unreachable shouldn't block the source row's own delete.
     if (!isGoneOrNotFound(error)) throw error;
   }
 }

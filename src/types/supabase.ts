@@ -292,6 +292,45 @@ export type Database = {
           },
         ]
       }
+      holiday_calendar_events: {
+        Row: {
+          google_event_id: string
+          holiday_id: string
+          id: string
+          profile_id: string
+          synced_at: string
+        }
+        Insert: {
+          google_event_id: string
+          holiday_id: string
+          id?: string
+          profile_id: string
+          synced_at?: string
+        }
+        Update: {
+          google_event_id?: string
+          holiday_id?: string
+          id?: string
+          profile_id?: string
+          synced_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "holiday_calendar_events_holiday_id_fkey"
+            columns: ["holiday_id"]
+            isOneToOne: false
+            referencedRelation: "public_holidays"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "holiday_calendar_events_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       key_stages: {
         Row: {
           created_at: string

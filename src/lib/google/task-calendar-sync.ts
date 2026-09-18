@@ -1,5 +1,5 @@
 import "server-only";
-import { upsertTaskCalendarEvent, deleteTaskCalendarEvent } from "@/lib/google/calendar";
+import { upsertCalendarEvent, deleteCalendarEvent } from "@/lib/google/calendar";
 import type { createClient } from "@/lib/supabase/server";
 
 type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
@@ -32,7 +32,7 @@ export async function pushTaskToGoogleCalendar(
   task: SyncableTask,
   calendarOwnerId: string
 ): Promise<boolean> {
-  const result = await upsertTaskCalendarEvent(calendarOwnerId, {
+  const result = await upsertCalendarEvent(calendarOwnerId, {
     eventId: task.google_event_id,
     title: task.task_name,
     date: task.due_date,
@@ -70,7 +70,7 @@ export async function resyncTaskCalendarEvent(supabase: SupabaseClient, taskId: 
   // due_date is nullable; an all-day event can't exist with no date to anchor it, so clearing
   // the due date on an already-synced task removes the event instead of pushing garbage.
   if (!task.due_date) {
-    await deleteTaskCalendarEvent(task.google_calendar_owner_id, task.google_event_id);
+    await deleteCalendarEvent(task.google_calendar_owner_id, task.google_event_id);
     await supabase
       .from("tasks")
       .update({ google_event_id: null, google_calendar_owner_id: null })

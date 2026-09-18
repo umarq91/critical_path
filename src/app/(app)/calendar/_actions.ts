@@ -6,14 +6,18 @@ import { requirePermission } from "@/lib/require-permission";
 import { getGoogleOAuthEnv } from "@/lib/env.server";
 import { hasGoogleCalendarToken } from "@/lib/google/oauth-tokens";
 import { pushTaskToGoogleCalendar } from "@/lib/google/task-calendar-sync";
-import { deleteTaskCalendarEvent } from "@/lib/google/calendar";
+import { pushHolidayToGoogleCalendar } from "@/lib/google/holiday-calendar-sync";
+import { deleteCalendarEvent } from "@/lib/google/calendar";
 import { isGoogleCalendarEligible } from "@/lib/calendar-eligibility";
 import { taskIdsForProfile } from "@/data/task-participants";
 
 // Manual, button-triggered ONE-WAY push (see calendar-toolbar.tsx's Sync button) — not a
 // background poller, and not a two-way reconcile. Bounded to a fixed window around today
 // rather than the page's current view, so the result doesn't depend on which month the user
-// happened to be looking at.
+// happened to be looking at. Pushes both the caller's tasks and every public holiday in the
+// window — two different scoping rules (a task is filtered to what this profile is involved
+// in; a holiday has no such concept and goes to everyone who syncs), so they're two separate
+// passes below, not one shared query.
 const SYNC_WINDOW_DAYS_PAST = 90;
 const SYNC_WINDOW_DAYS_FUTURE = 180;
 
@@ -64,7 +68,8 @@ export async function syncGoogleCalendar() {
 
   const scopedIdSet = new Set([...participantTaskIds, ...(createdRows ?? []).map((row) => row.id)]);
 
-  let pushedCount = 0;
+  let tasksPushedCount = 0;
+  let holidaysPushedCount = 0;
   let skippedCount = 0;
   let removedCount = 0;
 
@@ -90,7 +95,7 @@ export async function syncGoogleCalendar() {
 
     // Best-effort — an unreachable/already-gone Google event must not block clearing the
     // stale link on our side (same reasoning as deleteTask's own cleanup call).
-    await deleteTaskCalendarEvent(auth.userId, row.google_event_id!).catch(() => undefined);
+    await deleteCalendarEvent(auth.userId, row.google_event_id!).catch(() => undefined);
     const { error: clearError } = await auth.supabase
       .from("tasks")
       .update({ google_event_id: null, google_calendar_owner_id: null })
@@ -98,40 +103,68 @@ export async function syncGoogleCalendar() {
     if (!clearError) removedCount++;
   }
 
-  if (scopedIdSet.size === 0) {
-    revalidatePath("/calendar");
-    return { ok: true as const, pushedCount: 0, skippedCount: 0, removedCount };
+  if (scopedIdSet.size > 0) {
+    const { data: tasks, error: tasksError } = await auth.supabase
+      .from("tasks")
+      .select("id, task_name, due_date, google_event_id, google_calendar_owner_id")
+      .in("id", [...scopedIdSet])
+      .is("deleted_at", null)
+      .gte("due_date", from)
+      .lte("due_date", to);
+    if (tasksError) return { ok: false as const, error: tasksError.message };
+
+    // The gte/lte range above already guarantees due_date is non-null for every matched row —
+    // this narrows the type to match, rather than being a runtime filter.
+    const datedTasks = (tasks ?? []).filter(
+      (task): task is typeof task & { due_date: string } => task.due_date !== null
+    );
+
+    for (const task of datedTasks) {
+      // A task maps to exactly one google_event_id, so it can only live on one calendar. Joint
+      // ownership is the norm here (the client's export has two owners on a third of all rows),
+      // so the rule is first-claim-wins: whoever syncs first owns the event, and everyone else
+      // skips it rather than minting a duplicate event and orphaning the original.
+      if (task.google_calendar_owner_id && task.google_calendar_owner_id !== auth.userId) {
+        skippedCount++;
+        continue;
+      }
+
+      const pushed = await pushTaskToGoogleCalendar(auth.supabase, task, auth.userId);
+      if (pushed) tasksPushedCount++;
+    }
   }
 
-  const { data: tasks, error: tasksError } = await auth.supabase
-    .from("tasks")
-    .select("id, task_name, due_date, google_event_id, google_calendar_owner_id")
-    .in("id", [...scopedIdSet])
-    .is("deleted_at", null)
-    .gte("due_date", from)
-    .lte("due_date", to);
-  if (tasksError) return { ok: false as const, error: tasksError.message };
+  // Holidays have no owner column to skip/claim against (unlike a task) — every eligible user
+  // who syncs gets every holiday in the window pushed to their own calendar independently, via
+  // holiday_calendar_events (0028). Not scoped by the Calendar page's own country filter: same
+  // "sync ignores view state" reasoning as the task window above.
+  const { data: holidays, error: holidaysError } = await auth.supabase
+    .from("public_holidays")
+    .select("id, name, holiday_date")
+    .gte("holiday_date", from)
+    .lte("holiday_date", to);
+  if (holidaysError) return { ok: false as const, error: holidaysError.message };
 
-  // The gte/lte range above already guarantees due_date is non-null for every matched row —
-  // this narrows the type to match, rather than being a runtime filter.
-  const datedTasks = (tasks ?? []).filter(
-    (task): task is typeof task & { due_date: string } => task.due_date !== null
-  );
+  if ((holidays ?? []).length > 0) {
+    const { data: existingLinks, error: linksError } = await auth.supabase
+      .from("holiday_calendar_events")
+      .select("holiday_id, google_event_id")
+      .eq("profile_id", auth.userId);
+    if (linksError) return { ok: false as const, error: linksError.message };
 
-  for (const task of datedTasks) {
-    // A task maps to exactly one google_event_id, so it can only live on one calendar. Joint
-    // ownership is the norm here (the client's export has two owners on a third of all rows),
-    // so the rule is first-claim-wins: whoever syncs first owns the event, and everyone else
-    // skips it rather than minting a duplicate event and orphaning the original.
-    if (task.google_calendar_owner_id && task.google_calendar_owner_id !== auth.userId) {
-      skippedCount++;
-      continue;
+    const existingEventIdByHolidayId = new Map((existingLinks ?? []).map((link) => [link.holiday_id, link.google_event_id]));
+
+    for (const holiday of holidays ?? []) {
+      const pushed = await pushHolidayToGoogleCalendar(
+        auth.supabase,
+        holiday,
+        auth.userId,
+        existingEventIdByHolidayId.get(holiday.id) ?? null
+      );
+      if (pushed) holidaysPushedCount++;
     }
-
-    const pushed = await pushTaskToGoogleCalendar(auth.supabase, task, auth.userId);
-    if (pushed) pushedCount++;
   }
 
   revalidatePath("/calendar");
-  return { ok: true as const, pushedCount, skippedCount, removedCount };
+  return { ok: true as const, tasksPushedCount, holidaysPushedCount, skippedCount, removedCount };
 }
