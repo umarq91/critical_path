@@ -2,9 +2,10 @@
 
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ChevronLeft, ChevronRight, PartyPopper, RefreshCw } from "lucide-react";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { calendarViewValues, type CalendarView } from "@/app/(app)/calendar/calendar-search-params";
 import { resolveAnchorDate, shiftAnchorDate, toQueryDate } from "@/app/(app)/calendar/calendar-utils";
 import { syncGoogleCalendar } from "@/app/(app)/calendar/_actions";
@@ -26,6 +27,7 @@ interface CalendarToolbarProps {
   seasonOptions: DataTableFilterOption[];
   brandOptions: DataTableFilterOption[];
   statusOptions: DataTableFilterOption[];
+  holidayCountryOptions: DataTableFilterOption[];
   taskCount: number;
   canSyncGoogleCalendar: boolean;
   isSyncing: boolean;
@@ -37,6 +39,7 @@ export const CalendarToolbar = ({
   seasonOptions,
   brandOptions,
   statusOptions,
+  holidayCountryOptions,
   taskCount,
   canSyncGoogleCalendar,
   isSyncing,
@@ -163,6 +166,11 @@ export const CalendarToolbar = ({
           options={statusOptions}
           onChange={(value) => void setState({ status: value })}
         />
+        <HolidayCountryFilter
+          selected={state.countries}
+          options={holidayCountryOptions}
+          onChange={(next) => void setState({ countries: next.length > 0 ? next : null })}
+        />
         {state.seasonId || state.brandId || state.status ? (
           <Button
             type="button"
@@ -208,5 +216,49 @@ function CalendarFilterSelect({
         ))}
       </SelectContent>
     </Select>
+  );
+}
+
+// A multi-select, unlike the single-value CalendarFilterSelect above: more than one country's
+// holidays can show at once. No selection and every option selected mean the same thing (show
+// every country) — there's no separate "show nothing" state worth the extra plumbing.
+function HolidayCountryFilter({
+  selected,
+  options,
+  onChange,
+}: {
+  selected: string[];
+  options: DataTableFilterOption[];
+  onChange: (next: string[]) => void;
+}) {
+  if (options.length === 0) return null;
+  const allSelected = selected.length === 0;
+
+  function toggle(value: string) {
+    const current = allSelected ? options.map((option) => option.value) : selected;
+    const next = current.includes(value) ? current.filter((v) => v !== value) : [...current, value];
+    onChange(next.length === options.length ? [] : next);
+  }
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        className={cn(buttonVariants({ variant: "outline" }), "h-10 gap-2 transition-colors duration-150")}
+      >
+        <PartyPopper className="size-4" />
+        {allSelected ? "All Holidays" : `${selected.length} ${selected.length === 1 ? "Country" : "Countries"}`}
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {options.map((option) => (
+          <DropdownMenuCheckboxItem
+            key={option.value}
+            checked={allSelected || selected.includes(option.value)}
+            onCheckedChange={() => toggle(option.value)}
+          >
+            {option.label}
+          </DropdownMenuCheckboxItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

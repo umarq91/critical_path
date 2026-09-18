@@ -637,6 +637,74 @@ or the filters, the page would be sliced from a different set than it was fetche
 
 ---
 
+## Holidays (`/holidays`, Calendar overlay)
+
+**Manual entry only — no sync job, no external API, no `PUBLIC_HOLIDAY_API_KEY`.** An earlier
+design (see `docs/specs/0001-public-holidays/rationale.md`) planned a nightly Calendarific sync;
+the client's actual answer was simpler — an admin enters every holiday by hand, one at a time or
+via CSV bulk import. If this ever needs revisiting, it is a decision (`/architect`), not a quiet
+re-add.
+
+**`country` is plain text, not an enum — deliberately, and this is the second time it changed
+mid-build.** The first version made it a fixed enum (`AU`/`CN`/`IN`/`TR`); Umar asked mid-build
+for room to add a country later without a migration, so it's `text` instead, with the 4 known
+ones offered only as quick-pick buttons in `holiday-form.tsx` and `constants/holiday-country.ts`
+(`KNOWN_HOLIDAY_COUNTRIES`, suggestions only, not a closed list). A country typed into a form or
+a CSV row that isn't in that list is just as valid — it becomes its own DataTable filter chip and
+Calendar checkbox automatically, since both read `listDistinctHolidayCountries()` (a real
+`SELECT DISTINCT`) rather than a hardcoded 4-item constant.
+
+**The admin list's Country column colour is derived, not stored.** No `color` column exists (the
+country isn't a fixed lookup with its own row to hold one), so `columns.tsx` reuses
+`getVizColorForId(country)` — the same deterministic hash-to-palette fallback other entities with
+no stored colour already use. Two different countries typed as different strings (`"Turkey"` vs
+`"TR"`) get different, unrelated colours and are treated as different countries entirely — this
+table does no normalisation between a code and a full name.
+
+**Bulk CSV import is per-row independent, not a transaction.** `bulkImportHolidays` in
+`holidays/_actions.ts` validates and inserts one row at a time against the same `holidaySchema`
+the single "Add Holiday" form uses, and keeps going after a bad row — a typo in row 3 of a
+500-row file never blocks rows 1, 2, and 4. Every row's outcome (`created` / `duplicate` /
+`invalid`) comes back in one array and renders in a results table (`csv-bulk-import.tsx`), styled
+through `HOLIDAY_IMPORT_STATUS_CONFIG` — the same generic `<StatusBadge>` every other per-row or
+per-entity status already uses, a new config map, not a new component.
+
+**Duplicate detection is two-layered.** A real DB row with the same `(country, holiday_date,
+name)` is caught by the unique constraint itself (a Postgres `23505`, mapped to `"duplicate"` in
+the results). Two identical rows *within the same uploaded file* are caught separately, by an
+in-memory `Set` of accepted keys built up as the loop runs — the DB constraint alone can't catch
+that case for two rows inserted one after another in the same request.
+
+**The CSV template's headers and the parser's header matching share one constant**
+(`HOLIDAY_CSV_HEADERS` in `holidays/schema.ts`), so the download and the upload can never drift
+out of sync with each other. The parser (`_actions.ts`'s `FIELD_BY_HEADER`) matches case- and
+spacing-insensitively (`"Event Name"`, `"event_name"`, `"EVENT NAME"` all resolve the same
+column), since a CSV re-opened and re-saved in different spreadsheet software doesn't reliably
+preserve exact header casing.
+
+**The row cap (`MAX_BULK_HOLIDAY_ROWS = 500`) rejects the whole file up front**, before any row
+is written — not a partial import that silently stops at row 500. Sized against
+`lib/export/types.ts`'s `MAX_LOOKUP_EXPORT_ROWS` (1000) for a lookup table, halved since an
+*import* does a write per row instead of an export's single bounded read.
+
+**The Calendar's holiday chip is one consistent style, not colour-coded by country.** Client
+request was "a special tag or highlight", not "a different colour per country" — the country
+checkboxes in the toolbar already do the job of distinguishing countries, so
+`calendar-holiday-chip.tsx` uses a single `accent-teal` treatment for every country. Rendered
+above a day's task chips, in its own row, and does **not** count toward the month view's
+"3 tasks then +N more" overflow — holidays and tasks are separate concerns.
+
+**Unchecking every country checkbox shows every country's holidays, same as checking all of
+them.** `calendar-toolbar.tsx`'s `HolidayCountryFilter` treats an empty selection as "no filter
+applied" (matching nuqs's `parseAsArrayOf(...).withDefault([])`), not "show nothing" — there's no
+way to reach an actual empty state through the UI, by design; a user who doesn't want to see any
+holiday countries just doesn't have a reason to touch this control.
+
+**Migration `0027_public_holidays.sql` needs to be applied manually** (this environment has no
+`supabase` CLI / linked project access) — run it via your normal deploy step, then regenerate
+types (`supabase gen types typescript --linked > src/types/supabase.ts`; hand-edited in the
+meantime to keep the build green).
+
 ## External Links (`/external-links`)
 
 **Cost: 2 Supabase calls** — the paginated link list and the current profile.

@@ -156,6 +156,24 @@ policy — see `0006_tasks.sql`.
 
 **RLS:** active **internal** users read (`is_active_user() and not is_external_user()`); only admin writes. Note this is *stricter* than `key_stages`/`departments`, which any active user reads: those carry labels an external user's own task rows have to render, whereas this table is an internal resource list that appears on no other screen. The read rule mirrors `lookups.view` in `lib/permissions.ts` — change one, change both.
 
+### `public_holidays`
+*Migration: `0027_public_holidays.sql`. Admin-managed public holidays shown on the Calendar (single add form plus CSV bulk import — see `docs/specs/0001-public-holidays/`). No sync job, no `source` column: every row is entered by hand, so there's nothing to distinguish.*
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid, PK | |
+| `country` | text, not null | **not an enum** — the confirmed 4 (AU/CN/IN/TR) are UI suggestions only (`constants/holiday-country.ts`), not a closed list. A new country is a row, not a migration |
+| `holiday_date` | date, not null | |
+| `name` | text, not null | the event name, e.g. "Australia Day" |
+| `description` | text, nullable | |
+| `created_at` / `updated_at` | timestamptz | |
+
+**Unique on `country, holiday_date, name`** — allows more than one named holiday on the same day for the same country (confirmed: manual entry makes this plausible), while still rejecting an exact duplicate re-add. This is also `bulkImportHolidays`' duplicate-detection key.
+
+**No `deleted_at`** (hard delete): nothing else in the schema references a holiday by foreign key, unlike `brands`/`seasons`, so there's no history worth preserving.
+
+**RLS:** any authenticated user reads, including `external` — a public holiday date isn't organisation-sensitive the way a brand or season list is. Only admin writes. The admin **page** (`/holidays`) is still gated on `lookups.view` to see the management list and `admin.manage_lookups` to change it, same split as every other lookup without its own Role-Based Access row.
+
 ### `departments`
 *Migration: `0009_departments.sql`. Lightweight lookup entity, same shape as `key_stages` — users can optionally belong to one.*
 
@@ -366,7 +384,8 @@ Exists so "tasks relevant to me" stays one query rather than the three hops (me 
 | `0021_external_links.sql` | `external_links` table (title + description + url), internal-read/admin-write RLS, and a partial index on `title` for the default alphabetical ordering. Backs the External Links page. |
 | `0025_api_keys.sql` | `api_keys` table (hashed key + prefix, admin-only RLS, revoke-not-delete) for the integration API's Kong-style Key Auth. Backs `/management/integrations` and `requireIntegrationApiKey()`. |
 | `0026_task_gender_rename.sql` | `ALTER TYPE task_gender RENAME VALUE` — `men` → `guys`, `women` → `girls`. `unisex` untouched (can't be cleanly dropped, and the client said not to worry about existing data); the app layer just stops offering it. |
+| `0027_public_holidays.sql` | `public_holidays` table (`country` as plain text, not an enum — see the table's own notes above), unique on `country, holiday_date, name`, RLS (any authenticated reads, admin writes). Backs `/holidays` and the Calendar's holiday overlay. |
 
 ## Not built yet
 
-Templates, holidays, leave, reminder rules, notifications log — see `plan.md` §4 for the original full sketch. Add each here as its migration lands. (`sales_toolkit_links` landed as `external_links` in `0021` under the client's own name for it.)
+Templates, leave, reminder rules, notifications log — see `plan.md` §4 for the original full sketch. Add each here as its migration lands. (`sales_toolkit_links` landed as `external_links` in `0021` under the client's own name for it. Holidays landed as `public_holidays` in `0027`, manual entry only — no sync job, see `docs/specs/0001-public-holidays/`.)

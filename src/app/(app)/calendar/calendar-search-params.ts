@@ -2,7 +2,7 @@
 // module is imported by both the Server Component (page.tsx, to run the matching query) and
 // the client toolbar (via useQueryStates), so it stays on "nuqs/server" rather than the
 // "use client"-marked "nuqs" entry.
-import { createLoader, parseAsString, parseAsStringLiteral } from "nuqs/server";
+import { createLoader, parseAsArrayOf, parseAsString, parseAsStringLiteral } from "nuqs/server";
 
 export const calendarViewValues = ["day", "week", "month"] as const;
 export type CalendarView = (typeof calendarViewValues)[number];
@@ -16,6 +16,9 @@ export function calendarSearchParams() {
     seasonId: parseAsString.withDefault(""),
     brandId: parseAsString.withDefault(""),
     status: parseAsString.withDefault(""),
+    // Empty array means unfiltered (every country shown) — there's no fixed country list to
+    // default to, since public_holidays.country is open text (0027_public_holidays.sql).
+    countries: parseAsArrayOf(parseAsString).withDefault([]),
   };
 }
 

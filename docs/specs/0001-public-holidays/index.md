@@ -1,7 +1,7 @@
 # 0001. Public holidays: manual and bulk entry, Calendar display
 
 **Date**: 2026-09-18
-**Status**: Proposed
+**Status**: In Progress
 
 ## Summary
 
@@ -26,7 +26,7 @@ Reasoning and options, including why the original automatic sync plan was droppe
 | Table | Field | Type | Notes |
 |---|---|---|---|
 | `public_holidays` | `id` | uuid, PK | |
-| | `country` | enum `holiday_country`: `AU`, `CN`, `IN`, `TR` | fixed 4 countries |
+| | `country` | text, not null | open, not a fixed enum. AU/CN/IN/TR are the 4 known today, offered as suggestions in the form, but adding a 5th country later is a data entry, not a migration (updated: Umar asked for room to grow this, mid build) |
 | | `holiday_date` | date, not null | |
 | | `name` | text, not null | the event name, e.g. "Australia Day" |
 | | `description` | text, nullable | free text, optional |
@@ -64,7 +64,7 @@ either.
 | Action | Value produced / displayed | Source |
 |---|---|---|
 | Calendar render | a holiday's date, name, and description for each visible day | `public_holidays` row via `listHolidaysByDateRange`, ranged by the Calendar's own visible window (`calendar-utils.ts`'s `getCalendarRange`) |
-| Calendar country filter | which countries are currently shown | a new `countries` key in the Calendar's existing nuqs backed search params (`calendar-search-params.ts`), defaulting to all 4 |
+| Calendar country filter | which countries are currently shown, and which countries even appear as checkboxes | a new `countries` key in the Calendar's existing nuqs backed search params (`calendar-search-params.ts`), defaulting to unfiltered (show every country); the checkbox list itself comes from `listDistinctHolidayCountries()`, the distinct `country` values actually present in the table, not a fixed 4 item constant |
 | Admin holidays list | the paginated row set | `listHolidays()` with `queryState` parsed from the URL, same shape as `listSeasons` |
 | "Download CSV Format" button | the template's column headers | a fixed `HOLIDAY_CSV_HEADERS = ["Date", "Event Name", "Description", "Country"]` constant, shared by the download (as the only row) and the upload parser (to match incoming columns) |
 | `bulkImportHolidays` | which row in the uploaded file a given result refers to | the row's 1 based position in the parsed CSV, kept alongside its outcome in the returned results array |
@@ -127,9 +127,11 @@ needed; see Follow-up.
 - **AC-2**: China's public holidays display correctly on the Calendar.
 - **AC-3**: India's public holidays display correctly on the Calendar.
 - **AC-4**: Turkey's public holidays display correctly on the Calendar.
-- **AC-5**: The Calendar has a country filter (checkboxes for the 4 countries, all checked by
-  default) that shows or hides holiday labels per country, independent of the Season, Brand, and
-  Status task filters already on that page. A holiday renders as a distinct tagged highlight, not
+- **AC-5**: The Calendar has a country filter (one checkbox per country that actually has a
+  holiday entered, all checked by default) that shows or hides holiday labels per country,
+  independent of the Season, Brand, and Status task filters already on that page. The checkbox
+  list is not limited to 4: a new country typed into a holiday shows up as a new checkbox on its
+  own. A holiday renders as a distinct tagged highlight, not
   a plain small label.
 - **AC-6**: An admin can add a single holiday through a form (date, event name, description,
   country), and edit or delete an existing one.
@@ -157,17 +159,20 @@ Action that validates and writes it.
 
 ## Build plan
 
-1. Migration: `holiday_country` enum plus the `public_holidays` table (`id`, `country`,
-   `holiday_date`, `name`, `description` nullable, `created_at`/`updated_at`; unique on `country,
-   holiday_date, name`; RLS: any authenticated user reads, only admin writes). No `holiday_source`
-   enum. Foundation for all of **AC-1** to **AC-11**.
+1. Migration: the `public_holidays` table (`id`, `country` as plain `text` not an enum, so a new
+   country is a row, not a migration, `holiday_date`, `name`, `description` nullable,
+   `created_at`/`updated_at`; unique on `country, holiday_date, name`; RLS: any authenticated user
+   reads, only admin writes). No `holiday_source` column. Foundation for all of **AC-1** to
+   **AC-11**.
 2. Install `papaparse` and its type declarations.
 3. `app/(app)/holidays/schema.ts`: a `holidaySchema` (`holiday_date`, `name`, `description`
    optional, `country`) shared by the single add form and the CSV row validator, so a validation
    rule never has to be written twice.
-4. `data/holidays.ts`: `listHolidays(params)` (paginated, admin page) and
+4. `data/holidays.ts`: `listHolidays(params)` (paginated, admin page),
    `listHolidaysByDateRange({ from, to, countries })` (Calendar, range bounded, not paginated,
-   same shape as `listTasksByDueDateRange`). Satisfies **AC-1** to **AC-5**, **AC-6**.
+   same shape as `listTasksByDueDateRange`), and `listDistinctHolidayCountries()` (the countries
+   that actually have at least one holiday, feeding the Calendar filter's checkbox list so it's
+   never hardcoded to 4). Satisfies **AC-1** to **AC-5**, **AC-6**.
 5. `app/(app)/holidays/_actions.ts`: `createHoliday`, `updateHoliday`, `deleteHoliday` (each
    gated on `admin.manage_lookups`), and `bulkImportHolidays(formData)`: reads the uploaded file,
    parses it with `papaparse`, rejects outright if it has more than `MAX_BULK_HOLIDAY_ROWS = 500`
@@ -182,10 +187,10 @@ Action that validates and writes it.
 7. Add "Holidays" to `constants/nav.ts` (`requiredAction: "lookups.view"`) and
    `constants/search-index.ts`. Satisfies **AC-11** at the presentation layer.
 8. Calendar integration: a `countries` key in `calendar-search-params.ts` and
-   `calendar-query-state.ts` (default: all 4), fetch holidays alongside tasks in
-   `calendar/page.tsx`, render each as a distinct tagged highlight (not a plain label) in
-   `calendar-board.tsx`, add the country checkboxes to `calendar-toolbar.tsx`. Satisfies **AC-1**
-   to **AC-5**.
+   `calendar-query-state.ts` (default: unset, meaning unfiltered), fetch holidays alongside tasks
+   in `calendar/page.tsx`, render each as a distinct tagged highlight (not a plain label) in
+   `calendar-board.tsx`, add the country checkboxes to `calendar-toolbar.tsx`, sourced from
+   `listDistinctHolidayCountries()` rather than a fixed list. Satisfies **AC-1** to **AC-5**.
 9. `loading.tsx` for `/holidays`, matching the Seasons reference skeleton.
 10. Update `supabase/schema.md` and `things-to-know.md` with a new Holidays section: the data
     model, the CSV template format and its header constant, the duplicate and row cap rules for
@@ -226,12 +231,13 @@ Action that validates and writes it.
 - [ ] Consider a standing yearly reminder (outside this codebase, e.g. a calendar note for
       whoever administers this) to add next year's holidays before the current year's data runs
       out, since nothing here does that automatically anymore.
-- [ ] Three smaller questions from the original client round were never explicitly confirmed again
+- [ ] Two smaller questions from the original client round were never explicitly confirmed again
       after the scope simplified, and this spec carries them forward as the same recommended
       defaults as before, not newly confirmed: holiday visibility (kept as "everyone, including
-      external"), the Calendar's default country filter state (kept as "all 4 on"), and whether
-      the country list might grow beyond these 4 later (kept as "fixed 4 for now"). Low risk to
-      leave as is and revisit only if it turns out wrong, since each is a small, isolated change.
+      external") and the Calendar's default country filter state (kept as "unfiltered, every
+      country shown"). Low risk to leave as is and revisit only if it turns out wrong. The third
+      question, whether the country list would grow beyond the original 4, is now resolved by
+      this update: `country` is open text, not a fixed list, precisely so it can.
 - [ ] If the client later wants holidays to affect overdue or business day math, treat that as a
       new decision (`/architect`), not an ad hoc addition. It needs a country association on
       tasks or departments that does not exist yet.

@@ -405,6 +405,36 @@ export type Database = {
           },
         ]
       }
+      public_holidays: {
+        Row: {
+          country: string
+          created_at: string
+          description: string | null
+          holiday_date: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          country: string
+          created_at?: string
+          description?: string | null
+          holiday_date: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          country?: string
+          created_at?: string
+          description?: string | null
+          holiday_date?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       reminder_rule_tasks: {
         Row: {
           id: string

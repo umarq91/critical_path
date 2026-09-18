@@ -5,6 +5,7 @@ import {
   GitBranch,
   GanttChartSquare,
   Calendar,
+  CalendarDays,
   Tag,
   Leaf,
   Milestone,
@@ -125,6 +126,15 @@ export const SEARCH_INDEX: SearchItem[] = [
     icon: Milestone,
     section: "Pages",
     keywords: ["milestones", "stages", "phases"],
+    requiredAction: "lookups.view",
+  },
+  {
+    title: "Holidays",
+    description: "Manage public holidays shown on the Calendar",
+    href: "/holidays",
+    icon: CalendarDays,
+    section: "Pages",
+    keywords: ["public holidays", "days off", "countries", "bulk import", "csv"],
     requiredAction: "lookups.view",
   },
   {

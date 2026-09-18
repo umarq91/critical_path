@@ -9,12 +9,15 @@ import { toQueryDate, type CalendarRange } from "@/app/(app)/calendar/calendar-u
 import type { CalendarView } from "@/app/(app)/calendar/calendar-search-params";
 import type { DataTableFilterOption } from "@/components/data-table/table-features";
 import type { Task } from "@/data/tasks";
+import type { Holiday } from "@/data/holidays";
 
 interface CalendarWorkspaceProps {
   view: CalendarView;
   anchorDate: Date;
   range: CalendarRange;
   tasks: Task[];
+  holidays: Holiday[];
+  holidayCountryOptions: DataTableFilterOption[];
   canAssignPeople: boolean;
   canSyncGoogleCalendar: boolean;
   seasonOptions: DataTableFilterOption[];
@@ -31,6 +34,8 @@ export const CalendarWorkspace = ({
   anchorDate,
   range,
   tasks,
+  holidays,
+  holidayCountryOptions,
   canAssignPeople,
   canSyncGoogleCalendar,
   seasonOptions,
@@ -57,6 +62,7 @@ export const CalendarWorkspace = ({
           seasonOptions={seasonOptions}
           brandOptions={brandOptions}
           statusOptions={statusOptions}
+          holidayCountryOptions={holidayCountryOptions}
           taskCount={tasks.length}
           canSyncGoogleCalendar={canSyncGoogleCalendar}
           isSyncing={isSyncing}
@@ -67,6 +73,7 @@ export const CalendarWorkspace = ({
           anchorDate={anchorDate}
           range={range}
           tasks={tasks}
+          holidays={holidays}
           canAssignPeople={canAssignPeople}
           isPending={queryState.isPending || isSyncing}
           hasActiveFilters={hasActiveFilters}
