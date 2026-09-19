@@ -102,7 +102,7 @@ export function createTaskColumns({
     }),
     columnHelper.accessor("brand_id", {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Brand" />,
-      meta: { label: "Brand", width: "md" },
+      meta: { label: "Brand", width: "xs" },
       filterFn: "weakEquals",
       cell: ({ row }) => (
         <EditableCell
@@ -118,7 +118,7 @@ export function createTaskColumns({
     }),
     columnHelper.accessor("key_stage_id", {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Key Stage" />,
-      meta: { label: "Key Stage", width: "md" },
+      meta: { label: "Key Stage", width: "xs" },
       filterFn: "weakEquals",
       cell: ({ row }) => (
         <EditableCell
@@ -134,7 +134,7 @@ export function createTaskColumns({
     }),
     columnHelper.accessor("dpsp_category", {
       header: ({ column }) => <DataTableColumnHeader column={column} title="DPSP Category" />,
-      meta: { label: "DPSP Category", width: "md" },
+      meta: { label: "DPSP Category", width: "xs" },
       filterFn: "weakEquals",
       cell: ({ row, getValue }) => (
         <EditableCell

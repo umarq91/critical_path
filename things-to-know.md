@@ -1069,15 +1069,20 @@ but the split keeps both files readable; `participantRows()` moved to `lib/party
 
 ## Data tables (`components/data-table/`)
 
-**Columns are fixed-width, not content-sized.** Each one declares `meta.width` from the five-step
-scale in `column-widths.ts` (defaulting to `md`), `DataTable` emits those as a `<colgroup>`, and
-the table lays out `table-fixed` at exactly the sum of those widths (both `width` and `min-width`
-on the `<table>` itself). Below that width it scrolls; above it, the leftover space now sits
-outside the table as a plain gutter — it used to stretch every column proportionally to fill the
-screen instead (no gutter, ever), but on a wide monitor with mostly short/empty values that read
-as columns full of dead air, so client feedback reversed it. This is what stops one long task name
-or description from dragging a column — and the whole page — sideways. Adding a column without a
-`width` silently gets `md` (176px), which is usually wrong for a badge or a count.
+**Columns are relatively-weighted, not content-sized, and the table always fills its container.**
+Each column declares `meta.width` from the five-step scale in `column-widths.ts` (defaulting to
+`md`); `DataTable` converts those into percentages that sum to 100 and emits them as a
+`<colgroup>`, with the `<table>` itself set to `w-full`/`table-fixed`. This is a deliberate
+reversal of the previous fixed-pixel-sum behaviour (table sized to exactly the sum of its
+columns' px widths, scrolling below that and leaving a gutter above it) — client feedback wanted
+every table to fill the screen with no gutter AND no horizontal scrollbar regardless of column
+count, which a fixed-sum layout can't do at both ends simultaneously. Percentages solve both: a
+short table (e.g. Seasons, ~5 columns) stretches every column proportionally to fill the page, and
+a wide one (e.g. Tasks, ~13 columns) proportionally compresses every column to still fit on one
+screen — same mechanism, no column-count threshold anywhere in the code. The trade-off, accepted
+deliberately: a table with many columns runs tighter than any single column would like — pick the
+`width` kind for the *typical* value regardless, truncation covers the rest. Adding a column
+without a `width` silently gets `md`, which is usually wrong for a badge or a count.
 
 **Cells clip, so pick the width for the typical value, not the longest one.** `td`/`th` carry
 `truncate`; anything that doesn't fit ellipsises. `showTitleWhenTruncated` (on `onMouseEnter`)

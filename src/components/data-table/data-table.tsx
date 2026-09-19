@@ -21,7 +21,7 @@ import { DataTableFilterRow } from "@/components/data-table/data-table-filter-ro
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
 import { dataTableFeatures, type DataTableColumnMeta } from "@/components/data-table/table-features";
 import { getStickyCellClassName } from "@/components/data-table/sticky-column";
-import { columnWidthPx } from "@/components/data-table/column-widths";
+import { columnWidthPercents } from "@/components/data-table/column-widths";
 import { showTitleWhenTruncated } from "@/components/data-table/truncation-title";
 import { useTableScrollEdges } from "@/components/data-table/use-table-scroll-edges";
 import type { DataTableQueryState } from "@/components/data-table/use-data-table-query-state";
@@ -163,10 +163,9 @@ export const DataTable = <TData extends Record<string, unknown>>({
   const [scrollRef, scrollEdges] = useTableScrollEdges<HTMLDivElement>();
   // Widths are declared once, on <col>, rather than repeated on every header and body cell.
   const visibleColumns = table.getVisibleLeafColumns();
-  const columnWidths = visibleColumns.map((column) =>
-    columnWidthPx((column.columnDef.meta as DataTableColumnMeta | undefined)?.width)
+  const columnWidthPercentages = columnWidthPercents(
+    visibleColumns.map((column) => (column.columnDef.meta as DataTableColumnMeta | undefined)?.width)
   );
-  const tableMinWidth = columnWidths.reduce((total, width) => total + width, 0);
 
   return (
     <Card className="gap-5 py-6">
@@ -180,16 +179,14 @@ export const DataTable = <TData extends Record<string, unknown>>({
       ) : null}
       <div ref={scrollRef} className="relative">
         <Table
-          className={cn("table-fixed transition-opacity", isBusy && "pointer-events-none opacity-50")}
-          // Fixed width, not just a min-width floor: on a screen wider than the columns' own sum,
-          // this stops the table stretching every column proportionally to fill the leftover
-          // space (the old behaviour, which read as columns full of dead air for a short value).
-          // Leftover space now sits outside the table as a plain gutter instead.
-          style={{ width: tableMinWidth, minWidth: tableMinWidth }}
+          className={cn("table-fixed w-full transition-opacity", isBusy && "pointer-events-none opacity-50")}
+          // Always exactly 100% of the container (see column-widths.ts) — a few columns
+          // stretch to fill the page instead of leaving a gutter, and many columns compress
+          // instead of forcing a horizontal scrollbar.
         >
           <colgroup>
             {visibleColumns.map((column, index) => (
-              <col key={column.id} style={{ width: columnWidths[index] }} />
+              <col key={column.id} style={{ width: `${columnWidthPercentages[index]}%` }} />
             ))}
           </colgroup>
           <TableHeader>
