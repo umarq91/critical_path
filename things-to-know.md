@@ -277,6 +277,11 @@ below — seeded `brand_id` is null for every row) predate this rule.
 "relevant to me". An empty result set filters on an impossible uuid (`EMPTY_RESULT_ID`) rather
 than dropping the clause, which would silently widen the query to "no filter at all".
 
+**The Owner filter accepts several owners at once (`multiple: true`), matched as a union.**
+Picking Planning and Marketing means owned by either, not both — same as every other multi-select
+toolbar filter (see "Data tables" above). Owner and People Involved are still `.reduce`d together
+as an intersection when both are set, unchanged from before.
+
 **"My tasks" is now transitive.** My Tasks scopes through `task_participant_profiles`, so being
 in Planning shows you every task Planning owns, not just ones naming you. My Tasks deliberately
 has no Owner filter — the page is already scoped to you.
@@ -1093,6 +1098,20 @@ uses `bg-surface-header` instead of `bg-muted/40`.
 *below* the sticky `<td>`, so `bg-inherit` alone would freeze the pinned column at the row's
 resting colour. `DataTable`'s rows carry `group` and the sticky cell carries
 `group-hover:bg-surface-hover group-data-[state=selected]:bg-muted` to follow along.
+
+**A `multiple: true` toolbar filter still stores one plain string, not an array.** The selected
+option values are joined with `MULTI_FILTER_DELIMITER` (`constants/data-table-filters.ts`,
+currently `,`) into the same `filters[columnId]` slot every single-select filter uses — chosen
+deliberately over widening `filters` to `Record<string, string | string[]>` in
+`data-table-search-params.ts`, since that type is shared by every list page in the app (seasons,
+brands, users, holidays, …) and widening it would have forced every one of their `data/*.ts`
+functions to accept an array they never actually receive. IDs are uuids or `kind:uuid` party keys
+(`lib/party.ts`), neither of which can contain a comma, so the join/split is unambiguous. The
+Tasks grid (`tasks-board.tsx`) is the one table using it so far — `data/tasks.ts`'s `applyMultiEq`
+and `data/task-participants.ts`'s `taskIdsForAnyParty` decode it back into a list and apply
+`.eq`/`.in` (or a unioned `.or()` for the participant-based Owner/People Involved filters).
+Selecting several values within one filter is a union (OR); different filters still intersect
+(AND) — picking two Seasons and one Brand means either season, and that brand.
 
 **The filter row is a separate component (`data-table-filter-row.tsx`) and needs the sticky
 classes applied by hand.** It doesn't go through the header/body cell paths, so it calls the

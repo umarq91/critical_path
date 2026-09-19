@@ -1,6 +1,7 @@
 import "server-only";
 import { addDays, format } from "date-fns";
 import { createClient } from "@/lib/supabase/server";
+import { decodeMultiFilterValue } from "@/constants/data-table-filters";
 import {
   EMPTY_RESULT_ID,
   participantTaskIds,
@@ -56,6 +57,19 @@ function isDpspCategory(value: string | undefined): value is (typeof dpspCategor
   return !!value && (dpspCategoryValues as readonly string[]).includes(value);
 }
 
+// Applies a `multiple: true` toolbar filter's decoded values as `.eq` (one value) or `.in`
+// (several) — the same clause either way from PostgREST's perspective, just picking the cheaper
+// one. Kept generic over the query type so every taskScope() clause below can reassign through
+// it without narrowing `query`'s type to whatever this function returns.
+function applyMultiEq<Q extends { eq: (column: string, value: string) => Q; in: (column: string, values: string[]) => Q }>(
+  query: Q,
+  column: string,
+  values: string[]
+): Q {
+  if (values.length === 0) return query;
+  return values.length === 1 ? query.eq(column, values[0]) : query.in(column, values);
+}
+
 /** Task-id allow-lists that can't be expressed as inline PostgREST filters, resolved once per
  *  call so the two passes below don't look them up twice. `null` = that scope isn't set. */
 interface TaskScopeIds {
@@ -102,13 +116,20 @@ function taskScope(
     .is("deleted_at", null);
 
   if (filters.task_name) query = query.ilike("task_name", `%${filters.task_name}%`);
-  if (filters.season_id) query = query.eq("season_id", filters.season_id);
-  if (filters.brand_id) query = query.eq("brand_id", filters.brand_id);
-  if (filters.key_stage_id) query = query.eq("key_stage_id", filters.key_stage_id);
-  if (isTaskGender(filters.gender)) query = query.eq("gender", filters.gender);
-  if (isTaskStatus(filters.status)) query = query.eq("status", filters.status);
-  if (isTaskPriority(filters.priority)) query = query.eq("priority", filters.priority);
-  if (isDpspCategory(filters.dpsp_category)) query = query.eq("dpsp_category", filters.dpsp_category);
+  // Season/Brand/Key Stage/Gender/Status/Priority/DPSP Category are all `multiple: true`
+  // toolbar filters — see data-table-toolbar.tsx and constants/data-table-filters.ts for the
+  // comma-joined encoding this decodes.
+  query = applyMultiEq(query, "season_id", decodeMultiFilterValue(filters.season_id));
+  query = applyMultiEq(query, "brand_id", decodeMultiFilterValue(filters.brand_id));
+  query = applyMultiEq(query, "key_stage_id", decodeMultiFilterValue(filters.key_stage_id));
+  query = applyMultiEq(query, "gender", decodeMultiFilterValue(filters.gender).filter((value) => isTaskGender(value)));
+  query = applyMultiEq(query, "status", decodeMultiFilterValue(filters.status).filter((value) => isTaskStatus(value)));
+  query = applyMultiEq(query, "priority", decodeMultiFilterValue(filters.priority).filter((value) => isTaskPriority(value)));
+  query = applyMultiEq(
+    query,
+    "dpsp_category",
+    decodeMultiFilterValue(filters.dpsp_category).filter((value) => isDpspCategory(value))
+  );
   // "Hide done" toggle (DPSP Flywheel board) — an exclusion, not an equality match, so it's
   // its own filter key rather than overloading `status`.
   if (filters.hide_done === "true") query = query.neq("status", "completed");

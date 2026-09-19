@@ -2,6 +2,7 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { parsePartyKey, type ParticipantRole } from "@/lib/party";
 import { sanitiseOrSearchTerm } from "@/lib/utils";
+import { decodeMultiFilterValue } from "@/constants/data-table-filters";
 
 export type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -25,15 +26,26 @@ export async function taskIdsForProfile(supabase: SupabaseClient, profileId: str
   return (data ?? []).flatMap((row) => (row.task_id ? [row.task_id] : []));
 }
 
-async function taskIdsForParty(supabase: SupabaseClient, partyKeyValue: string, role: ParticipantRole) {
-  const party = parsePartyKey(partyKeyValue);
-  if (!party) return [];
+// `partyKeyValues` is one or more `kind:uuid` party keys — the "Owner"/"People Involved" toolbar
+// filter is `multiple: true`, so its raw URL value is a MULTI_FILTER_DELIMITER-joined list (see
+// constants/data-table-filters.ts), decoded by the caller. Matching ANY of them is a union, not
+// an intersection — selecting two owners means "owned by either", same as every other multi-select
+// filter on this grid.
+async function taskIdsForAnyParty(supabase: SupabaseClient, partyKeyValues: string[], role: ParticipantRole) {
+  const userIds: string[] = [];
+  const departmentIds: string[] = [];
+  for (const value of partyKeyValues) {
+    const party = parsePartyKey(value);
+    if (!party) continue;
+    (party.kind === "user" ? userIds : departmentIds).push(party.id);
+  }
+  if (userIds.length === 0 && departmentIds.length === 0) return [];
 
-  const { data, error } = await supabase
-    .from("task_participants")
-    .select("task_id")
-    .eq("role", role)
-    .eq(party.kind === "user" ? "profile_id" : "department_id", party.id);
+  const legs: string[] = [];
+  if (userIds.length > 0) legs.push(`profile_id.in.(${userIds.join(",")})`);
+  if (departmentIds.length > 0) legs.push(`department_id.in.(${departmentIds.join(",")})`);
+
+  const { data, error } = await supabase.from("task_participants").select("task_id").eq("role", role).or(legs.join(","));
   if (error) throw error;
   return (data ?? []).map((row) => row.task_id);
 }
@@ -86,8 +98,10 @@ export async function taskIdsMatchingPartyName(supabase: SupabaseClient, term: s
 // must translate into zero rows (EMPTY_RESULT_ID), not into "no filter at all".
 export async function participantTaskIds(supabase: SupabaseClient, filters: Record<string, string>) {
   const sets: string[][] = [];
-  if (filters.owner) sets.push(await taskIdsForParty(supabase, filters.owner, "owner"));
-  if (filters.involved) sets.push(await taskIdsForParty(supabase, filters.involved, "involved"));
+  const owners = decodeMultiFilterValue(filters.owner);
+  if (owners.length > 0) sets.push(await taskIdsForAnyParty(supabase, owners, "owner"));
+  const involved = decodeMultiFilterValue(filters.involved);
+  if (involved.length > 0) sets.push(await taskIdsForAnyParty(supabase, involved, "involved"));
 
   if (sets.length === 0) return null;
   return sets.reduce((intersection, ids) => {

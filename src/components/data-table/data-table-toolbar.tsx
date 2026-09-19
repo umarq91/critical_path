@@ -10,11 +10,13 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { decodeMultiFilterValue, encodeMultiFilterValue } from "@/constants/data-table-filters";
 import type { dataTableFeatures, DataTableColumnMeta, DataTableFilterOption } from "@/components/data-table/table-features";
 
 export interface DataTableToolbarFilter {
@@ -23,6 +25,13 @@ export interface DataTableToolbarFilter {
   options: DataTableFilterOption[];
   /** Trigger placeholder when no value is selected. Defaults to `All {title}`. */
   placeholder?: string;
+  /** Renders a checkbox dropdown instead of a single-value Select. The column's filter value
+   *  stays a plain `string | undefined` — same shape as every other filter, so the shared URL
+   *  state (data-table-search-params.ts) doesn't need to know this filter is special — by
+   *  joining the selected option values with MULTI_FILTER_DELIMITER (constants/data-table-
+   *  filters.ts). Deselecting the last option clears the filter entirely, same as picking "All"
+   *  in single-select. */
+  multiple?: boolean;
 }
 
 export interface DataTableToolbarSortOption {
@@ -102,6 +111,47 @@ export const DataTableToolbar = <TData extends Record<string, unknown>>({
       {filters?.map((filter) => {
         const column = table.getColumn(filter.columnId);
         if (!column) return null;
+        const allLabel = filter.placeholder ?? `All ${filter.title}`;
+
+        if (filter.multiple) {
+          const selected = decodeMultiFilterValue(column.getFilterValue() as string | undefined);
+          const toggleOption = (optionValue: string, checked: boolean) => {
+            const next = checked ? [...selected, optionValue] : selected.filter((value) => value !== optionValue);
+            column.setFilterValue(encodeMultiFilterValue(next));
+          };
+          const triggerLabel =
+            selected.length === 0
+              ? allLabel
+              : selected.length === 1
+                ? (filter.options.find((option) => option.value === selected[0])?.label ?? selected[0])
+                : `${filter.title} (${selected.length})`;
+
+          return (
+            <DropdownMenu key={filter.columnId}>
+              <DropdownMenuTrigger
+                className={cn(buttonVariants({ variant: "outline" }), "h-10 min-w-0 justify-between gap-2 font-normal")}
+              >
+                {triggerLabel}
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel>{filter.title}</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {filter.options.map((option) => (
+                    <DropdownMenuCheckboxItem
+                      key={option.value}
+                      checked={selected.includes(option.value)}
+                      onCheckedChange={(checked) => toggleOption(option.value, !!checked)}
+                    >
+                      {option.label}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                </DropdownMenuGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          );
+        }
+
         // Always defined (never undefined) — a Select's controlled/uncontrolled nature is
         // fixed on first render, so flipping value between undefined and a real string
         // across renders trips Base UI's controlled-state warning. The `children` render-fn
@@ -109,7 +159,6 @@ export const DataTableToolbar = <TData extends Record<string, unknown>>({
         // since relying on SelectItem registration for that label is what caused the
         // earlier "__all__" flash — this renders it ourselves regardless of registry timing.
         const value = (column.getFilterValue() as string | undefined) ?? ALL_VALUE;
-        const allLabel = filter.placeholder ?? `All ${filter.title}`;
 
         return (
           <Select
@@ -173,23 +222,25 @@ export const DataTableToolbar = <TData extends Record<string, unknown>>({
             <Settings2 />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            {table
-              .getAllLeafColumns()
-              .filter((column) => column.getCanHide())
-              .map((column) => {
-                const meta = column.columnDef.meta as DataTableColumnMeta | undefined;
-                return (
-                  <DropdownMenuCheckboxItem
-                    key={column.id}
-                    checked={column.getIsVisible()}
-                    onCheckedChange={(checked) => column.toggleVisibility(!!checked)}
-                  >
-                    {meta?.label ?? column.id}
-                  </DropdownMenuCheckboxItem>
-                );
-              })}
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {table
+                .getAllLeafColumns()
+                .filter((column) => column.getCanHide())
+                .map((column) => {
+                  const meta = column.columnDef.meta as DataTableColumnMeta | undefined;
+                  return (
+                    <DropdownMenuCheckboxItem
+                      key={column.id}
+                      checked={column.getIsVisible()}
+                      onCheckedChange={(checked) => column.toggleVisibility(!!checked)}
+                    >
+                      {meta?.label ?? column.id}
+                    </DropdownMenuCheckboxItem>
+                  );
+                })}
+            </DropdownMenuGroup>
           </DropdownMenuContent>
         </DropdownMenu>
       ) : null}

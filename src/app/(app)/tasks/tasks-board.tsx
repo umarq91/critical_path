@@ -108,28 +108,37 @@ export const TasksBoard = ({
         getRowClassName={(task) => (task.status === "overdue" ? "bg-surface-overdue" : undefined)}
         toolbar={{
           filters: [
-            { columnId: "season_id", title: "Season", placeholder: "All Seasons", options: seasonOptions },
-            { columnId: "brand_id", title: "Brand", placeholder: "All Brands", options: brandOptions },
-            { columnId: "key_stage_id", title: "Key Stage", placeholder: "All Key Stages", options: keyStageOptions },
+            { columnId: "season_id", title: "Season", placeholder: "All Seasons", options: seasonOptions, multiple: true },
+            { columnId: "brand_id", title: "Brand", placeholder: "All Brands", options: brandOptions, multiple: true },
+            {
+              columnId: "key_stage_id",
+              title: "Key Stage",
+              placeholder: "All Key Stages",
+              options: keyStageOptions,
+              multiple: true,
+            },
             {
               columnId: "dpsp_category",
               title: "DPSP Category",
               placeholder: "All Categories",
               options: Object.entries(DPSP_CATEGORY_CONFIG).map(([value, { label }]) => ({ value, label })),
+              multiple: true,
             },
             {
               columnId: "gender",
               title: "Gender",
               placeholder: "All Genders",
               options: Object.entries(TASK_GENDER_CONFIG).map(([value, { label }]) => ({ value, label })),
+              multiple: true,
             },
             {
               columnId: "status",
               title: "Status",
               placeholder: "All Status",
               options: Object.entries(TASK_STATUS_CONFIG).map(([value, { label }]) => ({ value, label })),
+              multiple: true,
             },
-            { columnId: "owner", title: "Owner", placeholder: "All Owners", options: ownerOptions },
+            { columnId: "owner", title: "Owner", placeholder: "All Owners", options: ownerOptions, multiple: true },
           ],
           sortOptions: [
             { columnId: "task_name", desc: false, label: "Task Name (A-Z)" },
