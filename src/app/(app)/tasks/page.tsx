@@ -7,6 +7,7 @@ import { listBrandOptions } from "@/data/brands";
 import { listKeyStageOptions } from "@/data/key-stages";
 import { getCurrentProfile } from "@/data/profiles";
 import { listPartyOptions } from "@/data/parties";
+import { listSavedViews } from "@/data/saved-views";
 import { can } from "@/lib/permissions";
 import { loadDataTableSearchParams } from "@/components/data-table/data-table-search-params";
 import { TASKS_QUERY_STATE } from "@/app/(app)/tasks/query-state";
@@ -17,14 +18,18 @@ export default async function TasksPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const queryState = await loadDataTableSearchParams(searchParams, TASKS_QUERY_STATE);
+  // Fetched first, not inside the Promise.all below — listSavedViews needs the profile's id,
+  // and getCurrentProfile is cache()-memoized per request (see its own comment), so this costs
+  // nothing extra: (app)/layout.tsx already called it once for the auth guard.
+  const profile = await getCurrentProfile();
 
-  const [{ data: tasks, rowCount }, seasons, brands, keyStages, ownerOptions, profile] = await Promise.all([
+  const [{ data: tasks, rowCount }, seasons, brands, keyStages, ownerOptions, savedViews] = await Promise.all([
     listTasks(queryState),
     listSeasonOptions(),
     listBrandOptions(),
     listKeyStageOptions(),
     listPartyOptions(),
-    getCurrentProfile(),
+    profile ? listSavedViews(profile.id) : Promise.resolve([]),
   ]);
 
   const canCreateTask = !!profile && can(profile.role, "task.create");
@@ -65,6 +70,7 @@ export default async function TasksPage({
           brandOptions={brandOptions}
           keyStageOptions={keyStageOptions}
           ownerOptions={ownerOptions}
+          savedViews={savedViews}
         />
       </div>
     </div>

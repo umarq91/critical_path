@@ -10,10 +10,12 @@ import { createTaskColumns } from "@/app/(app)/tasks/columns";
 import { TASKS_QUERY_STATE } from "@/app/(app)/tasks/query-state";
 import { updateTask, refreshTasks } from "@/app/(app)/tasks/_actions";
 import { TaskDetailDrawer } from "@/app/(app)/tasks/task-detail-drawer";
+import { SavedViewsMenu } from "@/app/(app)/tasks/saved-views-menu";
 import { TASK_STATUS_CONFIG } from "@/constants/task-status";
 import { TASK_GENDER_CONFIG } from "@/constants/task-gender";
 import { DPSP_CATEGORY_CONFIG } from "@/constants/dpsp-category";
 import type { Task } from "@/data/tasks";
+import type { SavedView } from "@/data/saved-views";
 import type { DataTableFilterOption } from "@/components/data-table/table-features";
 
 interface TasksBoardProps {
@@ -26,6 +28,7 @@ interface TasksBoardProps {
   brandOptions: DataTableFilterOption[];
   keyStageOptions: DataTableFilterOption[];
   ownerOptions: DataTableFilterOption[];
+  savedViews: SavedView[];
 }
 
 export const TasksBoard = ({
@@ -38,6 +41,7 @@ export const TasksBoard = ({
   brandOptions,
   keyStageOptions,
   ownerOptions,
+  savedViews,
 }: TasksBoardProps) => {
   const queryState = useDataTableQueryState(TASKS_QUERY_STATE);
   const rowEditing = useRowEditing();
@@ -150,6 +154,14 @@ export const TasksBoard = ({
           // name, its season, brand and key stage, and its owners and people involved.
           searchColumnId: "search",
           searchPlaceholder: "Search tasks, season, brand, key stage, people...",
+          actions: (
+            <SavedViewsMenu
+              savedViews={savedViews}
+              currentFilters={queryState.params.filters}
+              currentSortBy={queryState.params.sortBy}
+              currentSortDir={queryState.params.sortDir}
+            />
+          ),
         }}
       />
       {/* Mounted per selected task, so the drawer's participants draft starts from that

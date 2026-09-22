@@ -325,6 +325,24 @@ Exists so "tasks relevant to me" stays one query rather than the three hops (me 
 
 **RLS:** `reminder_rules`/`reminder_rule_tasks` are owner-only (`profile_id = auth.uid()`, or a join back to the owning rule) — a personal preference, not a lookup entity, so there's no "everyone reads, admin writes" split. `notifications_log` has **no policies at all** — only the service-role client (`lib/supabase/admin.ts`, used exclusively by `/api/cron/task-reminders`) can touch it.
 
+### `saved_views`
+*Migration: `0030_saved_views.sql`. Named filter/sort presets for the Tasks grid — plan.md §4's original sketch, built once `data-table-search-params.ts`'s `{filters, sortBy, sortDir}` shape had settled. A personal preference, same shape as `reminder_rules` — no admin-write/everyone-read split.*
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid, PK | |
+| `profile_id` | uuid, FK → `profiles.id`, not null, `on delete cascade` | |
+| `name` | text, not null | user-chosen label, e.g. "My overdue Winter tasks" |
+| `filters` | jsonb, not null, default `{}` | verbatim copy of the URL's `filters` param (`data-table-search-params.ts`) — no translation on save or apply |
+| `sort_by` / `sort_dir` | text, nullable | verbatim copy of the URL's `sortBy`/`sortDir` params; null means "default sort," same as the URL omitting them |
+| `created_at` | timestamptz | |
+
+**Unique on `(profile_id, name)`** — a user can't save two views with the same name; `createSavedView` surfaces the resulting `23505` as a friendly "You already have a view named …" rather than a raw constraint error.
+
+**RLS:** owner-only (`profile_id = auth.uid()`), same shape as `reminder_rules_own_row`.
+
+**Scoped to Tasks only, not a generic `page` column.** The Tasks grid is the one spreadsheet-style view this was built for; if a second table wants saved views, that's when a `page`/`entity` discriminator earns its place, not before.
+
 ### `google_oauth_tokens`
 *Migration: `0012_google_oauth_tokens.sql`. Per-user Google OAuth access/refresh tokens, used only to call the Calendar API as that specific user.*
 
@@ -406,7 +424,8 @@ Exists so "tasks relevant to me" stays one query rather than the three hops (me 
 | `0027_public_holidays.sql` | `public_holidays` table (`country` as plain text, not an enum — see the table's own notes above), unique on `country, holiday_date, name`, RLS (any authenticated reads, admin writes). Backs `/holidays` and the Calendar's holiday overlay. |
 | `0028_holiday_calendar_events.sql` | `holiday_calendar_events` join table (holiday × profile → Google event id), unique per pair, self-or-admin RLS. Backs pushing holidays to Google Calendar from the existing Sync button, alongside tasks. |
 | `0029_viewer_calendar_sync.sql` | Adds `tasks_update_viewer_calendar_sync` (a second, additive UPDATE policy admitting active `viewer`s, alongside the existing `tasks_update_standard_or_admin`) and `restrict_viewer_task_columns()` — a `BEFORE UPDATE` trigger that rejects a viewer's write unless it's confined to `google_event_id`/`google_calendar_owner_id`/`google_synced_at`/`updated_at`. Lets viewer use the Calendar page's Sync button without gaining general `task.update`. |
+| `0030_saved_views.sql` | `saved_views` table (profile-owned name + filters/sort_by/sort_dir jsonb/text snapshot, unique per `(profile_id, name)`), owner-only RLS. Backs the Tasks grid's "Save current filters" feature. |
 
 ## Not built yet
 
-Templates, leave, reminder rules, notifications log — see `plan.md` §4 for the original full sketch. Add each here as its migration lands. (`sales_toolkit_links` landed as `external_links` in `0021` under the client's own name for it. Holidays landed as `public_holidays` in `0027`, manual entry only — no sync job, see `docs/specs/0001-public-holidays/`.)
+Templates, leave — see `plan.md` §4 for the original full sketch. Add each here as its migration lands. (`sales_toolkit_links` landed as `external_links` in `0021` under the client's own name for it. Holidays landed as `public_holidays` in `0027`, manual entry only — no sync job, see `docs/specs/0001-public-holidays/`. Reminder rules/notifications log landed as `reminder_rules`/`reminder_rule_tasks`/`notifications_log` in `0024`. Saved views landed as `saved_views` in `0030`.)

@@ -950,6 +950,41 @@ checklist, because Task Management has exactly one table to export.
 
 ---
 
+## Saved views (`/tasks`, `saved_views` table)
+
+**A saved view is a verbatim snapshot of the URL, not a re-resolved query.** `createSavedView`
+stores exactly `filters`/`sort_by`/`sort_dir` as the toolbar produced them — season/brand/owner
+ids and all — and applying one later is a plain `Link` built by `dataTableSearchParamsHref`, the
+same helper the Dashboard's Overdue tile uses. There is no second "apply a view" code path to
+keep in sync with ordinary filtering, but the flip side is that **nothing re-validates a saved
+view's contents when it's applied.** If a season/brand/key-stage/owner referenced by an old saved
+view is later deleted, applying that view just filters to zero matching rows — same as
+hand-editing the URL to reference a stale id — rather than erroring or dropping the dead filter.
+Not fixed; accepted the same way a dead deep link would be.
+
+**One profile, one namespace — `unique (profile_id, name)`.** `createSavedView` maps the
+resulting `23505` to a friendly "You already have a view named …" rather than surfacing the raw
+constraint error. There's no rename action; deleting and re-saving under a new name is the only
+path, since v1 has no edit flow for an existing view's filters either (see below).
+
+**Saving is gated on `task.view`, not a manage-level action.** A saved view is a personal
+bookmark of the grid the viewer already has open, same reasoning as `reminder_rules` being gated
+on `profile.update_own` rather than an admin action — every role that can see `/tasks` at all
+(including `external`, scoped by RLS to their own tasks) can save and re-apply their own views.
+
+**No "update this saved view" — only save-as-new and delete.** `createSavedView` always inserts;
+re-saving under a name that already exists just hits the unique-constraint error above rather
+than overwriting. Changing what a saved view points at is delete-then-resave under the same name,
+not an edit-in-place. Acceptable for v1's scope; a real "update" would need `createSavedView` to
+accept an optional id and do an upsert instead of a plain insert.
+
+**Scoped to the Tasks grid only — `saved_views` deliberately has no `page`/`entity` column.**
+Tasks is the one spreadsheet-style view this was built for (`plan.md` §4's original `saved_views`
+sketch). If a second table wants the same feature, that's a real second consumer and the point at
+which a discriminator column earns its place — not before.
+
+---
+
 ## My Tasks (`/my-tasks`)
 
 **Every person sees only their own work, with no role exemption** — an admin scoped this way

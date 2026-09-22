@@ -548,6 +548,47 @@ export type Database = {
           },
         ]
       }
+      // Hand-added (0030_saved_views.sql) — no linked Supabase CLI in this environment to
+      // regenerate from. Re-run `supabase gen types typescript --linked` once the migration is
+      // applied and replace this block with the real output.
+      saved_views: {
+        Row: {
+          id: string
+          profile_id: string
+          name: string
+          filters: Json
+          sort_by: string | null
+          sort_dir: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          profile_id: string
+          name: string
+          filters?: Json
+          sort_by?: string | null
+          sort_dir?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          profile_id?: string
+          name?: string
+          filters?: Json
+          sort_by?: string | null
+          sort_dir?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saved_views_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       seasons: {
         Row: {
           color: string
