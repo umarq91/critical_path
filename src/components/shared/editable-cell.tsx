@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { buttonVariants } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { VIZ_COLORS } from "@/constants/chart-colors";
 import { cn } from "@/lib/utils";
 
 interface EditableCellOption {
@@ -21,7 +22,7 @@ interface EditableCellProps {
   onDraftChange?: (next: string | string[]) => void;
   /** Custom read-mode rendering (e.g. a StatusBadge) — falls back to the raw value. */
   display?: ReactNode;
-  variant?: "text" | "select" | "date" | "multi-select";
+  variant?: "text" | "select" | "date" | "multi-select" | "color";
   options?: EditableCellOption[];
   /** Whether this row is currently in edit mode — toggled by the row's pencil/tick button. */
   isEditing: boolean;
@@ -70,6 +71,26 @@ export const EditableCell = ({
   }
 
   const current = typeof draftValue === "string" ? draftValue : value;
+
+  if (variant === "color") {
+    return (
+      <div className="flex flex-wrap items-center gap-1.5" onClick={(event) => event.stopPropagation()}>
+        {VIZ_COLORS.map((color) => (
+          <button
+            key={color}
+            type="button"
+            aria-label={color}
+            onClick={() => onDraftChange?.(color)}
+            className={cn(
+              "size-5 shrink-0 rounded-full ring-2 ring-transparent ring-offset-1 ring-offset-background transition-shadow",
+              current === color && "ring-foreground"
+            )}
+            style={{ backgroundColor: color }}
+          />
+        ))}
+      </div>
+    );
+  }
 
   if (variant === "select") {
     return (

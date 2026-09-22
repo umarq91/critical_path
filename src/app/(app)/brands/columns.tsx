@@ -17,7 +17,7 @@ import { formatDate } from "@/lib/dates";
 const columnHelper = createColumnHelper<typeof dataTableFeatures, Brand>();
 
 const STATUS_OPTIONS = Object.entries(BRAND_STATUS_CONFIG).map(([value, { label }]) => ({ value, label }));
-const EDITABLE_FIELDS = ["brand_name", "description", "status"] as const;
+const EDITABLE_FIELDS = ["brand_name", "status"] as const;
 
 interface CreateBrandColumnsOptions {
   canManage: boolean;
@@ -60,25 +60,6 @@ export function createBrandColumns({
           isEditing={rowEditing.isEditing(row.original.id)}
           draftValue={rowEditing.draft.brand_name}
           onDraftChange={(next) => rowEditing.setDraftField("brand_name", next)}
-        />
-      ),
-    }),
-    // Not inline-editable, unlike the columns below: it's the stable code other systems key
-    // off (Databricks spec's brand_code), same reasoning as seasons.season_code.
-    columnHelper.accessor("brand_code", {
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Code" />,
-      meta: { label: "Code", width: "xs" },
-    }),
-    columnHelper.accessor("description", {
-      header: "Description",
-      meta: { label: "Description", width: "lg" },
-      enableSorting: false,
-      cell: ({ row, getValue }) => (
-        <EditableCell
-          value={getValue() ?? ""}
-          isEditing={rowEditing.isEditing(row.original.id)}
-          draftValue={rowEditing.draft.description}
-          onDraftChange={(next) => rowEditing.setDraftField("description", next)}
         />
       ),
     }),

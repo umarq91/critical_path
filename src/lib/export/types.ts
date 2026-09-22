@@ -56,6 +56,12 @@ export function defaultColumnKeys<TRow>(groups: ExportColumnGroup<TRow>[]): stri
     .map((column) => column.key);
 }
 
+/** Every column key across every group — what "Select all" in an export dialog's column
+ *  checklist selects, as opposed to `defaultColumnKeys`' pre-ticked subset. */
+export function allColumnKeys<TRow>(groups: ExportColumnGroup<TRow>[]): string[] {
+  return flattenColumns(groups).map((column) => column.key);
+}
+
 export function selectColumns<TRow>(groups: ExportColumnGroup<TRow>[], keys: readonly string[]): ExportColumn<TRow>[] {
   const wanted = new Set(keys);
   return flattenColumns(groups).filter((column) => wanted.has(column.key));

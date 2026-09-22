@@ -7,8 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import { FormDialog } from "@/components/shared/form-dialog";
+import { SelectAllToggle } from "@/components/shared/select-all-toggle";
 import { cn } from "@/lib/utils";
-import { defaultColumnKeys } from "@/lib/export/types";
+import { allColumnKeys, defaultColumnKeys } from "@/lib/export/types";
 import { TASK_RECORD_COLUMN_GROUPS } from "@/app/(app)/tasks/export/task-record-columns";
 import type { DashboardMetrics } from "@/data/dashboard";
 
@@ -27,6 +28,7 @@ const SECTION_OPTIONS: { id: ExportSection; label: string; description: string }
 ];
 
 const DEFAULT_COLUMN_KEYS = defaultColumnKeys(TASK_RECORD_COLUMN_GROUPS);
+const ALL_COLUMN_KEYS = allColumnKeys(TASK_RECORD_COLUMN_GROUPS);
 
 function filenameFromDisposition(disposition: string | null, format: ExportFormat) {
   const match = disposition ? /filename="?([^"]+)"?/.exec(disposition) : null;
@@ -164,7 +166,13 @@ export const DashboardExportButton = ({ metrics }: { metrics: DashboardMetrics }
         {showRecordColumns ? (
           <div className="flex flex-col gap-4">
             <Separator />
-            <span className="text-sm font-medium text-foreground">Task Records columns</span>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-foreground">Task Records columns</span>
+              <SelectAllToggle
+                onSelectAll={() => setColumns(new Set(ALL_COLUMN_KEYS))}
+                onDeselectAll={() => setColumns(new Set())}
+              />
+            </div>
             {TASK_RECORD_COLUMN_GROUPS.map((group) => (
               <div key={group.key} className="flex flex-col gap-2">
                 <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{group.label}</span>

@@ -89,8 +89,8 @@ export const SeasonsBoard = ({
             },
           ],
           sortOptions: [
-            { columnId: "season_name", desc: false, label: "Season Name (A-Z)" },
-            { columnId: "season_name", desc: true, label: "Season Name (Z-A)" },
+            { columnId: "season_code", desc: false, label: "Season Name (A-Z)" },
+            { columnId: "season_code", desc: true, label: "Season Name (Z-A)" },
             { columnId: "start_date", desc: false, label: "Start Date (Earliest)" },
             { columnId: "start_date", desc: true, label: "Start Date (Latest)" },
           ],

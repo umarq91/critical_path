@@ -6,8 +6,9 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FormDialog } from "@/components/shared/form-dialog";
+import { SelectAllToggle } from "@/components/shared/select-all-toggle";
 import { cn } from "@/lib/utils";
-import { defaultColumnKeys } from "@/lib/export/types";
+import { allColumnKeys, defaultColumnKeys } from "@/lib/export/types";
 import { TASK_RECORD_COLUMN_GROUPS } from "@/app/(app)/tasks/export/task-record-columns";
 import { useDataTableQueryState } from "@/components/data-table/use-data-table-query-state";
 import { TASKS_QUERY_STATE } from "@/app/(app)/tasks/query-state";
@@ -20,6 +21,7 @@ const FORMAT_OPTIONS: { value: ExportFormat; label: string; description: string 
 ];
 
 const DEFAULT_COLUMN_KEYS = defaultColumnKeys(TASK_RECORD_COLUMN_GROUPS);
+const ALL_COLUMN_KEYS = allColumnKeys(TASK_RECORD_COLUMN_GROUPS);
 
 function filenameFromDisposition(disposition: string | null, format: ExportFormat) {
   const match = disposition ? /filename="?([^"]+)"?/.exec(disposition) : null;
@@ -126,7 +128,13 @@ export const TasksExportButton = ({ rowCount }: TasksExportButtonProps) => {
         </div>
 
         <div className="flex flex-col gap-4">
-          <span className="text-sm font-medium text-foreground">Columns</span>
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-foreground">Columns</span>
+            <SelectAllToggle
+              onSelectAll={() => setColumns(new Set(ALL_COLUMN_KEYS))}
+              onDeselectAll={() => setColumns(new Set())}
+            />
+          </div>
           {TASK_RECORD_COLUMN_GROUPS.map((group) => (
             <div key={group.key} className="flex flex-col gap-2">
               <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{group.label}</span>

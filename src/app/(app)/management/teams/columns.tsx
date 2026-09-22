@@ -12,7 +12,7 @@ import { formatDate } from "@/lib/dates";
 
 const columnHelper = createColumnHelper<typeof dataTableFeatures, Department>();
 
-const EDITABLE_FIELDS = ["name", "description"] as const;
+const EDITABLE_FIELDS = ["name"] as const;
 
 interface CreateDepartmentColumnsOptions {
   canManage: boolean;
@@ -43,19 +43,6 @@ export function createDepartmentColumns({
           isEditing={rowEditing.isEditing(row.original.id)}
           draftValue={rowEditing.draft.name}
           onDraftChange={(next) => rowEditing.setDraftField("name", next)}
-        />
-      ),
-    }),
-    columnHelper.accessor("description", {
-      header: "Description",
-      meta: { label: "Description", width: "lg" },
-      enableSorting: false,
-      cell: ({ row, getValue }) => (
-        <EditableCell
-          value={getValue() ?? ""}
-          isEditing={rowEditing.isEditing(row.original.id)}
-          draftValue={rowEditing.draft.description}
-          onDraftChange={(next) => rowEditing.setDraftField("description", next)}
         />
       ),
     }),

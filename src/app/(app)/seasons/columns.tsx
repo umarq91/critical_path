@@ -19,7 +19,7 @@ const columnHelper = createColumnHelper<typeof dataTableFeatures, Season>();
 
 const OWNER_COLORS = ["bg-viz-1", "bg-viz-2", "bg-viz-5", "bg-viz-6"];
 const STATUS_OPTIONS = Object.entries(SEASON_STATUS_CONFIG).map(([value, { label }]) => ({ value, label }));
-const EDITABLE_FIELDS = ["season_name", "status", "start_date", "end_date"] as const;
+const EDITABLE_FIELDS = ["status", "start_date", "end_date", "color"] as const;
 
 function ownerColor(name: string) {
   return OWNER_COLORS[name.charCodeAt(0) % OWNER_COLORS.length];
@@ -43,23 +43,27 @@ export function createSeasonColumns({
   seasonStats,
 }: CreateSeasonColumnsOptions) {
   return [
-    // Not inline-editable, unlike the columns below: it's the stable code other systems
-    // key off (Databricks spec, filters), so changing it is deliberately a bit more
-    // friction than a click — left for a future dedicated edit flow.
+    // Underlying field is still season_code — displayed as "Season Name" per client request,
+    // with the real season_name column hidden from this table entirely. Not inline-editable:
+    // it's the stable code other systems key off (Databricks spec, filters), so changing it is
+    // deliberately a bit more friction than a click — left for a future dedicated edit flow.
     columnHelper.accessor("season_code", {
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Season Code" />,
-      meta: { label: "Season Code", width: "sm" },
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Season Name" />,
+      meta: { label: "Season Name", width: "sm" },
       filterFn: "includesString",
     }),
-    columnHelper.accessor("season_name", {
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Season Name" />,
-      meta: { label: "Season Name", width: "md" },
+    columnHelper.accessor("color", {
+      header: "Colour",
+      meta: { label: "Colour", width: "xs" },
+      enableSorting: false,
       cell: ({ row, getValue }) => (
         <EditableCell
           value={getValue()}
+          display={<span className="inline-block size-5 rounded-full" style={{ backgroundColor: getValue() }} />}
+          variant="color"
           isEditing={rowEditing.isEditing(row.original.id)}
-          draftValue={rowEditing.draft.season_name}
-          onDraftChange={(next) => rowEditing.setDraftField("season_name", next)}
+          draftValue={rowEditing.draft.color}
+          onDraftChange={(next) => rowEditing.setDraftField("color", next)}
         />
       ),
     }),
