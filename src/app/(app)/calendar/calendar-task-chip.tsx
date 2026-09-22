@@ -1,15 +1,15 @@
 import { isBefore, startOfToday } from "date-fns";
 import { parseDateOnly } from "@/lib/dates";
 import { ColorTag } from "@/components/shared/color-tag";
-import { TASK_STATUS_CONFIG } from "@/constants/task-status";
+import { getVizColorForId } from "@/constants/chart-colors";
 import { cn } from "@/lib/utils";
 import { PartyStack } from "@/app/(app)/tasks/party-stack";
 import { taskOwners } from "@/app/(app)/tasks/task-parties";
 import type { Task } from "@/data/tasks";
 
-// Mirrors TASK_STATUS_CONFIG's palette but as a solid dot rather than a soft-tinted badge —
-// the chip itself already carries the soft tint, so the dot needs the fuller-saturation base
-// tone to read as a distinct marker against it.
+// The chip's background/border now identify the task's season (see seasonColor below), not its
+// status — this is the one place status still shows: a solid dot in TASK_STATUS_CONFIG's base
+// tone, read against whatever season tint surrounds it.
 const STATUS_DOT_CLASS: Record<string, string> = {
   not_started: "bg-status-notstarted-base",
   in_progress: "bg-status-progress-base",
@@ -34,18 +34,23 @@ export const CalendarTaskChip = ({ task, onSelect, variant = "compact" }: Calend
   const isOverdue =
     task.status !== "completed" && task.due_date !== null && isBefore(parseDateOnly(task.due_date), startOfToday());
   const effectiveStatus = isOverdue ? "overdue" : task.status;
-  const statusConfig = TASK_STATUS_CONFIG[effectiveStatus];
   const dotClass = STATUS_DOT_CLASS[effectiveStatus] ?? "bg-muted-foreground";
+  // The chip's own colour identifies which season a task belongs to at a glance — status is
+  // conveyed by the dot alone (see STATUS_DOT_CLASS above), not by the chip's background/border
+  // the way it used to be. Same tint-over-border-and-text treatment as ColorTag, since this is
+  // an arbitrary user-picked hex with no matching Tailwind utility. Every task requires a season
+  // at creation (tasks.season_id is NOT NULL), so the getVizColorForId fallback is purely
+  // defensive for a soft-deleted or otherwise unresolved season join — same deterministic
+  // hash-to-palette fallback other colourless entities already use (see holidays' Country column).
+  const seasonColor = task.season?.color ?? getVizColorForId(task.id);
 
   if (variant === "compact") {
     return (
       <button
         type="button"
         onClick={() => onSelect(task)}
-        className={cn(
-          "flex w-full items-center gap-2 truncate rounded-md px-2 py-1.5 text-left text-sm transition-all duration-150 hover:shadow-sm hover:brightness-95 active:scale-[0.98] lg:text-base",
-          statusConfig?.className
-        )}
+        className="flex w-full items-center gap-2 truncate rounded-md border px-2 py-1.5 text-left text-sm transition-all duration-150 hover:shadow-sm hover:brightness-95 active:scale-[0.98] lg:text-base"
+        style={{ borderColor: seasonColor, backgroundColor: `${seasonColor}1a`, color: seasonColor }}
         title={task.task_name}
       >
         <span className={cn("size-2 shrink-0 rounded-full lg:size-2.5", dotClass)} />
@@ -58,23 +63,12 @@ export const CalendarTaskChip = ({ task, onSelect, variant = "compact" }: Calend
     <button
       type="button"
       onClick={() => onSelect(task)}
-      className={cn(
-        "flex w-full flex-col gap-2 rounded-lg border p-4 text-left shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 active:scale-[0.99]",
-        isOverdue
-          ? "border-status-overdue-base bg-status-overdue-soft hover:bg-status-overdue-soft/70"
-          : "border-border bg-card hover:border-primary/30 hover:bg-muted"
-      )}
+      className="flex w-full flex-col gap-2 rounded-lg border p-4 text-left shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 active:scale-[0.99]"
+      style={{ borderColor: seasonColor, backgroundColor: `${seasonColor}14` }}
     >
       <div className="flex items-center gap-2.5">
         <span className={cn("size-2.5 shrink-0 rounded-full lg:size-3", dotClass)} />
-        <span
-          className={cn(
-            "truncate text-base font-medium lg:text-lg",
-            isOverdue ? "text-status-overdue-text" : "text-foreground"
-          )}
-        >
-          {task.task_name}
-        </span>
+        <span className="truncate text-base font-medium text-foreground lg:text-lg">{task.task_name}</span>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         {task.season ? <ColorTag label={task.season.season_name} color={task.season.color} /> : null}
