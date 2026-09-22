@@ -58,6 +58,7 @@ const VIEWER_ALLOWED: ReadonlySet<Action> = new Set<Action>([
   "dashboard.view",
   "task.view",
   "lookups.view",
+  "calendar.sync_google",
 ]);
 
 // Written out in full rather than derived from VIEWER_ALLOWED. External is NOT "a viewer with

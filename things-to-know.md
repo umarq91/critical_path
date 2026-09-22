@@ -155,6 +155,23 @@ Workspace email. Checking "is there a `google_oauth_tokens` row" instead would b
 directions: a token outlives a role change, and an absent token is indistinguishable from an
 expired one.
 
+**Granting `calendar.sync_google` to a role is not by itself enough to make sync work for
+it — check whether that role can also write the sync columns back onto `tasks`.**
+`pushTaskToGoogleCalendar` writes `google_event_id`/`google_calendar_owner_id`/`google_synced_at`
+through the caller's own RLS-scoped client on purpose (`lib/google/task-calendar-sync.ts`'s own
+comment: "a push must not be able to update a task the caller couldn't otherwise update"). `admin`
+and `standard_user` already have a general `tasks` UPDATE policy, so granting them the capability
+was sufficient on its own. `viewer` had no task-write RLS path at all until `0029` added one —
+without that migration, granting `viewer` the app-layer capability alone would have made the
+Sync button clickable while silently failing to persist the event id, which is worse than just
+not working: `upsertCalendarEvent` (the actual Google API call) runs *first* and creates the
+event regardless, so a rejected DB write leaves the task with no record it was ever synced and
+the next click mints a duplicate event. `0029`'s fix is a second, additive UPDATE policy for
+`viewer` (doesn't touch what `standard_user`/`admin` can do) paired with a `BEFORE UPDATE`
+trigger restricting a viewer's write to exactly those three columns plus `updated_at` — so
+`viewer` gets working sync without gaining general `task.update`. See `supabase/schema.md`'s
+`tasks` RLS note for the policy/trigger names.
+
 **`upsertCalendarEvent`/`deleteCalendarEvent` (`lib/google/calendar.ts`) are generic, not
 task-specific — the names were changed from `upsertTaskCalendarEvent`/`deleteTaskCalendarEvent`
 when holidays started using them too.** Nothing about the low-level Google API call ever

@@ -237,6 +237,8 @@ Eligibility is a property of the account, not of token presence — `isGoogleCal
 
 **RLS — the one table that isn't the simple admin-only-write pattern**, rewritten in `0018`: an **active** internal user reads every task (`task.view` is granted to every internal role); an active `external` user reads only tasks `task_involves_current_user(id)` matches; an inactive user reads none. Insert/update require an active account plus `standard_user` or `admin`, matching `task.create`/`task.update` in `lib/permissions.ts` — `external` is simply absent from that allow-list, so it has no write path at all. Delete stays admin-only (`task.delete` isn't in `STANDARD_USER_ALLOWED`).
 
+**A second, narrower update policy for `viewer` was added in `0029`**, so viewer can use the Calendar page's Sync button (`calendar.sync_google` in `lib/permissions.ts`) without gaining `task.update` in general. `tasks_update_viewer_calendar_sync` admits an active viewer the same way `tasks_update_standard_or_admin` admits standard_user/admin (Postgres ORs multiple permissive policies for the same command, so this is additive, not a relaxation of the existing policy); a paired `BEFORE UPDATE` trigger (`restrict_viewer_task_columns`) then rejects the write unless it touches only `google_event_id`/`google_calendar_owner_id`/`google_synced_at`/`updated_at`. See that migration's comment for why the column check is a "strip these keys, diff the rest" allowlist rather than an enumerated blocklist — the inverse would silently admit a viewer write to any column added to `tasks` after this migration.
+
 ### `task_participants`
 *Migration: `0015_task_participants.sql`. Owner **and** People Involved, in one table. Supersedes both `tasks.assignee_id` and `task_people` — a participant is either a profile or a department, a task can have any number of each, in either role.*
 
@@ -403,6 +405,7 @@ Exists so "tasks relevant to me" stays one query rather than the three hops (me 
 | `0026_task_gender_rename.sql` | `ALTER TYPE task_gender RENAME VALUE` — `men` → `guys`, `women` → `girls`. `unisex` untouched (can't be cleanly dropped, and the client said not to worry about existing data); the app layer just stops offering it. |
 | `0027_public_holidays.sql` | `public_holidays` table (`country` as plain text, not an enum — see the table's own notes above), unique on `country, holiday_date, name`, RLS (any authenticated reads, admin writes). Backs `/holidays` and the Calendar's holiday overlay. |
 | `0028_holiday_calendar_events.sql` | `holiday_calendar_events` join table (holiday × profile → Google event id), unique per pair, self-or-admin RLS. Backs pushing holidays to Google Calendar from the existing Sync button, alongside tasks. |
+| `0029_viewer_calendar_sync.sql` | Adds `tasks_update_viewer_calendar_sync` (a second, additive UPDATE policy admitting active `viewer`s, alongside the existing `tasks_update_standard_or_admin`) and `restrict_viewer_task_columns()` — a `BEFORE UPDATE` trigger that rejects a viewer's write unless it's confined to `google_event_id`/`google_calendar_owner_id`/`google_synced_at`/`updated_at`. Lets viewer use the Calendar page's Sync button without gaining general `task.update`. |
 
 ## Not built yet
 
