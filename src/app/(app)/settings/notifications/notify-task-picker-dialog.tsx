@@ -20,6 +20,8 @@ const CANDIDATE_PAGE_SIZE = 100;
 interface NotifyTaskPickerDialogProps {
   seasonOptions: FilterSelectOption[];
   ownerOptions: FilterSelectOption[];
+  brandOptions: FilterSelectOption[];
+  genderOptions: FilterSelectOption[];
   selectedIds: ReadonlySet<string>;
   onToggle: (task: ReminderRuleTask) => void;
   /** Selects every currently-loaded/filtered candidate at once — not the user's whole task
@@ -34,7 +36,7 @@ interface NotifyTaskPickerDialogProps {
 // is involved in, same set and same due-date-agnostic scope as the My Tasks table above it (see
 // listMyReminderCandidateTasks). A task with no due date, or one already overdue, can still be
 // picked; it just never actually fires a reminder (listDueReminders skips anything without a
-// due_date). Season/owner filters narrow the candidate list down further. Checking a row
+// due_date). Season/owner/brand/gender filters narrow the candidate list down further. Checking a row
 // reports it straight to the parent card's selection state; there's no separate "confirm" step,
 // since nothing is written to the server until that card's own Save button is pressed.
 // `forKey` is the filter combination the results actually answer — "still loading" is derived
@@ -48,6 +50,8 @@ type CandidateState =
 export function NotifyTaskPickerDialog({
   seasonOptions,
   ownerOptions,
+  brandOptions,
+  genderOptions,
   selectedIds,
   onToggle,
   onSelectAll,
@@ -55,11 +59,13 @@ export function NotifyTaskPickerDialog({
 }: NotifyTaskPickerDialogProps) {
   const [seasonId, setSeasonId] = useState<string | null>(null);
   const [owner, setOwner] = useState<string | null>(null);
+  const [brandId, setBrandId] = useState<string | null>(null);
+  const [gender, setGender] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedValue(search, SEARCH_DEBOUNCE_MS);
   const [state, setState] = useState<CandidateState>({ status: "pending" });
 
-  const filterKey = JSON.stringify({ seasonId, owner, debouncedSearch });
+  const filterKey = JSON.stringify({ seasonId, owner, brandId, gender, debouncedSearch });
 
   useEffect(() => {
     let cancelled = false;
@@ -67,6 +73,8 @@ export function NotifyTaskPickerDialog({
     const filters: Record<string, string> = {};
     if (seasonId) filters.season_id = seasonId;
     if (owner) filters.owner = owner;
+    if (brandId) filters.brand_id = brandId;
+    if (gender) filters.gender = gender;
     if (debouncedSearch) filters.search = debouncedSearch;
 
     listMyReminderCandidateTasks({ filters, pageSize: CANDIDATE_PAGE_SIZE }).then((result) => {
@@ -106,6 +114,8 @@ export function NotifyTaskPickerDialog({
         </div>
         <FilterSelect value={seasonId} onValueChange={setSeasonId} options={seasonOptions} allLabel="All seasons" />
         <FilterSelect value={owner} onValueChange={setOwner} options={ownerOptions} allLabel="All owners" />
+        <FilterSelect value={brandId} onValueChange={setBrandId} options={brandOptions} allLabel="All brands" />
+        <FilterSelect value={gender} onValueChange={setGender} options={genderOptions} allLabel="All genders" />
       </div>
 
       <div className="flex items-center justify-between">
@@ -141,7 +151,7 @@ export function NotifyTaskPickerDialog({
           </div>
         ) : candidates.length === 0 ? (
           <p className="px-2 py-6 text-center text-sm text-muted-foreground">
-            No tasks match — try a different season, owner, or search term.
+            No tasks match — try a different season, owner, brand, gender, or search term.
           </p>
         ) : (
           candidates.map((task) => (

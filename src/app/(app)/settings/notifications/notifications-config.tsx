@@ -13,6 +13,8 @@ interface NotificationsConfigProps {
   initialRule: ReminderRule | null;
   seasonOptions: FilterSelectOption[];
   ownerOptions: FilterSelectOption[];
+  brandOptions: FilterSelectOption[];
+  genderOptions: FilterSelectOption[];
   timezoneLabel: string;
 }
 
@@ -28,6 +30,8 @@ export const NotificationsConfig = ({
   initialRule,
   seasonOptions,
   ownerOptions,
+  brandOptions,
+  genderOptions,
   timezoneLabel,
 }: NotificationsConfigProps) => {
   const [isEnabled, setIsEnabled] = useState(initialIsEnabled);
@@ -40,6 +44,8 @@ export const NotificationsConfig = ({
         initialTasks={initialTasks}
         seasonOptions={seasonOptions}
         ownerOptions={ownerOptions}
+        brandOptions={brandOptions}
+        genderOptions={genderOptions}
         disabled={!isEnabled}
       />
       <NotifyTimingCard

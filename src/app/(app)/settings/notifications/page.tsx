@@ -3,7 +3,10 @@ import { NotificationsInfoCard } from "@/app/(app)/settings/notifications/notifi
 import { NotificationsConfig } from "@/app/(app)/settings/notifications/notifications-config";
 import { getMyReminderRule, REMINDER_ORG_TIMEZONE } from "@/data/reminders";
 import { listSeasonOptions } from "@/data/seasons";
+import { listBrandOptions } from "@/data/brands";
 import { listPartyOptions } from "@/data/parties";
+import { taskGenderValues } from "@/app/(app)/tasks/schema";
+import { TASK_GENDER_CONFIG } from "@/constants/task-gender";
 import { requirePageAccess } from "@/lib/require-page-access";
 
 // "Australia/Sydney" -> "Sydney" — good enough for the one fixed org timezone (see
@@ -18,13 +21,16 @@ const TIMEZONE_LABEL = REMINDER_ORG_TIMEZONE.split("/").pop()?.replace(/_/g, " "
 export default async function SettingsNotificationsPage() {
   const profile = await requirePageAccess("profile.update_own");
 
-  const [reminderRule, seasons, parties] = await Promise.all([
+  const [reminderRule, seasons, brands, parties] = await Promise.all([
     getMyReminderRule(profile.id),
     listSeasonOptions(),
+    listBrandOptions(),
     listPartyOptions(),
   ]);
 
   const seasonOptions = seasons.map((season) => ({ value: season.id, label: season.season_name }));
+  const brandOptions = brands.map((brand) => ({ value: brand.id, label: brand.brand_name }));
+  const genderOptions = taskGenderValues.map((value) => ({ value, label: TASK_GENDER_CONFIG[value].label }));
 
   return (
     <div className="flex flex-col">
@@ -40,6 +46,8 @@ export default async function SettingsNotificationsPage() {
           initialRule={reminderRule}
           seasonOptions={seasonOptions}
           ownerOptions={parties}
+          brandOptions={brandOptions}
+          genderOptions={genderOptions}
           timezoneLabel={TIMEZONE_LABEL}
         />
       </div>

@@ -16,6 +16,8 @@ interface NotifyTasksCardProps {
   initialTasks: ReminderRuleTask[];
   seasonOptions: FilterSelectOption[];
   ownerOptions: FilterSelectOption[];
+  brandOptions: FilterSelectOption[];
+  genderOptions: FilterSelectOption[];
   /** True while the top-level "Email reminders" toggle (notify-enabled-card.tsx) is off — the
    *  card stays visible but inert, so the user can see what Step 1 involves without being able
    *  to touch it, rather than it vanishing outright. */
@@ -23,10 +25,17 @@ interface NotifyTasksCardProps {
 }
 
 // "Which tasks?" — v1's one and only scope mechanism: specific tasks the user picks, from the
-// same set My Tasks shows them (see listMyReminderCandidateTasks). Season/owner are filters
-// *inside* the picker dialog, not a second scope type to keep in step with this one (see
+// same set My Tasks shows them (see listMyReminderCandidateTasks). Season/owner/brand/gender are
+// filters *inside* the picker dialog, not a second scope type to keep in step with this one (see
 // reminder_rule_tasks in schema.md).
-export const NotifyTasksCard = ({ initialTasks, seasonOptions, ownerOptions, disabled = false }: NotifyTasksCardProps) => {
+export const NotifyTasksCard = ({
+  initialTasks,
+  seasonOptions,
+  ownerOptions,
+  brandOptions,
+  genderOptions,
+  disabled = false,
+}: NotifyTasksCardProps) => {
   const [selected, setSelected] = useState<Map<string, ReminderRuleTask>>(
     () => new Map(initialTasks.map((task) => [task.id, task]))
   );
@@ -112,6 +121,8 @@ export const NotifyTasksCard = ({ initialTasks, seasonOptions, ownerOptions, dis
           <NotifyTaskPickerDialog
             seasonOptions={seasonOptions}
             ownerOptions={ownerOptions}
+            brandOptions={brandOptions}
+            genderOptions={genderOptions}
             selectedIds={new Set(selected.keys())}
             onToggle={toggleTask}
             onSelectAll={selectAllTasks}
