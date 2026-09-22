@@ -489,11 +489,14 @@ card — **still 0 requests on interaction**.
     success toast says so; there's no UI to raise the cap, since a bigger export belongs behind a
     background job with an emailed link, not a synchronous request.
   - **Only `dashboard.export_reports` roles reach the route** (`requirePermission`, same matrix
-    as everywhere else) — `viewer` and `external` get `dashboard.view` but not this.
-    `dashboard/page.tsx` also hides the Export button itself for them (`can(profile.role,
-    "dashboard.export_reports")`), same "hide the dead-end, still enforce server-side" pattern
-    as `canAssignPeople` on the Gantt card below — the route check is what's load-bearing, the
-    hidden button is just not leaving a guaranteed-403 control on screen.
+    as everywhere else) — `admin`/`standard_user`/`viewer` all get it; `external` gets
+    `dashboard.view` but not this (see `lib/permissions.ts`'s `EXTERNAL_ALLOWED` comment: exports
+    leave the platform's row-level scoping behind once downloaded, which is a deliberately
+    different bar from viewing scoped data in the UI). `dashboard/page.tsx` also hides the Export
+    button itself for anyone without it (`can(profile.role, "dashboard.export_reports")`), same
+    "hide the dead-end, still enforce server-side" pattern as `canAssignPeople` on the Gantt card
+    below — the route check is what's load-bearing, the hidden button is just not leaving a
+    guaranteed-403 control on screen.
 - **The Overdue tile links into `/tasks` pre-filtered, rather than the dashboard owning a
   second overdue list.** The href is built with `dataTableSearchParamsHref` off the *same*
   parser definition and the *same* defaults (`TASKS_QUERY_STATE`) the tasks page loads with —

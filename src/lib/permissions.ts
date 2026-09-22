@@ -56,6 +56,7 @@ const STANDARD_USER_ALLOWED: ReadonlySet<Action> = new Set<Action>([
 const VIEWER_ALLOWED: ReadonlySet<Action> = new Set<Action>([
   "profile.update_own",
   "dashboard.view",
+  "dashboard.export_reports",
   "task.view",
   "lookups.view",
   "calendar.sync_google",
