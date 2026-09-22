@@ -63,6 +63,9 @@ const smtpSchema = z.object({
   SMTP_PORT: z.coerce.number().int().positive(),
   SMTP_USER: z.string().min(1),
   SMTP_PASS: z.string().min(1),
+  // Optional display name for the "From" header (e.g. "Critical Path"). SMTP_USER stays the
+  // raw address — it's also the SMTP auth username (transport.ts), which Gmail requires bare.
+  SMTP_FROM_NAME: z.string().min(1).optional(),
 });
 
 export type SmtpEnv = z.infer<typeof smtpSchema>;
@@ -77,6 +80,7 @@ export function getSmtpEnv(): SmtpEnv | null {
     SMTP_PORT: process.env.SMTP_PORT,
     SMTP_USER: process.env.SMTP_USER,
     SMTP_PASS: process.env.SMTP_PASS,
+    SMTP_FROM_NAME: process.env.SMTP_FROM_NAME,
   });
   return result.success ? result.data : null;
 }

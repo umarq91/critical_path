@@ -24,7 +24,7 @@ export async function sendMail(message: EmailMessage): Promise<{ sent: boolean }
   if (!env || !transport) return { sent: false };
 
   await transport.sendMail({
-    from: env.SMTP_USER,
+    from: env.SMTP_FROM_NAME ? `"${env.SMTP_FROM_NAME}" <${env.SMTP_USER}>` : env.SMTP_USER,
     to: message.to,
     subject: message.subject,
     html: message.html,

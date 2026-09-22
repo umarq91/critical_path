@@ -629,6 +629,7 @@ SMTP_HOST=smtp.gmail.com                 # direct Gmail SMTP, not the Workspace 
 SMTP_PORT=587
 SMTP_USER=...
 SMTP_PASS=...
+SMTP_FROM_NAME=...                       # optional — display name on the From header, e.g. "Critical Path"
 
 CRON_SECRET=...                          # checked by every app/api/cron/* route
 ```
