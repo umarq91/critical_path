@@ -1,5 +1,4 @@
 import { PageHeader } from "@/components/shared/page-header";
-import { CriticalPathTabs } from "@/components/shared/critical-path-tabs";
 import { DpspFlywheelWorkspace } from "@/app/(app)/dpsp-flywheel/dpsp-flywheel-workspace";
 import { loadDpspFlywheelSearchParams } from "@/app/(app)/dpsp-flywheel/dpsp-flywheel-search-params";
 import { listTasksForFlywheel } from "@/data/tasks";
@@ -31,7 +30,6 @@ export default async function DpspFlywheelPage({
         title="DPSP Flywheel"
         description="Deliverables grouped by Demand, Product, Sales and Profit — the client's recurring critical-path loop."
       />
-      <CriticalPathTabs active="dpsp-flywheel" />
       <div className="flex flex-col gap-4 px-6 pt-4 pb-6">
         <DpspFlywheelWorkspace
           tasks={tasks}

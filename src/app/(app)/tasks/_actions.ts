@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requirePermission } from "@/lib/require-permission";
-import { taskCreateSchema, taskUpdateSchema, dpspCategoryValues } from "@/app/(app)/tasks/schema";
+import { taskCreateSchema, taskUpdateSchema, dpspCategoryValues, taskGenderValues } from "@/app/(app)/tasks/schema";
 import { listTasks, type ListTasksParams } from "@/data/tasks";
 import { parsePartyKey, participantRows } from "@/lib/party";
 import { deleteCalendarEvent } from "@/lib/google/calendar";
@@ -35,6 +35,14 @@ function normaliseDpspCategory(value: string | undefined): (typeof dpspCategoryV
     : null;
 }
 
+// gender has no "none" sentinel — it's a required, not-null column — so unlike
+// normaliseDpspCategory this only narrows the type. taskCreateSchema's own refine already
+// guarantees `value` is a real taskGenderValues member before this ever runs; the loose string
+// type on that field exists purely so the create form can start unselected (see schema.ts).
+function narrowGender(value: string): (typeof taskGenderValues)[number] {
+  return value as (typeof taskGenderValues)[number];
+}
+
 // due_date/start_date/end_date are all optional `date` columns, but DateField submits an unset
 // date as "" rather than omitting the key — "" fails Postgres's date parsing outright ("invalid
 // input syntax for type date: \"\""), so it's normalised to null before the DB write, same
@@ -59,6 +67,7 @@ export async function createTask(input: unknown) {
       brand_id: normaliseOptionalId(taskColumns.brand_id),
       key_stage_id: normaliseOptionalId(taskColumns.key_stage_id),
       dpsp_category: normaliseDpspCategory(taskColumns.dpsp_category),
+      gender: narrowGender(taskColumns.gender),
       due_date: normaliseDate(taskColumns.due_date),
       start_date: normaliseDate(taskColumns.start_date),
       end_date: normaliseDate(taskColumns.end_date),

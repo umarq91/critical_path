@@ -5,5 +5,5 @@ export const KNOWN_HOLIDAY_COUNTRIES = [
   { code: "AU", label: "Australia" },
   { code: "CN", label: "China" },
   { code: "IN", label: "India" },
-  { code: "TR", label: "Turkey" },
+  { code: "TR", label: "Türkiye" },
 ] as const;

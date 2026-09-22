@@ -4,7 +4,6 @@ import { ROUTES } from "@/constants/routes";
 import { UserMenu } from "@/app/(app)/user-menu";
 import { AppSidebar } from "@/app/(app)/app-sidebar";
 import { DeactivatedNotice } from "@/app/(app)/deactivated-notice";
-import { NavSearch } from "@/app/(app)/nav-search";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -30,9 +29,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <SidebarInset className="min-w-0 overflow-x-hidden">
         <header className="flex h-16 shrink-0 items-center gap-4 border-b bg-card px-4">
           <SidebarTrigger />
-          <div className="flex flex-1 items-center">
-            <NavSearch role={profile.role} />
-          </div>
+          <div className="flex-1" />
           <UserMenu profile={profile} />
         </header>
         <main className="min-w-0 flex-1">{children}</main>

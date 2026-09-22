@@ -63,6 +63,14 @@ export const taskCreateSchema = taskSchema.merge(taskParticipantsSchema).extend(
     .string()
     .min(1, "DPSP Category is required")
     .refine((value) => (dpspCategoryValues as readonly string[]).includes(value), "DPSP Category is required"),
+  // Loose string, not the base z.enum(taskGenderValues) — same reason as dpsp_category above:
+  // the create form starts this unselected (no silently-inherited default) rather than
+  // defaulting to whichever gender sorts first, so it needs a "" starting value the enum type
+  // can't hold, validated back to a real choice here.
+  gender: z
+    .string()
+    .min(1, "Gender is required")
+    .refine((value) => (taskGenderValues as readonly string[]).includes(value), "Gender is required"),
   people_involved: z.array(partyKeySchema).min(1, "At least one person involved is required"),
 });
 

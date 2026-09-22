@@ -133,7 +133,13 @@ export const DataTableToolbar = <TData extends Record<string, unknown>>({
               >
                 {triggerLabel}
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
+              {/* min-w-56 overrides the primitive's default w-(--anchor-width) — that ties the
+                  popup's width to the trigger button's, which shrinks to fit whatever short
+                  label ("All X" / "X (2)") it currently shows, squeezing genuinely long option
+                  labels (department/person/season names) into a too-narrow list. min-width
+                  doesn't fight the anchor-width class (different CSS property), it just puts a
+                  floor under it. */}
+              <DropdownMenuContent align="start" className="min-w-56">
                 <DropdownMenuGroup>
                   <DropdownMenuLabel>{filter.title}</DropdownMenuLabel>
                   <DropdownMenuSeparator />

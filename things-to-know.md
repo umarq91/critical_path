@@ -264,12 +264,21 @@ follow-up `0016`, gated on the one-way calendar rework.
 
 **Minimum fields to create a task (client-confirmed): Task Name, Season, Brand, Key Stage,
 Gender, DPSP Category, Owners, People Involved.** Enforced only in `taskCreateSchema`
-(`tasks/schema.ts`) — `brand_id`/`key_stage_id`/`dpsp_category` require a real value (no "none"
-sentinel) and `people_involved` requires at least one entry, on top of `taskSchema`'s existing
-`task_name`/`season_id`/`gender`/`owners` requirements. `taskUpdateSchema` (inline-edit,
+(`tasks/schema.ts`) — `brand_id`/`key_stage_id`/`dpsp_category`/`gender` require a real value (no
+"none" sentinel) and `people_involved` requires at least one entry, on top of `taskSchema`'s
+existing `task_name`/`season_id`/`owners` requirements. `taskUpdateSchema` (inline-edit,
 `taskSchema.partial()`) is deliberately untouched: an existing task can still have any of these
 cleared back to null/empty, since the DB columns stay nullable and older/seeded tasks (see
 below — seeded `brand_id` is null for every row) predate this rule.
+
+**`gender` is `not null` at the DB layer but starts unselected on the create form**, same
+treatment as `dpsp_category`: `taskSchema`'s base `gender` is still `z.enum(taskGenderValues)`
+(used as-is by `taskUpdateSchema`/inline-edit, where the field is optional-by-`.partial()` but
+must be a real enum value when it *is* patched), while `taskCreateSchema` overrides it to a loose
+string + `.refine()` membership check so `task-form.tsx` can default it to `""` instead of
+silently pre-selecting "Guys". `_actions.ts`'s `narrowGender()` casts the refined string back to
+the enum literal before the insert — mirrors `normaliseDpspCategory`, minus the "none" → `null`
+step, since gender has no such sentinel (it's required, never cleared, at creation).
 
 **Filtering by a participant costs an extra round trip.** PostgREST can't express
 `id in (select task_id from …)` inline, so `listTasks` resolves the id set first — via
@@ -924,38 +933,6 @@ checklist, because Task Management has exactly one table to export.
 
 ---
 
-## Global nav search / ⌘K palette (`(app)/nav-search.tsx`, `constants/search-index.ts`)
-
-**This is a destination finder, not a data search** — it matches page titles/keywords, not task
-rows, brand names, or anything from the database. "Find the Brands page" and "find a task named
-Brands Launch" are different problems; the latter is the `/tasks` search box (see above).
-
-- **`SEARCH_INDEX` is a hand-maintained superset of `constants/nav.ts`, not derived from it.**
-  `nav.ts` only carries what the sidebar needs (title/href/icon/requiredAction) and deliberately
-  collapses Board/DPSP Flywheel/Timeline into one "Tasks" link, since they're tabs of one section.
-  The palette should still jump straight to `/dpsp-flywheel` or `/timeline` by name, so those get
-  their own entries here even though they have none in the sidebar. Adding a page to `nav.ts`
-  usually means adding it here too — this file does not check that the two stay in sync.
-- **Matching is entirely client-side** — `matchSearchItems()` runs against the ~14-item index
-  already sent to the browser, no request per keystroke. That only works because the index is
-  destinations, not rows; do not extend this matcher to search task data, which must stay
-  server-side for the same reasons as the `/tasks` search box.
-- **Every word in the query must appear somewhere in the item's title/description/section/
-  keywords** (an AND across words, not a phrase match) — `keywords` exists specifically to catch
-  vocabulary that doesn't appear in the title (`"gantt"`/`"roadmap"` → Timeline, `"kanban"` →
-  DPSP Flywheel), so a search doesn't require knowing the exact page name.
-- **`requiredAction` is checked with the same `can()` matrix as everything else** —
-  `searchItemsForRole()` filters the index before it ever reaches the client, so the palette
-  can't be used to discover a page a role can't see. Keep an item's `requiredAction` identical to
-  its `nav.ts` counterpart's; they're two independent filters over the same capability and will
-  silently disagree if only one is updated.
-- **`SECTION_ORDER` is fixed** (Pages → Management → Settings), independent of match rank —
-  results are ranked *within* a section (title-prefix > title-substring > keyword-only), but
-  headers don't reorder themselves as the user types, which would otherwise make the list feel
-  like it's jumping around on every keystroke.
-
----
-
 ## My Tasks (`/my-tasks`)
 
 **Every person sees only their own work, with no role exemption** — an admin scoped this way
@@ -1132,17 +1109,21 @@ by a pixel; and the hook finds the scroll container by `data-slot="table-contain
 that element belongs to the shadcn `<Table>` primitive, not to us. Renaming that slot silently
 disables the effect — there's nothing to throw.
 
-## Critical Path tabs (Board / DPSP Flywheel / Timeline)
+## Board / DPSP Flywheel / Timeline (three separate pages, not tabs)
 
-**Tasks, DPSP Flywheel and Timeline are one sidebar entry, not three.** `constants/nav.ts` has a
-single link labelled **"Tasks"** (client preference — not "Critical Path", despite the tab strip
-it opens onto being titled that) pointing at `/tasks`, with `activePrefixes: ["/dpsp-flywheel",
-"/timeline"]` so the sidebar stays highlighted on all three routes. `components/shared/
-critical-path-tabs.tsx` renders the actual tab strip (Board / DPSP Flywheel / Timeline) at the
-top of all three pages' content. Each tab is still a genuinely separate route with its own query
-state, filters and data fetch — nothing is shared between them beyond the tab strip itself. Add
-a fourth tab (e.g. "By Department") by adding a row to `TABS` in that file and a matching
-`<CriticalPathTabs active="...">` on the new page; don't invent a second tab component.
+**Tasks, DPSP Flywheel and Timeline each have their own sidebar entry** (`constants/nav.ts` —
+"DPSP Flywheel" and "Timeline" sit directly under "Dashboard", client-requested placement;
+"Tasks" stays further down with My Tasks). They were originally one collapsed "Tasks" link with
+a shared tab strip (`components/shared/critical-path-tabs.tsx`) rendered at the top of all three
+pages for lateral navigation between them; both the collapsing and the tab strip were removed
+once each got a direct sidebar link, since keeping the strip would have meant every page also
+carrying a "Board" tab back to a route the sidebar already links to directly. `activePrefixes` on
+`NavItem` (`constants/nav.ts`) is unused as of this split — it existed for exactly this
+collapsed-link case — but left on the type for the next section that needs it. Each page remains
+a genuinely separate route with its own query state, filters and data fetch; nothing was ever
+shared between them beyond that now-removed tab strip. Add a new page in this family with its
+own `constants/nav.ts` row like any other page — there's no shared tab component to extend
+anymore.
 
 ## DPSP Flywheel (`/dpsp-flywheel`)
 

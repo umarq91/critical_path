@@ -45,15 +45,15 @@ export const TaskForm = ({ onSuccess, seasonOptions, brandOptions, keyStageOptio
     resolver: zodResolver(taskCreateSchema),
     defaultValues: {
       task_name: "",
-      // Season/Brand/Key Stage/DPSP Category start empty rather than pre-selecting the first
-      // option — a new task shouldn't silently inherit whichever season sorts first. Gender and
-      // Status keep a real default below since, unlike the others, there's an obviously correct
-      // starting value for a brand-new task regardless of which one it is.
+      // Season/Brand/Key Stage/DPSP Category/Gender all start empty rather than pre-selecting
+      // the first option — a new task shouldn't silently inherit whichever value sorts first.
+      // Status keeps a real default below since, unlike the others, there's an obviously
+      // correct starting value for a brand-new task regardless of which one it is.
       season_id: "",
       brand_id: "",
       key_stage_id: "",
       dpsp_category: "",
-      gender: taskGenderValues[0],
+      gender: "",
       due_date: "",
       start_date: "",
       end_date: "",

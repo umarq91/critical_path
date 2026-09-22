@@ -2,6 +2,8 @@ import {
   LayoutDashboard,
   ListTodo,
   Workflow,
+  Recycle,
+  Timeline,
   Calendar,
   CalendarDays,
   Tag,
@@ -26,9 +28,10 @@ export type NavItem = {
   /** Capability required to see this link. Omitted means every signed-in role sees it.
    *  Hiding a link is presentation only — the page itself guards with requirePageAccess(). */
   requiredAction?: Action;
-  /** Extra route prefixes that should also highlight this link — for "Critical Path", whose
-   *  href points at /tasks (its default tab) but should stay highlighted on /dpsp-flywheel and
-   *  /timeline too, since those are tabs of the same section, not separate pages. */
+  /** Extra route prefixes that should also highlight this link, for a section whose sidebar
+   *  entry points at one default sub-route but should stay highlighted on others too. Unused
+   *  as of Tasks/DPSP Flywheel/Timeline splitting into their own top-level entries below —
+   *  kept for the next section that needs it. */
   activePrefixes?: string[];
 };
 
@@ -43,13 +46,15 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     items: [
       { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+      // DPSP Flywheel and Timeline are two more lenses over the same task data as Tasks
+      // (Board) — each is its own route with its own query state/filters/fetch, not shared
+      // client state. They used to be reachable only via a shared tab strip on top of one
+      // collapsed "Tasks" sidebar entry (components/shared/critical-path-tabs.tsx, since
+      // removed) — now each gets a direct entry instead.
+      { title: "DPSP Flywheel", href: "/dpsp-flywheel", icon: Recycle },
+      { title: "Timeline", href: "/timeline", icon: Timeline },
       { title: "My Tasks", href: "/my-tasks", icon: ListTodo },
-      // Board (Tasks), DPSP Flywheel and Timeline are one section — three tabs over the same
-      // task data (see components/shared/critical-path-tabs.tsx), not three unrelated pages,
-      // so they get a single sidebar entry rather than three. Points at /tasks (Board) since
-      // that's the section's default landing tab; labelled "Tasks" (not "Critical Path") per
-      // client preference, even though the tab strip it lands on is titled Critical Path.
-      { title: "Tasks", href: "/tasks", icon: Workflow, activePrefixes: ["/dpsp-flywheel", "/timeline"] },
+      { title: "Tasks", href: "/tasks", icon: Workflow },
       { title: "Calendar", href: "/calendar", icon: Calendar },
       { title: "Brands", href: "/brands", icon: Tag, requiredAction: "brand.view" },
       { title: "Seasons", href: "/seasons", icon: Leaf, requiredAction: "lookups.view" },
