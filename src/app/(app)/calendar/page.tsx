@@ -9,12 +9,18 @@ import { listHolidaysByDateRange, listDistinctHolidayCountries } from "@/data/ho
 import { getCurrentProfile } from "@/data/profiles";
 import { can } from "@/lib/permissions";
 import { isGoogleCalendarEligible } from "@/lib/calendar-eligibility";
-import { taskStatusValues } from "@/app/(app)/tasks/schema";
+import { taskStatusValues, taskGenderValues } from "@/app/(app)/tasks/schema";
 import { TASK_STATUS_CONFIG } from "@/constants/task-status";
+import { TASK_GENDER_CONFIG } from "@/constants/task-gender";
 
 const STATUS_OPTIONS = taskStatusValues.map((status) => ({
   value: status,
   label: TASK_STATUS_CONFIG[status]?.label ?? status,
+}));
+
+const GENDER_OPTIONS = taskGenderValues.map((gender) => ({
+  value: gender,
+  label: TASK_GENDER_CONFIG[gender]?.label ?? gender,
 }));
 
 export default async function CalendarPage({
@@ -22,7 +28,7 @@ export default async function CalendarPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const { view, date, seasonId, brandId, status, countries } = await loadCalendarSearchParams(searchParams);
+  const { view, date, seasonId, brandId, status, gender, countries } = await loadCalendarSearchParams(searchParams);
   const anchorDate = resolveAnchorDate(date);
   const range = getCalendarRange(view, anchorDate);
 
@@ -36,7 +42,12 @@ export default async function CalendarPage({
     listTasksByDueDateRange({
       from: toQueryDate(range.start),
       to: toQueryDate(range.end),
-      filters: { season_id: seasonId, brand_id: brandId, status },
+      filters: {
+        season_id: seasonId.join(","),
+        brand_id: brandId.join(","),
+        status: status.join(","),
+        gender: gender.join(","),
+      },
       involvesProfileId: profile?.id,
     }),
     listSeasonOptions(),
@@ -70,6 +81,7 @@ export default async function CalendarPage({
           seasonOptions={seasonOptions}
           brandOptions={brandOptions}
           statusOptions={STATUS_OPTIONS}
+          genderOptions={GENDER_OPTIONS}
         />
       </div>
     </div>

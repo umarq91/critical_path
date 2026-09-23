@@ -440,9 +440,12 @@ export async function listTasksByDueDateRange({
     .gte("due_date", from)
     .lte("due_date", to);
 
-  if (filters.season_id) query = query.eq("season_id", filters.season_id);
-  if (filters.brand_id) query = query.eq("brand_id", filters.brand_id);
-  if (isTaskStatus(filters.status)) query = query.eq("status", filters.status);
+  // Multi-select, same encoding (and same applyMultiEq/decodeMultiFilterValue helpers) as the
+  // Tasks grid's own toolbar filters — see taskScope() above, which this deliberately mirrors.
+  query = applyMultiEq(query, "season_id", decodeMultiFilterValue(filters.season_id));
+  query = applyMultiEq(query, "brand_id", decodeMultiFilterValue(filters.brand_id));
+  query = applyMultiEq(query, "status", decodeMultiFilterValue(filters.status).filter((value) => isTaskStatus(value)));
+  query = applyMultiEq(query, "gender", decodeMultiFilterValue(filters.gender).filter((value) => isTaskGender(value)));
 
   if (involvesProfileId) {
     const orConditions = [`created_by.eq.${involvesProfileId}`];

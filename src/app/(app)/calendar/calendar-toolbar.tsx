@@ -1,10 +1,10 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { ChevronLeft, ChevronRight, PartyPopper, RefreshCw } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { calendarViewValues, type CalendarView } from "@/app/(app)/calendar/calendar-search-params";
 import { resolveAnchorDate, shiftAnchorDate, toQueryDate } from "@/app/(app)/calendar/calendar-utils";
@@ -12,8 +12,6 @@ import { syncGoogleCalendar } from "@/app/(app)/calendar/_actions";
 import type { CalendarQueryState } from "@/app/(app)/calendar/calendar-query-state";
 import type { DataTableFilterOption } from "@/components/data-table/table-features";
 import { cn } from "@/lib/utils";
-
-const ALL_VALUE = "__all__";
 
 const VIEW_LABELS: Record<CalendarView, string> = { day: "Day", week: "Week", month: "Month" };
 
@@ -27,6 +25,7 @@ interface CalendarToolbarProps {
   seasonOptions: DataTableFilterOption[];
   brandOptions: DataTableFilterOption[];
   statusOptions: DataTableFilterOption[];
+  genderOptions: DataTableFilterOption[];
   holidayCountryOptions: DataTableFilterOption[];
   taskCount: number;
   canSyncGoogleCalendar: boolean;
@@ -39,6 +38,7 @@ export const CalendarToolbar = ({
   seasonOptions,
   brandOptions,
   statusOptions,
+  genderOptions,
   holidayCountryOptions,
   taskCount,
   canSyncGoogleCalendar,
@@ -151,35 +151,48 @@ export const CalendarToolbar = ({
             {isSyncing ? "Syncing…" : "Sync to Google"}
           </Button>
         ) : null}
-        <CalendarFilterSelect
-          label="Season"
-          value={state.seasonId}
+        <CalendarMultiSelectFilter
+          title="Season"
+          allLabel="All Seasons"
+          selected={state.seasonId}
           options={seasonOptions}
-          onChange={(value) => void setState({ seasonId: value })}
+          onChange={(next) => void setState({ seasonId: next.length > 0 ? next : null })}
         />
-        <CalendarFilterSelect
-          label="Brand"
-          value={state.brandId}
+        <CalendarMultiSelectFilter
+          title="Brand"
+          allLabel="All Brands"
+          selected={state.brandId}
           options={brandOptions}
-          onChange={(value) => void setState({ brandId: value })}
+          onChange={(next) => void setState({ brandId: next.length > 0 ? next : null })}
         />
-        <CalendarFilterSelect
-          label="Status"
-          value={state.status}
+        <CalendarMultiSelectFilter
+          title="Status"
+          allLabel="All Status"
+          selected={state.status}
           options={statusOptions}
-          onChange={(value) => void setState({ status: value })}
+          onChange={(next) => void setState({ status: next.length > 0 ? next : null })}
         />
-        <HolidayCountryFilter
+        <CalendarMultiSelectFilter
+          title="Gender"
+          allLabel="All Genders"
+          selected={state.gender}
+          options={genderOptions}
+          onChange={(next) => void setState({ gender: next.length > 0 ? next : null })}
+        />
+        <CalendarMultiSelectFilter
+          icon={<PartyPopper className="size-4" />}
+          title="Country"
+          allLabel="All Holidays"
           selected={state.countries}
           options={holidayCountryOptions}
           onChange={(next) => void setState({ countries: next.length > 0 ? next : null })}
         />
-        {state.seasonId || state.brandId || state.status ? (
+        {state.seasonId.length > 0 || state.brandId.length > 0 || state.status.length > 0 || state.gender.length > 0 ? (
           <Button
             type="button"
             variant="link"
             className="px-1 text-primary transition-opacity duration-150 hover:opacity-70"
-            onClick={() => void setState({ seasonId: null, brandId: null, status: null })}
+            onClick={() => void setState({ seasonId: null, brandId: null, status: null, gender: null })}
           >
             Clear Filters
           </Button>
@@ -189,74 +202,57 @@ export const CalendarToolbar = ({
   );
 };
 
-function CalendarFilterSelect({
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  options: DataTableFilterOption[];
-  onChange: (value: string | null) => void;
-}) {
-  const current = value || ALL_VALUE;
-  const allLabel = `All ${label}`;
-
-  return (
-    <Select value={current} onValueChange={(next) => onChange(next === ALL_VALUE ? null : next)}>
-      <SelectTrigger className="h-10 transition-colors duration-150" aria-label={`Filter by ${label.toLowerCase()}`}>
-        <SelectValue>
-          {(value: string) => (value === ALL_VALUE ? allLabel : (options.find((option) => option.value === value)?.label ?? value))}
-        </SelectValue>
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value={ALL_VALUE}>{allLabel}</SelectItem>
-        {options.map((option) => (
-          <SelectItem key={option.value} value={option.value}>
-            {option.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
-}
-
-// A multi-select, unlike the single-value CalendarFilterSelect above: more than one country's
-// holidays can show at once. No selection and every option selected mean the same thing (show
-// every country) — there's no separate "show nothing" state worth the extra plumbing.
-function HolidayCountryFilter({
+// Every Calendar filter is multi-select — one component drives all five (Season/Brand/Status/
+// Gender/Holiday Country) rather than a near-duplicate per filter. Unchecked by default, exactly
+// like the Tasks grid's own `multiple: true` toolbar filters (data-table-toolbar.tsx): nothing
+// selected still means "show everything" in query terms, but the checkboxes themselves only ever
+// reflect what was actually clicked — no "empty selection displays as all-checked" trick.
+function CalendarMultiSelectFilter({
+  icon,
+  title,
+  /** Trigger label when nothing is selected, e.g. "All Seasons". */
+  allLabel,
   selected,
   options,
   onChange,
 }: {
+  icon?: ReactNode;
+  title: string;
+  allLabel: string;
   selected: string[];
   options: DataTableFilterOption[];
   onChange: (next: string[]) => void;
 }) {
   if (options.length === 0) return null;
-  const allSelected = selected.length === 0;
 
-  function toggle(value: string) {
-    const current = allSelected ? options.map((option) => option.value) : selected;
-    const next = current.includes(value) ? current.filter((v) => v !== value) : [...current, value];
-    onChange(next.length === options.length ? [] : next);
+  function toggle(value: string, checked: boolean) {
+    onChange(checked ? [...selected, value] : selected.filter((v) => v !== value));
   }
+
+  // Same three-state label as data-table-toolbar.tsx's own multi-select filters: the "all"
+  // label, the one selected option's own name, or "Title (N)" once there's more than one.
+  const triggerLabel =
+    selected.length === 0
+      ? allLabel
+      : selected.length === 1
+        ? (options.find((option) => option.value === selected[0])?.label ?? selected[0])
+        : `${title} (${selected.length})`;
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
         className={cn(buttonVariants({ variant: "outline" }), "h-10 gap-2 transition-colors duration-150")}
+        aria-label={`Filter by ${title.toLowerCase()}`}
       >
-        <PartyPopper className="size-4" />
-        {allSelected ? "All Holidays" : `${selected.length} ${selected.length === 1 ? "Country" : "Countries"}`}
+        {icon}
+        {triggerLabel}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         {options.map((option) => (
           <DropdownMenuCheckboxItem
             key={option.value}
-            checked={allSelected || selected.includes(option.value)}
-            onCheckedChange={() => toggle(option.value)}
+            checked={selected.includes(option.value)}
+            onCheckedChange={(checked) => toggle(option.value, !!checked)}
           >
             {option.label}
           </DropdownMenuCheckboxItem>

@@ -759,11 +759,15 @@ checkboxes in the toolbar already do the job of distinguishing countries, so
 above a day's task chips, in its own row, and does **not** count toward the month view's
 "3 tasks then +N more" overflow — holidays and tasks are separate concerns.
 
-**Unchecking every country checkbox shows every country's holidays, same as checking all of
-them.** `calendar-toolbar.tsx`'s `HolidayCountryFilter` treats an empty selection as "no filter
-applied" (matching nuqs's `parseAsArrayOf(...).withDefault([])`), not "show nothing" — there's no
-way to reach an actual empty state through the UI, by design; a user who doesn't want to see any
-holiday countries just doesn't have a reason to touch this control.
+**An empty selection means every country's holidays show, same as every country being checked —
+but the checkboxes themselves start unchecked, not all-checked.** `calendar-toolbar.tsx`'s
+`CalendarMultiSelectFilter` (shared by every Calendar filter, not just Holiday Country) treats an
+empty `selected` array as "no filter applied" in query terms (matching nuqs's
+`parseAsArrayOf(...).withDefault([])`), not "show nothing" — there's no way to reach an actual
+empty-results state through the UI, by design. This used to also drive the checkboxes' visual
+state (every box shown checked when nothing was picked), but that read as "already filtered" on
+first load; checkboxes now only ever reflect what was actually clicked, same as the Tasks grid's
+own multi-select toolbar filters, even though the untouched state still means unfiltered.
 
 **Holidays also push to Google Calendar, from the same Sync button tasks already use — added
 after the feature first shipped, once `0027` was live.** `syncGoogleCalendar`

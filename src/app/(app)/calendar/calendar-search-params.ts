@@ -13,9 +13,15 @@ export function calendarSearchParams() {
     // Empty string means "today", resolved at request/render time rather than baked into a
     // default here — a static default would go stale the moment the page is cached.
     date: parseAsString.withDefault(""),
-    seasonId: parseAsString.withDefault(""),
-    brandId: parseAsString.withDefault(""),
-    status: parseAsString.withDefault(""),
+    // Every task filter below is multi-select, same as the Tasks grid's own toolbar filters —
+    // an empty array means unfiltered (every value shown), not "show nothing". Param names stay
+    // singular (seasonId, not seasonIds) even though the value is now an array, so an old
+    // single-value link (e.g. seasons' "View in Calendar" — /calendar?seasonId=<uuid>) still
+    // parses correctly as a one-element array rather than silently landing unfiltered.
+    seasonId: parseAsArrayOf(parseAsString).withDefault([]),
+    brandId: parseAsArrayOf(parseAsString).withDefault([]),
+    status: parseAsArrayOf(parseAsString).withDefault([]),
+    gender: parseAsArrayOf(parseAsString).withDefault([]),
     // Empty array means unfiltered (every country shown) — there's no fixed country list to
     // default to, since public_holidays.country is open text (0027_public_holidays.sql).
     countries: parseAsArrayOf(parseAsString).withDefault([]),

@@ -23,6 +23,7 @@ interface CalendarWorkspaceProps {
   seasonOptions: DataTableFilterOption[];
   brandOptions: DataTableFilterOption[];
   statusOptions: DataTableFilterOption[];
+  genderOptions: DataTableFilterOption[];
 }
 
 // Owns the single URL-state hook (view/date/filters) shared by the toolbar's controls and
@@ -41,10 +42,12 @@ export const CalendarWorkspace = ({
   seasonOptions,
   brandOptions,
   statusOptions,
+  genderOptions,
 }: CalendarWorkspaceProps) => {
   const queryState = useCalendarQueryState();
   const { state, setState } = queryState;
-  const hasActiveFilters = !!(state.seasonId || state.brandId || state.status);
+  const hasActiveFilters =
+    state.seasonId.length > 0 || state.brandId.length > 0 || state.status.length > 0 || state.gender.length > 0;
   const [isSyncing, setIsSyncing] = useState(false);
 
   // Clicking a date number or a day's "+N more" overflow both land here — jumping to Day
@@ -62,6 +65,7 @@ export const CalendarWorkspace = ({
           seasonOptions={seasonOptions}
           brandOptions={brandOptions}
           statusOptions={statusOptions}
+          genderOptions={genderOptions}
           holidayCountryOptions={holidayCountryOptions}
           taskCount={tasks.length}
           canSyncGoogleCalendar={canSyncGoogleCalendar}
