@@ -25,7 +25,7 @@ export async function searchParties({ query }: SearchPartiesParams = {}) {
 
   let departmentQuery = supabase
     .from("departments")
-    .select("id, name, description, is_external")
+    .select("id, name, is_external")
     .is("deleted_at", null)
     .order("name", { ascending: true });
   if (term) departmentQuery = departmentQuery.ilike("name", `%${term}%`);
@@ -48,7 +48,8 @@ export async function searchParties({ query }: SearchPartiesParams = {}) {
     id: row.id,
     key: partyKey({ kind: "department", id: row.id }),
     name: row.name,
-    subtitle: row.is_external ? "External \u00b7 no platform users" : row.description,
+    // Description is create/edit-form-only (department-form.tsx) \u2014 never shown in a picker.
+    subtitle: row.is_external ? "External \u00b7 no platform users" : null,
     avatarUrl: null,
     isExternal: row.is_external,
   }));

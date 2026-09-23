@@ -9,13 +9,14 @@ type TaskParticipant = Task["participants"][number];
 // was deleted out from under the task.
 function toPartySummary(participant: TaskParticipant): PartySummary | null {
   if (participant.department) {
-    const { id, name, description, is_external } = participant.department;
+    const { id, name, is_external } = participant.department;
     return {
       kind: "department",
       id,
       key: partyKey({ kind: "department", id }),
       name,
-      subtitle: is_external ? "External · no platform users" : description,
+      // Description is create/edit-form-only (department-form.tsx) — never shown in a picker.
+      subtitle: is_external ? "External · no platform users" : null,
       avatarUrl: null,
       isExternal: is_external,
     };
