@@ -1,5 +1,7 @@
 import {
   columnFilteringFeature,
+  columnResizingFeature,
+  columnSizingFeature,
   columnVisibilityFeature,
   createFilteredRowModel,
   createPaginatedRowModel,
@@ -56,5 +58,11 @@ export const dataTableFeatures = tableFeatures({
   paginatedRowModel: createPaginatedRowModel(),
   rowSelectionFeature,
   columnVisibilityFeature,
+  // Inert unless a table explicitly opts in via <DataTable enableColumnResizing> (currently
+  // only tasks-board.tsx) — every other table keeps using column-widths.ts's weighted
+  // percentage system and never calls getSize()/getResizeHandler(), so composing these features
+  // here has no effect on them.
+  columnResizingFeature,
+  columnSizingFeature,
   columnMeta: metaHelper<DataTableColumnMeta>(),
 });

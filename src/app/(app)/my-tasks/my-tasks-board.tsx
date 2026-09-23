@@ -90,6 +90,9 @@ export const MyTasksBoard = ({
         seasonOptions,
         brandOptions,
         keyStageOptions,
+        // My Tasks doesn't enable <DataTable enableColumnResizing> — always the default,
+        // untouched header styling.
+        isResized: false,
       }),
     // rowEditing's methods are stable across renders (from useState setters); only its
     // values (editingId/draft) actually need to trigger a column rebuild.

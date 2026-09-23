@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Loader2 } from "lucide-react";
 import { FlexRender, useTable } from "@tanstack/react-table";
 import type {
   ColumnDef,
   ColumnFiltersState,
+  ColumnSizingState,
   ColumnVisibilityState,
   PaginationState,
   RowSelectionState,
@@ -83,6 +84,24 @@ interface DataTableProps<TData extends Record<string, unknown>> {
   /** Isolated "Refresh" icon next to the toolbar — re-fetches just this table's data. */
   onRefresh?: () => void;
   isRefreshing?: boolean;
+  /** Lets a person drag each column's right edge to resize it. Switches column widths from
+   *  column-widths.ts's shared weighted-percentage system (which guarantees no horizontal
+   *  scroll) to per-column pixel sizes that can push the table wider than its container — the
+   *  scroll container already handles that overflow. Column defs should set `size`/`minSize`
+   *  (not just `meta.width`) so there's a sensible starting width before anyone drags anything.
+   *  Headers also switch from single-line truncation to a 3-line wrap at a smaller size, since
+   *  a manually-narrowed column needs its label to stay legible rather than clip to an ellipsis. */
+  enableColumnResizing?: boolean;
+  /** localStorage key manually-resized column widths persist under. Omit to keep resizing
+   *  session-only (still works, just resets to the column defs' starting sizes on reload). */
+  resizeStorageKey?: string;
+  /** Fires whenever "has the person actually resized a column yet" changes. A column's own
+   *  `header` render function only gets `column`/`table` from TanStack, and reading "is this
+   *  table currently resized" back out of `table`'s state in v9's atom-based model isn't a
+   *  plain property read — so a column that wants to switch its own header styling once
+   *  resizing starts (see tasks/columns.tsx's wrap prop) tracks this callback's value in
+   *  ordinary React state instead, rather than re-deriving it from the table instance. */
+  onResizedChange?: (isResized: boolean) => void;
 }
 
 export const DataTable = <TData extends Record<string, unknown>>({
@@ -101,6 +120,9 @@ export const DataTable = <TData extends Record<string, unknown>>({
   rowCount,
   onRefresh,
   isRefreshing,
+  enableColumnResizing = false,
+  resizeStorageKey,
+  onResizedChange,
 }: DataTableProps<TData>) => {
   const [localSorting, setLocalSorting] = useState<SortingState>([]);
   const [localColumnFilters, setLocalColumnFilters] = useState<ColumnFiltersState>([]);
@@ -110,6 +132,29 @@ export const DataTable = <TData extends Record<string, unknown>>({
   });
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>({});
+  // Seeded from localStorage synchronously (not in an effect) so the very first render already
+  // has the person's last-resized widths — an effect-driven seed would flash the column defs'
+  // starting sizes for one frame first. try/catch: private browsing or a blocked storage API
+  // throws on access, not just on read, and a resizable table should still render either way.
+  const [columnSizing, setColumnSizing] = useState<ColumnSizingState>(() => {
+    if (!enableColumnResizing || !resizeStorageKey || typeof window === "undefined") return {};
+    try {
+      const raw = window.localStorage.getItem(resizeStorageKey);
+      return raw ? (JSON.parse(raw) as ColumnSizingState) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  useEffect(() => {
+    if (!enableColumnResizing || !resizeStorageKey) return;
+    try {
+      window.localStorage.setItem(resizeStorageKey, JSON.stringify(columnSizing));
+    } catch {
+      // Storage unavailable (private browsing, quota, disabled) — resizing still works for the
+      // rest of this session, it just won't survive a reload.
+    }
+  }, [columnSizing, enableColumnResizing, resizeStorageKey]);
 
   const tableColumns = useMemo(() => {
     if (!enableRowSelection) return columns;
@@ -125,12 +170,16 @@ export const DataTable = <TData extends Record<string, unknown>>({
     state: {
       rowSelection,
       columnVisibility,
+      ...(enableColumnResizing ? { columnSizing } : {}),
       ...(queryState
         ? queryState.state
         : { sorting: localSorting, columnFilters: localColumnFilters, pagination: localPagination }),
     },
     onRowSelectionChange: setRowSelection,
     onColumnVisibilityChange: setColumnVisibility,
+    enableColumnResizing,
+    columnResizeMode: "onChange",
+    onColumnSizingChange: setColumnSizing,
     ...(queryState
       ? {
           onSortingChange: queryState.onSortingChange,
@@ -166,6 +215,22 @@ export const DataTable = <TData extends Record<string, unknown>>({
   const columnWidthPercentages = columnWidthPercents(
     visibleColumns.map((column) => (column.columnDef.meta as DataTableColumnMeta | undefined)?.width)
   );
+  // A resizable table renders IDENTICALLY to a non-resizable one (weighted percentages, w-full,
+  // single-line truncated headers) until the person actually drags a column — only then does it
+  // switch to real pixel widths and allow growing past the container. This is deliberate, not
+  // an in-between state: seeding pixel widths from a live-measured container up front would
+  // make the default look "the same" only by re-deriving it every render, and risks a flash of
+  // the column defs' static `size` before that measurement resolves. Reusing the exact untouched
+  // rendering path instead guarantees pixel-identical output with no measurement at all — the
+  // trade-off is that the very first drag "jumps" from the column's rendered (percentage) width
+  // to its declared `size`/`minSize` before tracking the pointer from there, a one-time,
+  // self-correcting blip rather than a persistent visual difference.
+  const isResized = enableColumnResizing && Object.keys(columnSizing).length > 0;
+
+  useEffect(() => {
+    onResizedChange?.(isResized);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isResized]);
 
   return (
     <Card className="gap-5 py-6">
@@ -179,14 +244,24 @@ export const DataTable = <TData extends Record<string, unknown>>({
       ) : null}
       <div ref={scrollRef} className="relative">
         <Table
-          className={cn("table-fixed w-full transition-opacity", isBusy && "pointer-events-none opacity-50")}
-          // Always exactly 100% of the container (see column-widths.ts) — a few columns
-          // stretch to fill the page instead of leaving a gutter, and many columns compress
-          // instead of forcing a horizontal scrollbar.
+          className={cn(
+            "table-fixed transition-opacity",
+            // Once resized, the table sizes to the sum of its columns' pixel widths, which is
+            // free to exceed the container — [data-slot="table-container"] (the shadcn <Table>
+            // wrapper) already scrolls horizontally, that's what makes "doesn't have to fit on
+            // one screen" work post-resize. Untouched, every table (resizable or not) keeps the
+            // w-full + weighted-percentage combo that guarantees no horizontal scroll (see
+            // column-widths.ts).
+            !isResized && "w-full",
+            isBusy && "pointer-events-none opacity-50"
+          )}
         >
           <colgroup>
             {visibleColumns.map((column, index) => (
-              <col key={column.id} style={{ width: `${columnWidthPercentages[index]}%` }} />
+              <col
+                key={column.id}
+                style={{ width: isResized ? `${column.getSize()}px` : `${columnWidthPercentages[index]}%` }}
+              />
             ))}
           </colgroup>
           <TableHeader>
@@ -196,16 +271,29 @@ export const DataTable = <TData extends Record<string, unknown>>({
                   <TableHead
                     key={header.id}
                     className={cn(
-                      "truncate px-3 py-2.5",
+                      "relative px-3 py-2.5",
+                      isResized ? "line-clamp-3 align-top text-xs leading-snug whitespace-normal" : "truncate",
                       getStickyCellClassName(
                         header.column.columnDef.meta as DataTableColumnMeta | undefined,
                         "bg-surface-header",
                         scrollEdges
                       )
                     )}
-                    onMouseEnter={showTitleWhenTruncated}
+                    onMouseEnter={isResized ? undefined : showTitleWhenTruncated}
                   >
                     {header.isPlaceholder ? null : <FlexRender header={header} />}
+                    {enableColumnResizing && header.column.getCanResize() ? (
+                      <div
+                        onMouseDown={header.getResizeHandler()}
+                        onTouchStart={header.getResizeHandler()}
+                        onClick={(event) => event.stopPropagation()}
+                        className={cn(
+                          "absolute top-0 right-0 z-10 h-full w-2 cursor-col-resize touch-none",
+                          "hover:bg-primary/40",
+                          header.column.getIsResizing() && "bg-primary"
+                        )}
+                      />
+                    ) : null}
                   </TableHead>
                 ))}
               </TableRow>

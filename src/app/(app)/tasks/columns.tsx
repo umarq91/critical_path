@@ -47,6 +47,12 @@ interface CreateTaskColumnsOptions {
   seasonOptions: DataTableFilterOption[];
   brandOptions: DataTableFilterOption[];
   keyStageOptions: DataTableFilterOption[];
+  /** Whether the grid has actually been manually resized yet (see DataTable's own
+   *  `onResizedChange`) — headers only wrap/shrink once true, so the default render stays
+   *  pixel-identical to a non-resizable table. Plumbed in as a plain boolean, tracked in
+   *  tasks-board.tsx's own state, rather than re-derived from the TanStack table instance a
+   *  header render function receives — v9's state is atom-backed, not a plain property read. */
+  isResized: boolean;
 }
 
 export function createTaskColumns({
@@ -58,6 +64,7 @@ export function createTaskColumns({
   seasonOptions,
   brandOptions,
   keyStageOptions,
+  isResized,
 }: CreateTaskColumnsOptions) {
   // The inline-edit select needs an explicit "not set" choice since key_stage_id is
   // optional — the filter dropdown (passed separately by tasks-board.tsx) doesn't need one.
@@ -69,21 +76,29 @@ export function createTaskColumns({
   const dpspCategoryEditOptions = [{ value: "none", label: "No category" }, ...DPSP_CATEGORY_OPTIONS];
 
   return [
-    columnHelper.accessor("task_name", {
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Task Name" />,
-      meta: { label: "Task Name", width: "lg" },
+    columnHelper.accessor("status", {
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Status" wrap={isResized} />,
+      meta: { label: "Status", width: "sm" },
+      size: 140,
+      minSize: 90,
+      filterFn: "weakEquals",
       cell: ({ row, getValue }) => (
         <EditableCell
           value={getValue()}
+          display={<StatusBadge value={getValue()} config={TASK_STATUS_CONFIG} />}
+          variant="select"
+          options={STATUS_OPTIONS}
           isEditing={rowEditing.isEditing(row.original.id)}
-          draftValue={rowEditing.draft.task_name}
-          onDraftChange={(next) => rowEditing.setDraftField("task_name", next)}
+          draftValue={rowEditing.draft.status}
+          onDraftChange={(next) => rowEditing.setDraftField("status", next)}
         />
       ),
     }),
     columnHelper.accessor("season_id", {
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Season" />,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Season" wrap={isResized} />,
       meta: { label: "Season", width: "md" },
+      size: 176,
+      minSize: 100,
       filterFn: "weakEquals",
       cell: ({ row }) => {
         const season = row.original.season;
@@ -100,25 +115,11 @@ export function createTaskColumns({
         );
       },
     }),
-    columnHelper.accessor("brand_id", {
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Brand" />,
-      meta: { label: "Brand", width: "xs" },
-      filterFn: "weakEquals",
-      cell: ({ row }) => (
-        <EditableCell
-          value={row.original.brand_id ?? "none"}
-          display={row.original.brand?.brand_name ?? <span className="text-muted-foreground">—</span>}
-          variant="select"
-          options={brandEditOptions}
-          isEditing={rowEditing.isEditing(row.original.id)}
-          draftValue={rowEditing.draft.brand_id}
-          onDraftChange={(next) => rowEditing.setDraftField("brand_id", next)}
-        />
-      ),
-    }),
     columnHelper.accessor("key_stage_id", {
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Key Stage" />,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Key Stage" wrap={isResized} />,
       meta: { label: "Key Stage", width: "xs" },
+      size: 130,
+      minSize: 80,
       filterFn: "weakEquals",
       cell: ({ row }) => (
         <EditableCell
@@ -132,47 +133,64 @@ export function createTaskColumns({
         />
       ),
     }),
-    columnHelper.accessor("dpsp_category", {
-      header: ({ column }) => <DataTableColumnHeader column={column} title="DPSP Category" />,
-      meta: { label: "DPSP Category", width: "xs" },
-      filterFn: "weakEquals",
-      cell: ({ row, getValue }) => (
-        <EditableCell
-          value={getValue() ?? "none"}
-          display={
-            getValue() ? (
-              <StatusBadge value={getValue()!} config={DPSP_CATEGORY_CONFIG} />
-            ) : (
-              <span className="text-muted-foreground">—</span>
-            )
-          }
-          variant="select"
-          options={dpspCategoryEditOptions}
-          isEditing={rowEditing.isEditing(row.original.id)}
-          draftValue={rowEditing.draft.dpsp_category}
-          onDraftChange={(next) => rowEditing.setDraftField("dpsp_category", next)}
-        />
-      ),
-    }),
-    columnHelper.accessor("gender", {
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Gender" />,
-      meta: { label: "Gender", width: "xs" },
-      filterFn: "weakEquals",
+    columnHelper.accessor("task_name", {
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Task Name" wrap={isResized} />,
+      meta: { label: "Task Name", width: "lg" },
+      size: 240,
+      minSize: 140,
       cell: ({ row, getValue }) => (
         <EditableCell
           value={getValue()}
-          display={<StatusBadge value={getValue()} config={TASK_GENDER_CONFIG} />}
-          variant="select"
-          options={GENDER_OPTIONS}
           isEditing={rowEditing.isEditing(row.original.id)}
-          draftValue={rowEditing.draft.gender}
-          onDraftChange={(next) => rowEditing.setDraftField("gender", next)}
+          draftValue={rowEditing.draft.task_name}
+          onDraftChange={(next) => rowEditing.setDraftField("task_name", next)}
         />
       ),
     }),
+    // Display, not accessor: owners are rows in task_participants, not a column on the task,
+    // so there's nothing to sort on and no single value an inline select could edit. Owners
+    // are changed in the detail drawer, where the full add/remove list fits.
+    columnHelper.display({
+      id: "owners",
+      header: "Owner",
+      meta: { label: "Owner", width: "sm" },
+      size: 150,
+      minSize: 90,
+      cell: ({ row }) => <PartyStack parties={taskOwners(row.original)} showSoleName />,
+    }),
+    columnHelper.display({
+      id: "people",
+      header: "People Involved",
+      meta: { label: "People Involved", width: "sm" },
+      size: 170,
+      minSize: 90,
+      cell: ({ row }) => <PartyStack parties={taskPeopleInvolved(row.original)} />,
+    }),
+    // Display, not accessor: shows the working-timeline date range (start_date/end_date), a
+    // separate concept from due_date below — neither field has an EditableCell variant that
+    // edits two dates as one range yet, so like Owners this is display-only for now, edited via
+    // the create/detail form's own Start Date / Expected Finish Date fields.
+    columnHelper.display({
+      id: "working_timeline",
+      header: "Working Timeline",
+      meta: { label: "Working Timeline", width: "sm" },
+      size: 170,
+      minSize: 100,
+      cell: ({ row }) => {
+        const { start_date, end_date } = row.original;
+        if (!start_date && !end_date) return <span className="text-muted-foreground">—</span>;
+        return (
+          <span className="text-muted-foreground">
+            {start_date ? formatDate(start_date) : "—"} – {end_date ? formatDate(end_date) : "—"}
+          </span>
+        );
+      },
+    }),
     columnHelper.accessor("due_date", {
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Due Date" />,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Due Date" wrap={isResized} />,
       meta: { label: "Due Date", width: "md" },
+      size: 150,
+      minSize: 90,
       sortFn: "datetime",
       cell: ({ row, getValue }) => (
         <EditableCell
@@ -193,34 +211,63 @@ export function createTaskColumns({
         />
       ),
     }),
-    // Display, not accessor: owners are rows in task_participants, not a column on the task,
-    // so there's nothing to sort on and no single value an inline select could edit. Owners
-    // are changed in the detail drawer, where the full add/remove list fits.
-    columnHelper.display({
-      id: "owners",
-      header: "Owners",
-      meta: { label: "Owners", width: "sm" },
-      cell: ({ row }) => <PartyStack parties={taskOwners(row.original)} showSoleName />,
+    columnHelper.accessor("brand_id", {
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Brand" wrap={isResized} />,
+      meta: { label: "Brand", width: "xs" },
+      size: 130,
+      minSize: 80,
+      filterFn: "weakEquals",
+      cell: ({ row }) => (
+        <EditableCell
+          value={row.original.brand_id ?? "none"}
+          display={row.original.brand?.brand_name ?? <span className="text-muted-foreground">—</span>}
+          variant="select"
+          options={brandEditOptions}
+          isEditing={rowEditing.isEditing(row.original.id)}
+          draftValue={rowEditing.draft.brand_id}
+          onDraftChange={(next) => rowEditing.setDraftField("brand_id", next)}
+        />
+      ),
     }),
-    columnHelper.display({
-      id: "people",
-      header: "People Involved",
-      meta: { label: "People Involved", width: "sm" },
-      cell: ({ row }) => <PartyStack parties={taskPeopleInvolved(row.original)} />,
-    }),
-    columnHelper.accessor("status", {
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
-      meta: { label: "Status", width: "sm" },
+    columnHelper.accessor("gender", {
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Gender" wrap={isResized} />,
+      meta: { label: "Gender", width: "xs" },
+      size: 110,
+      minSize: 80,
       filterFn: "weakEquals",
       cell: ({ row, getValue }) => (
         <EditableCell
           value={getValue()}
-          display={<StatusBadge value={getValue()} config={TASK_STATUS_CONFIG} />}
+          display={<StatusBadge value={getValue()} config={TASK_GENDER_CONFIG} />}
           variant="select"
-          options={STATUS_OPTIONS}
+          options={GENDER_OPTIONS}
           isEditing={rowEditing.isEditing(row.original.id)}
-          draftValue={rowEditing.draft.status}
-          onDraftChange={(next) => rowEditing.setDraftField("status", next)}
+          draftValue={rowEditing.draft.gender}
+          onDraftChange={(next) => rowEditing.setDraftField("gender", next)}
+        />
+      ),
+    }),
+    columnHelper.accessor("dpsp_category", {
+      header: ({ column }) => <DataTableColumnHeader column={column} title="DPSP Category" wrap={isResized} />,
+      meta: { label: "DPSP Category", width: "xs" },
+      size: 130,
+      minSize: 80,
+      filterFn: "weakEquals",
+      cell: ({ row, getValue }) => (
+        <EditableCell
+          value={getValue() ?? "none"}
+          display={
+            getValue() ? (
+              <StatusBadge value={getValue()!} config={DPSP_CATEGORY_CONFIG} />
+            ) : (
+              <span className="text-muted-foreground">—</span>
+            )
+          }
+          variant="select"
+          options={dpspCategoryEditOptions}
+          isEditing={rowEditing.isEditing(row.original.id)}
+          draftValue={rowEditing.draft.dpsp_category}
+          onDraftChange={(next) => rowEditing.setDraftField("dpsp_category", next)}
         />
       ),
     }),
@@ -229,6 +276,8 @@ export function createTaskColumns({
     columnHelper.accessor("notes", {
       header: "Comments",
       meta: { label: "Comments", width: "lg" },
+      size: 220,
+      minSize: 120,
       enableSorting: false,
       cell: ({ row, getValue }) => (
         <EditableCell
@@ -253,6 +302,8 @@ export function createTaskColumns({
       id: "actions",
       header: "Actions",
       meta: { label: "Actions", sticky: "right", width: "xs" },
+      size: 100,
+      minSize: 80,
       cell: ({ row }) => {
         if (!canManage && !canDelete) return null;
         const task = row.original;

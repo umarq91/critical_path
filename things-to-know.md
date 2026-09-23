@@ -1135,6 +1135,61 @@ deliberately: a table with many columns runs tighter than any single column woul
 `width` kind for the *typical* value regardless, truncation covers the rest. Adding a column
 without a `width` silently gets `md`, which is usually wrong for a badge or a count.
 
+**Manual column resizing is the one opt-out from the weighted-percentage system, and Tasks is
+the only table using it — but it renders IDENTICALLY to a non-resizable table until the person
+actually drags a column.** `<DataTable enableColumnResizing resizeStorageKey="...">` composes
+TanStack's `columnSizingFeature`/`columnResizingFeature` (added to the shared `dataTableFeatures`
+in `table-features.ts`, but inert for every other table — nothing reads `getSize()`/renders a
+resize handle unless `enableColumnResizing` is passed) and always renders a drag handle on each
+`<TableHead>`'s right edge, but the WIDTH MODEL only switches over once `columnSizing` state is
+non-empty (`DataTable`'s own `isResized = enableColumnResizing && Object.keys(columnSizing).length
+> 0`). Untouched: `column-widths.ts`'s percentages-summing-to-100, `w-full`, single-line truncated
+headers — the exact same render path a non-resizable table uses. Resized: real pixel widths
+(`column.getSize()`, seeded from each column def's own `size`/`minSize`, not `meta.width`), `<table>`
+drops `w-full` so it can exceed the container (`[data-slot="table-container"]`'s existing
+`overflow-x-auto`, from the shadcn `Table` primitive, is what turns that into a horizontal
+scrollbar rather than an overflow bug), and headers wrap up to 3 lines at a smaller size instead
+of truncating. This is a deliberate two-state design, not a compromise: seeding "equivalent"
+pixel widths from a live-measured container up front was considered and rejected — it can only
+match the percentage layout at one specific viewport width, still needs the same width-model
+switch on the very first resize, and adds real flash-of-wrong-size risk for zero benefit over
+just reusing the untouched render path exactly. The trade-off actually paid: the very first drag
+"jumps" from the column's rendered (percentage) width to its declared `size`/`minSize` before
+tracking the pointer from there — a one-time, self-correcting blip, not a persistent difference.
+
+**Resized widths persist to `localStorage`, not the database.** Keyed by `resizeStorageKey`
+(`"tasks-column-widths"` for Tasks) — a per-browser, per-device preference, seeded synchronously
+in `useState`'s initializer (not an effect) so a return visitor's reload goes straight to pixel
+mode with their last widths, rather than flashing the untouched percentage layout for one frame
+first. Wrapped in try/catch on both read and write: private browsing or a blocked storage API
+throws on access, not just on read, and the table still has to render (falling back to "not yet
+resized") either way.
+
+**Whether a resizable table has actually been resized yet is reported back to its own column
+defs via a callback prop, not re-derived from the TanStack table instance a header render
+function receives.** `DataTable`'s `onResizedChange` fires whenever its `isResized` boolean
+changes; `tasks-board.tsx` tracks that in a plain `useState` and passes it into
+`createTaskColumns({ isResized })`, which closes over it for every `<DataTableColumnHeader ...
+wrap={isResized} />` call. The seemingly more direct route — reading `table.getState().columnSizing`
+(or `.state.columnSizing`) from inside a `header: ({ column, table }) => ...` render function —
+doesn't type-check in this TanStack v9: state here is atom/store-backed, not a plain synchronous
+property, and the `table` a header callback receives is typed narrower than the `ReactTable`
+instance `DataTable` itself holds. The callback sidesteps that entirely with an ordinary React
+value.
+
+**`wrap` fixes a real conflict inside `DataTableColumnHeader`, not just a cosmetic add-on.**
+Setting `whitespace-normal`/`line-clamp-3` on the parent `<TableHead>` alone does nothing for any
+*sortable* column — `DataTableColumnHeader` renders its own `<span className="truncate">` (or
+`"block truncate"` for a non-sortable title) inside that cell, and a descendant's own explicit
+`white-space` always wins over an ancestor's. Its `wrap` prop swaps that for `line-clamp-3
+whitespace-normal` and switches the sortable `Button` to `h-auto items-start` so a 3-line label
+doesn't render vertically centered against a squashed row. Every `<DataTableColumnHeader>` call in
+`tasks/columns.tsx` passes `wrap={isResized}`; every other table's calls don't pass it at all
+(defaults to `false`, truncating) — `wrap` has to be threaded per call site (the header render
+function is supplied by each `columns.tsx`, not something `DataTable` can inject a prop into
+after the fact), so a new resizable table must remember to wire its own `isResized` through the
+same way.
+
 **Cells clip, so pick the width for the typical value, not the longest one.** `td`/`th` carry
 `truncate`; anything that doesn't fit ellipsises. `showTitleWhenTruncated` (on `onMouseEnter`)
 puts the cell's *rendered* text in a native `title` when, and only when, it's actually clipped —

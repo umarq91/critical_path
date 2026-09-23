@@ -47,6 +47,9 @@ export const TasksBoard = ({
   const rowEditing = useRowEditing();
   const [isSaving, setIsSaving] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  // Whether the grid has actually been manually resized yet — see DataTable's own
+  // `onResizedChange` and columns.tsx's `isResized` for why headers only wrap/shrink once true.
+  const [isColumnsResized, setIsColumnsResized] = useState(false);
 
   // Stable reference unless the server actually sent a new tasks/rowCount pair (real
   // pagination/sort/filter navigation) — see useRefreshableData's contract.
@@ -77,6 +80,7 @@ export const TasksBoard = ({
         seasonOptions,
         brandOptions,
         keyStageOptions,
+        isResized: isColumnsResized,
       }),
     // rowEditing's methods are stable across renders (from useState setters); only its
     // values (editingId/draft) actually need to trigger a column rebuild.
@@ -91,6 +95,7 @@ export const TasksBoard = ({
       brandOptions,
       keyStageOptions,
       ownerOptions,
+      isColumnsResized,
     ]
   );
 
@@ -105,6 +110,9 @@ export const TasksBoard = ({
         isRefreshing={isRefreshing}
         enableRowSelection
         enableColumnFilterRow={false}
+        enableColumnResizing
+        resizeStorageKey="tasks-column-widths"
+        onResizedChange={setIsColumnsResized}
         paginationLabel="tasks"
         onRowClick={(task) => {
           if (!rowEditing.isEditing(task.id)) setSelectedTask(task);
