@@ -53,13 +53,14 @@ async function getCalendarClientForProfile(profileId: string) {
 // side can write (0019).
 export async function upsertCalendarEvent(
   profileId: string,
-  { eventId, title, date }: { eventId: string | null; title: string; date: string }
+  { eventId, title, date, description }: { eventId: string | null; title: string; date: string; description?: string }
 ): Promise<{ id: string; updatedAt: string } | null> {
   const calendar = await getCalendarClientForProfile(profileId);
   if (!calendar) return null;
 
   const requestBody: calendar_v3.Schema$Event = {
     summary: title,
+    description,
     start: { date },
     end: { date: format(addDays(new Date(`${date}T00:00:00`), 1), "yyyy-MM-dd") },
   };

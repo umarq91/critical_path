@@ -1,8 +1,15 @@
 import "server-only";
 import { upsertCalendarEvent, deleteCalendarEvent } from "@/lib/google/calendar";
+import type { ParticipantRole } from "@/lib/party";
 import type { createClient } from "@/lib/supabase/server";
 
 type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
+
+export interface SyncableTaskParticipant {
+  role: ParticipantRole;
+  profile: { full_name: string | null; email: string } | null;
+  department: { name: string } | null;
+}
 
 export interface SyncableTask {
   id: string;
@@ -14,6 +21,36 @@ export interface SyncableTask {
   due_date: string;
   google_event_id: string | null;
   google_calendar_owner_id?: string | null;
+  season: { season_name: string } | null;
+  participants: SyncableTaskParticipant[];
+}
+
+// A party's display name for the event description — department name if it's a department,
+// else the profile's full name, falling back to email. Same precedence task-parties.ts's
+// PartySummary uses for the in-app party picker, kept independent here rather than sharing that
+// module: this only ever needs a flat name string, not a full PartySummary (avatar, subtitle, …).
+function participantNames(participants: SyncableTaskParticipant[], role: ParticipantRole): string[] {
+  return participants
+    .filter((participant) => participant.role === role)
+    .map((participant) => participant.department?.name ?? participant.profile?.full_name ?? participant.profile?.email)
+    .filter((name): name is string => !!name);
+}
+
+// "<Season> - <Task Name>" so an event reads identifiably at a glance in a calendar full of
+// other teams' events, not just by opening it. Falls back to the bare task name only in the
+// structurally-impossible case of an unresolved season join (tasks.season_id is NOT NULL).
+function formatEventTitle(task: Pick<SyncableTask, "task_name" | "season">): string {
+  return task.season ? `${task.season.season_name} - ${task.task_name}` : task.task_name;
+}
+
+// Client-requested format: two labelled lines, comma-joined within each. Always both lines,
+// even when a list is empty — a consistently-shaped description is easier to scan across many
+// events than one that silently drops a line when nobody's in a role (owners are required at
+// task creation, but this is a defensive floor, not an assumption relied on elsewhere).
+function formatEventDescription(task: Pick<SyncableTask, "participants">): string {
+  const owners = participantNames(task.participants, "owner").join(", ");
+  const involved = participantNames(task.participants, "involved").join(", ");
+  return `OWNER: ${owners}\nPEOPLE INVOLVED: ${involved}`;
 }
 
 // The single outbound write: push one task to one Google Calendar and record that it happened.
@@ -34,7 +71,8 @@ export async function pushTaskToGoogleCalendar(
 ): Promise<boolean> {
   const result = await upsertCalendarEvent(calendarOwnerId, {
     eventId: task.google_event_id,
-    title: task.task_name,
+    title: formatEventTitle(task),
+    description: formatEventDescription(task),
     date: task.due_date,
   });
   if (!result) return false;
@@ -61,7 +99,9 @@ export async function pushTaskToGoogleCalendar(
 export async function resyncTaskCalendarEvent(supabase: SupabaseClient, taskId: string): Promise<void> {
   const { data: task } = await supabase
     .from("tasks")
-    .select("id, task_name, due_date, google_event_id, google_calendar_owner_id")
+    .select(
+      "id, task_name, due_date, google_event_id, google_calendar_owner_id, season:seasons(season_name), participants:task_participants(role, profile:profiles(full_name, email), department:departments(name))"
+    )
     .eq("id", taskId)
     .single();
 

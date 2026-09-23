@@ -106,7 +106,9 @@ export async function syncGoogleCalendar() {
   if (scopedIdSet.size > 0) {
     const { data: tasks, error: tasksError } = await auth.supabase
       .from("tasks")
-      .select("id, task_name, due_date, google_event_id, google_calendar_owner_id")
+      .select(
+        "id, task_name, due_date, google_event_id, google_calendar_owner_id, season:seasons(season_name), participants:task_participants(role, profile:profiles(full_name, email), department:departments(name))"
+      )
       .in("id", [...scopedIdSet])
       .is("deleted_at", null)
       .gte("due_date", from)

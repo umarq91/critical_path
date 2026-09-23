@@ -128,6 +128,21 @@ a duplicate and orphaning the original — `syncGoogleCalendar` reports those as
 If per-owner calendar copies are ever wanted, that's a `task_calendar_events(task_id, profile_id,
 event_id)` table, not a tweak to these two columns.
 
+**Event title/description are formatted, not a bare copy of `task_name`.** Client-requested:
+title is `"<Season> - <Task Name>"` and the description is always two lines, `"OWNER: …"` /
+`"PEOPLE INVOLVED: …"`, each a comma-joined list of party display names (department name, else
+profile full name, else email — same precedence `task-parties.ts`'s `PartySummary` uses for the
+in-app picker, reimplemented locally in `task-calendar-sync.ts` rather than shared, since this
+only needs flat strings, not a full party shape). Both lines are always present even when a list
+is empty (`"OWNER: "` with nothing after the colon) — a consistently-shaped description scans
+better across many events than one that silently drops a line. Formatting lives in
+`formatEventTitle`/`formatEventDescription` (`lib/google/task-calendar-sync.ts`), which is what
+`pushTaskToGoogleCalendar` calls — the one shared push both the Sync button and `updateTask`'s
+resync go through, so both paths format identically. Both call sites had to widen their
+`tasks` select to join `season:seasons(season_name)` and `participants:task_participants(role,
+profile:profiles(full_name, email), department:departments(name))` to have the data to format
+with.
+
 **Push scope is exactly the My Tasks scope, not just "owner".** `syncGoogleCalendar`
 (`calendar/_actions.ts`) pushes every task this profile created, owns, or is People-Involved
 on — named directly or through their department, via `task_participant_profiles`
