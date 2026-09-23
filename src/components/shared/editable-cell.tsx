@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { buttonVariants } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { VIZ_COLORS } from "@/constants/chart-colors";
 import { cn } from "@/lib/utils";
 
@@ -73,21 +74,41 @@ export const EditableCell = ({
   const current = typeof draftValue === "string" ? draftValue : value;
 
   if (variant === "color") {
+    // A single swatch that opens the palette in a popover, rather than laying all 7 swatches
+    // out inline — inline, a narrow ("xs") column wraps them onto several lines and balloons
+    // the row's height. Same "compact trigger, expands on demand" shape as the select/
+    // multi-select variants above.
     return (
-      <div className="flex flex-wrap items-center gap-1.5" onClick={(event) => event.stopPropagation()}>
-        {VIZ_COLORS.map((color) => (
-          <button
-            key={color}
-            type="button"
-            aria-label={color}
-            onClick={() => onDraftChange?.(color)}
-            className={cn(
-              "size-5 shrink-0 rounded-full ring-2 ring-transparent ring-offset-1 ring-offset-background transition-shadow",
-              current === color && "ring-foreground"
-            )}
-            style={{ backgroundColor: color }}
+      <div onClick={(event) => event.stopPropagation()}>
+        <Popover>
+          <PopoverTrigger
+            render={
+              <button
+                type="button"
+                aria-label="Choose colour"
+                className="size-6 shrink-0 rounded-full ring-2 ring-border ring-offset-1 ring-offset-background transition-shadow hover:ring-foreground"
+                style={{ backgroundColor: current || undefined }}
+              />
+            }
           />
-        ))}
+          <PopoverContent align="start" className="w-auto p-2" onClick={(event) => event.stopPropagation()}>
+            <div className="flex items-center gap-1.5">
+              {VIZ_COLORS.map((color) => (
+                <button
+                  key={color}
+                  type="button"
+                  aria-label={color}
+                  onClick={() => onDraftChange?.(color)}
+                  className={cn(
+                    "size-5 shrink-0 rounded-full ring-2 ring-transparent ring-offset-1 ring-offset-background transition-shadow",
+                    current === color && "ring-foreground"
+                  )}
+                  style={{ backgroundColor: color }}
+                />
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
       </div>
     );
   }
