@@ -11,16 +11,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   REMINDER_OFFSET_PRESETS,
   REMINDER_HOUR_OPTIONS,
+  reminderHourLabel,
   reminderTimingSchema,
 } from "@/app/(app)/settings/notifications/reminder-schema";
 import { updateReminderTiming } from "@/app/(app)/settings/notifications/_reminder-actions";
 import type { ReminderRule } from "@/data/reminders";
-
-function hourLabel(hour: number) {
-  const period = hour < 12 ? "AM" : "PM";
-  const twelveHour = hour % 12 === 0 ? 12 : hour % 12;
-  return `${twelveHour}:00 ${period}`;
-}
 
 interface NotifyTimingCardProps {
   initialRule: ReminderRule | null;
@@ -159,12 +154,12 @@ export const NotifyTimingCard = ({ initialRule, hasSelectedTasks, timezoneLabel,
           <span className="text-sm font-medium text-foreground">Send at</span>
           <Select value={String(notifyHour)} onValueChange={(value: string | null) => value && setNotifyHour(Number(value))}>
             <SelectTrigger className="w-40">
-              <SelectValue>{(value: string) => hourLabel(Number(value))}</SelectValue>
+              <SelectValue>{(value: string) => reminderHourLabel(Number(value))}</SelectValue>
             </SelectTrigger>
             <SelectContent>
               {REMINDER_HOUR_OPTIONS.map((hour) => (
                 <SelectItem key={hour} value={String(hour)}>
-                  {hourLabel(hour)}
+                  {reminderHourLabel(hour)}
                 </SelectItem>
               ))}
             </SelectContent>

@@ -1428,6 +1428,15 @@ or one already overdue, can be selected same as any other; nothing crashes, it j
 actually fires — `listDueReminders()` skips any `reminder_rule_tasks` row whose task has
 `due_date is null` before computing offsets, so an undated pick is inert rather than invalid.
 
+**The "Scheduled reminders" table can't say a reminder WAS sent, only that its date passed.**
+`listMyScheduledReminders()` works out each send date from the rule (`due_date − offset`, at
+`notify_hour` Sydney time) and labels it against the clock: Scheduled, Date passed, Paused (rule
+switched off), Task complete. It never reads `notifications_log`, which has no RLS policies and
+is service-role only. Showing a real "Sent" means adding an owner-read policy on that table
+through a migration; don't reach for the admin client from a page. The table queries `tasks`
+inner-joined to `reminder_rule_tasks`, so search, sort and pagination run in PostgREST, and it
+shows SAVED settings only (both steps' Save actions `revalidatePath` the page).
+
 **"Select all" / "Deselect all" in the picker act on different scopes, on purpose.** Select all
 only selects what's currently loaded into `candidates` — i.e. whatever the picker's own search/
 season/owner filters and the `CANDIDATE_PAGE_SIZE` (100) cap currently show — so it composes

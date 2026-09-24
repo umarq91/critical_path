@@ -15,6 +15,12 @@ export const REMINDER_OFFSET_PRESETS = [
 // counts as a reasonable send time for them.
 export const REMINDER_HOUR_OPTIONS = Array.from({ length: 24 }, (_, index) => index);
 
+export function reminderHourLabel(hour: number) {
+  const period = hour < 12 ? "AM" : "PM";
+  const twelveHour = hour % 12 === 0 ? 12 : hour % 12;
+  return `${twelveHour}:00 ${period}`;
+}
+
 const MAX_OFFSETS = 10;
 const MAX_TASKS = 100;
 

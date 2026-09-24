@@ -170,3 +170,94 @@ export async function recordReminderSent(ruleId: string, taskId: string, offsetD
     .upsert({ rule_id: ruleId, task_id: taskId, offset_days: offsetDays }, { onConflict: "rule_id,task_id,offset_days", ignoreDuplicates: true });
   if (error) throw error;
 }
+
+export type ReminderSendStatus = "upcoming" | "passed" | "paused" | "cancelled";
+
+export interface ScheduledReminderSend {
+  offsetDays: number;
+  /** yyyy-MM-dd, in REMINDER_ORG_TIMEZONE; the send goes out at the rule's notifyHour that day. */
+  sendDate: string;
+  status: ReminderSendStatus;
+}
+
+// A `type`, not an interface: DataTable rows must be assignable to Record<string, unknown>.
+export type ScheduledReminderRow = {
+  id: string;
+  task_name: string;
+  due_date: string | null;
+  season_name: string | null;
+  sends: ScheduledReminderSend[];
+};
+
+export interface ListMyScheduledRemindersParams {
+  page?: number;
+  pageSize?: number;
+  sortBy?: string;
+  sortDir?: string;
+  filters?: Record<string, string>;
+}
+
+const SCHEDULE_SORTABLE_COLUMNS = new Set(["task_name", "due_date"]);
+
+// "Passed" is judged only by the clock, never by notifications_log, which has no RLS policies
+// and is readable only by the service-role cron client — so this can't say a reminder WAS
+// sent, only that its time has gone by. The send hour itself still counts as upcoming, since
+// the cron runs every 15 minutes through it.
+function sendStatus(sendDate: string, notifyHour: number, now: Date, taskCompleted: boolean, ruleEnabled: boolean): ReminderSendStatus {
+  const today = isoDateInOrgTimezone(now);
+  const passed = sendDate < today || (sendDate === today && hourInOrgTimezone(now) > notifyHour);
+  if (passed) return "passed";
+  if (taskCompleted) return "cancelled";
+  return ruleEnabled ? "upcoming" : "paused";
+}
+
+// The Notifications page's schedule table: one row per task on this person's rule, with every
+// date a reminder goes out for it. Queried from `tasks` (inner-joined to reminder_rule_tasks)
+// rather than from the rule, so search, sort and pagination are real PostgREST clauses.
+export async function listMyScheduledReminders(
+  profileId: string,
+  { page = 1, pageSize = 10, sortBy, sortDir, filters = {} }: ListMyScheduledRemindersParams = {}
+) {
+  const supabase = await createClient();
+  const { data: rule, error: ruleError } = await supabase
+    .from("reminder_rules")
+    .select("id, offset_days, notify_hour, is_enabled")
+    .eq("profile_id", profileId)
+    .maybeSingle();
+  if (ruleError) throw ruleError;
+  if (!rule) return { data: [] as ScheduledReminderRow[], rowCount: 0, notifyHour: null };
+
+  let query = supabase
+    .from("tasks")
+    .select("id, task_name, due_date, status, season:seasons(season_name), reminder_rule_tasks!inner(rule_id)", {
+      count: "exact",
+    })
+    .eq("reminder_rule_tasks.rule_id", rule.id)
+    // A soft-deleted task stays linked to the rule but can never be reminded about.
+    .is("deleted_at", null);
+  if (filters.task_name) query = query.ilike("task_name", `%${filters.task_name}%`);
+
+  const orderColumn = sortBy && SCHEDULE_SORTABLE_COLUMNS.has(sortBy) ? sortBy : "due_date";
+  const from = (page - 1) * pageSize;
+  const { data, error, count } = await query
+    .order(orderColumn, { ascending: sortDir !== "desc", nullsFirst: false })
+    .order("id", { ascending: true })
+    .range(from, from + pageSize - 1);
+  if (error) throw error;
+
+  const now = new Date();
+  const offsets = [...rule.offset_days].sort((a, b) => b - a);
+  const rows: ScheduledReminderRow[] = (data ?? []).map((task) => {
+    const dueDate = task.due_date;
+    const sends = dueDate
+      ? offsets.map((offsetDays) => {
+          const sendDate = subtractCalendarDays(dueDate, offsetDays);
+          const status = sendStatus(sendDate, rule.notify_hour, now, task.status === "completed", rule.is_enabled);
+          return { offsetDays, sendDate, status };
+        })
+      : [];
+    return { id: task.id, task_name: task.task_name, due_date: dueDate, season_name: task.season?.season_name ?? null, sends };
+  });
+
+  return { data: rows, rowCount: count ?? 0, notifyHour: rule.notify_hour };
+}
