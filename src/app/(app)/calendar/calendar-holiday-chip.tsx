@@ -16,10 +16,10 @@ export const CalendarHolidayChip = ({ holiday, variant = "compact" }: CalendarHo
   if (variant === "compact") {
     return (
       <span
-        className="flex w-full items-center gap-1.5 truncate rounded-md border border-accent-teal/30 bg-accent-teal/15 px-2 py-1 text-sm text-accent-teal lg:text-base"
+        className="flex w-full items-center gap-1 truncate rounded-sm border border-accent-teal/30 bg-accent-teal/15 px-1.5 py-0.5 text-xs text-accent-teal"
         title={title}
       >
-        <PartyPopper className="size-3.5 shrink-0 lg:size-4" />
+        <PartyPopper className="size-3 shrink-0" />
         <span className="truncate">{holiday.name}</span>
       </span>
     );

@@ -28,8 +28,8 @@ export const PartyStack = ({ parties, maxVisible = 3, showSoleName }: PartyStack
   const overflow = parties.slice(maxVisible);
 
   return (
-    <div className="flex items-center gap-2">
-      <div className="flex items-center -space-x-2">
+    <div className="flex min-w-0 items-center gap-2">
+      <div className="flex shrink-0 items-center -space-x-2">
         {visible.map((party) => (
           <Tooltip key={party.key}>
             <TooltipTrigger render={<span className="inline-flex cursor-default" />}>

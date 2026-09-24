@@ -150,7 +150,7 @@ function DayNumberButton({
       onClick={() => onNavigateToDate(day)}
       aria-label={`View tasks for ${format(day, "EEEE, MMMM d, yyyy")}`}
       className={cn(
-        "flex size-8 shrink-0 items-center justify-center rounded-full text-base transition-colors hover:bg-muted lg:text-lg",
+        "flex size-6 shrink-0 items-center justify-center rounded-full text-sm transition-colors hover:bg-muted",
         dimmed ? "text-muted-foreground" : "text-foreground",
         today && "bg-primary font-semibold text-primary-foreground hover:bg-primary/90"
       )}
@@ -182,7 +182,7 @@ function MonthGrid({
       <div className="min-w-[700px]">
         <div className="grid grid-cols-7 border-b border-border bg-muted">
           {WEEKDAY_LABELS.map((label) => (
-            <div key={label} className="px-3 py-3 text-sm font-medium text-text-secondary lg:text-base">
+            <div key={label} className="px-2 py-1.5 text-xs font-medium text-text-secondary lg:text-sm">
               {label}
             </div>
           ))}
@@ -202,14 +202,14 @@ function MonthGrid({
               <div
                 key={day.toISOString()}
                 className={cn(
-                  "flex min-h-40 flex-col gap-1.5 border-b border-r border-border p-2.5 transition-colors duration-150 last:border-r-0 hover:bg-muted/30 lg:min-h-48",
+                  "flex min-h-24 flex-col gap-1 border-b border-r border-border p-1.5 transition-colors duration-150 last:border-r-0 hover:bg-muted/30",
                   !inCurrentMonth && "bg-muted/40",
                   inCurrentMonth && weekend && "bg-muted/15",
                   today && "bg-primary/5"
                 )}
               >
                 <DayNumberButton day={day} today={today} dimmed={!inCurrentMonth} onNavigateToDate={onNavigateToDate} />
-                <div className="flex flex-col gap-1.5">
+                <div className="flex flex-col gap-1">
                   {dayHolidays.map((holiday) => (
                     <CalendarHolidayChip key={holiday.id} holiday={holiday} variant="compact" />
                   ))}
@@ -221,7 +221,7 @@ function MonthGrid({
                       type="button"
                       onClick={() => onNavigateToDate(day)}
                       aria-label={`View all ${dayTasks.length} tasks on ${format(day, "MMMM d")}`}
-                      className="rounded px-2 text-left text-sm text-muted-foreground underline-offset-2 transition-colors hover:text-foreground hover:underline"
+                      className="rounded px-1.5 text-left text-xs text-muted-foreground underline-offset-2 transition-colors hover:text-foreground hover:underline"
                     >
                       +{overflowCount} more
                     </button>
@@ -341,11 +341,11 @@ const LEGEND_ITEMS = [
 
 function CalendarLegend() {
   return (
-    <div className="flex flex-wrap items-center gap-5 rounded-lg border border-border bg-card px-4 py-3.5">
-      <span className="text-sm font-medium text-text-secondary lg:text-base">Status Legend:</span>
+    <div className="flex flex-wrap items-center gap-4 rounded-lg border border-border bg-card px-3 py-2">
+      <span className="text-xs font-medium text-text-secondary lg:text-sm">Status Legend:</span>
       {LEGEND_ITEMS.map((item) => (
-        <span key={item.status} className="flex items-center gap-2 text-sm text-foreground lg:text-base">
-          <span className={cn("size-3 rounded-full", item.dotClass)} />
+        <span key={item.status} className="flex items-center gap-1.5 text-xs text-foreground lg:text-sm">
+          <span className={cn("size-2.5 rounded-full", item.dotClass)} />
           {item.label}
         </span>
       ))}

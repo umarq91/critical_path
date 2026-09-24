@@ -28,7 +28,7 @@ export default function CalendarLoading() {
             <div className="overflow-hidden rounded-lg border border-border">
               <div className="grid grid-cols-7 border-b border-border bg-muted">
                 {Array.from({ length: 7 }).map((_, index) => (
-                  <div key={index} className="px-3 py-3">
+                  <div key={index} className="px-2 py-1.5">
                     <Skeleton className="h-4 w-8" />
                   </div>
                 ))}
@@ -37,16 +37,16 @@ export default function CalendarLoading() {
                 {Array.from({ length: 35 }).map((_, index) => (
                   <div
                     key={index}
-                    className="flex min-h-40 flex-col gap-1.5 border-b border-r border-border p-2.5 last:border-r-0 lg:min-h-48"
+                    className="flex min-h-24 flex-col gap-1 border-b border-r border-border p-1.5 last:border-r-0"
                   >
                     <Skeleton className="h-6 w-6 rounded-full" />
-                    <Skeleton className="h-5 w-full rounded-md" />
-                    <Skeleton className="h-5 w-4/5 rounded-md" />
+                    <Skeleton className="h-5 w-full rounded-sm" />
+                    <Skeleton className="h-5 w-4/5 rounded-sm" />
                   </div>
                 ))}
               </div>
             </div>
-            <Skeleton className="h-12 w-full rounded-lg" />
+            <Skeleton className="h-9 w-full rounded-lg" />
           </CardContent>
         </Card>
       </div>

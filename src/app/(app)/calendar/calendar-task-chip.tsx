@@ -49,11 +49,11 @@ export const CalendarTaskChip = ({ task, onSelect, variant = "compact" }: Calend
       <button
         type="button"
         onClick={() => onSelect(task)}
-        className="flex w-full items-center gap-2 truncate rounded-md border px-2 py-1.5 text-left text-sm transition-all duration-150 hover:shadow-sm hover:brightness-95 active:scale-[0.98] lg:text-base"
+        className="flex w-full items-center gap-1.5 truncate rounded-sm border px-1.5 py-0.5 text-left text-xs transition-all duration-150 hover:shadow-sm hover:brightness-95 active:scale-[0.98]"
         style={{ borderColor: seasonColor, backgroundColor: `${seasonColor}1a`, color: seasonColor }}
         title={task.task_name}
       >
-        <span className={cn("size-2 shrink-0 rounded-full lg:size-2.5", dotClass)} />
+        <span className={cn("size-1.5 shrink-0 rounded-full", dotClass)} />
         <span className="truncate">{task.task_name}</span>
       </button>
     );
@@ -63,18 +63,21 @@ export const CalendarTaskChip = ({ task, onSelect, variant = "compact" }: Calend
     <button
       type="button"
       onClick={() => onSelect(task)}
-      className="flex w-full flex-col gap-2 rounded-lg border p-4 text-left shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 active:scale-[0.99]"
+      className="flex w-full min-w-0 flex-col gap-2 rounded-lg border p-4 text-left shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 active:scale-[0.99]"
       style={{ borderColor: seasonColor, backgroundColor: `${seasonColor}14` }}
+      title={task.task_name}
     >
-      <div className="flex items-center gap-2.5">
-        <span className={cn("size-2.5 shrink-0 rounded-full lg:size-3", dotClass)} />
-        <span className="truncate text-base font-medium text-foreground lg:text-lg">{task.task_name}</span>
+      <div className="flex items-start gap-2.5">
+        <span className={cn("mt-2 size-2.5 shrink-0 rounded-full lg:size-3", dotClass)} />
+        <span className="line-clamp-3 min-w-0 break-words text-base font-medium text-foreground lg:text-lg">
+          {task.task_name}
+        </span>
       </div>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
         {task.season ? <ColorTag label={task.season.season_name} color={task.season.color} /> : null}
         {task.brand ? <ColorTag label={task.brand.brand_name} color={task.brand.color} /> : null}
         {owners.length > 0 ? (
-          <span className="flex items-center gap-2 text-sm text-muted-foreground">
+          <span className="flex min-w-0 max-w-full items-center gap-2 text-sm text-muted-foreground">
             <PartyStack parties={owners} maxVisible={2} showSoleName />
           </span>
         ) : null}

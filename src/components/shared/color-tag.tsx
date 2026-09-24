@@ -13,8 +13,13 @@ interface ColorTagProps {
 // tint-over-border-and-text treatment as the status badges.
 export const ColorTag = ({ label, color }: ColorTagProps) => {
   return (
-    <Badge variant="outline" style={{ borderColor: color, color, backgroundColor: `${color}1a` }}>
-      {label}
+    <Badge
+      variant="outline"
+      className="max-w-full"
+      style={{ borderColor: color, color, backgroundColor: `${color}1a` }}
+      title={label}
+    >
+      <span className="truncate">{label}</span>
     </Badge>
   );
 };
