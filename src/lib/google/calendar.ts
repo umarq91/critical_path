@@ -133,6 +133,10 @@ export async function upsertCalendarEvent(
     description,
     start: { date },
     end: { date: format(addDays(new Date(`${date}T00:00:00`), 1), "yyyy-MM-dd") },
+    // Client request: no Google reminders on pushed events. Without this, each event inherits
+    // the calendar's default all-day notification. Set on every push, so the next sync also
+    // strips reminders from events pushed before this existed (events.update replaces the event).
+    reminders: { useDefault: false, overrides: [] },
   };
 
   const calendarId = await resolveCalendarId(profileId, client);

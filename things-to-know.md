@@ -213,6 +213,10 @@ deletes the calendar in Google, the next insert 404s. The cache is then cleared 
 is found or created again. Listing calendars reads metadata only (name, id, access role), not
 events, so it doesn't break the one-way rule above.
 
+**Pushed events carry no reminders.** Client request. `upsertCalendarEvent` sends
+`reminders: { useDefault: false, overrides: [] }` on every insert and update, which overrides the
+calendar's default all-day notification. Dropping it brings reminders back on every event.
+
 **Events already pushed to primary before this change are deliberately left there.** Nothing
 migrates or deletes them. A task or holiday whose stored `google_event_id` is a primary-calendar
 id 404s against "Critical Path". `upsertEvent` then inserts a fresh copy there and relinks it.
