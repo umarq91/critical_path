@@ -24,6 +24,7 @@ export default async function HolidaysPage({
     getCurrentProfile(),
   ]);
   const canManage = !!profile && can(profile.role, "admin.manage_lookups");
+  const canExport = !!profile && can(profile.role, "dashboard.export_reports");
   const countryOptions = countries.map((country) => ({ value: country, label: country }));
 
   return (
@@ -31,7 +32,9 @@ export default async function HolidaysPage({
       <PageHeader
         title="Holidays"
         description="Manage the public holidays shown on the Calendar."
-        action={<HolidayPageActions canManage={canManage} />}
+        action={
+          <HolidayPageActions canManage={canManage} canExport={canExport} rowCount={rowCount} countries={countries} />
+        }
       />
       <div className="flex flex-col gap-4 px-6 pb-6">
         <HolidaysBoard holidays={holidays} rowCount={rowCount} canManage={canManage} countryOptions={countryOptions} />

@@ -817,6 +817,23 @@ is written — not a partial import that silently stops at row 500. Sized agains
 `lib/export/types.ts`'s `MAX_LOOKUP_EXPORT_ROWS` (1000) for a lookup table, halved since an
 *import* does a write per row instead of an export's single bounded read.
 
+**Export (`holidays/export/route.ts`, `holidays-export-button.tsx`) sends an explicit scope, not
+the board's raw `filters`.** Unlike Brands/Seasons, the dialog can export more than the board
+shows: a "Current filters" / "All holidays" choice (shown only when a filter is active) presets
+a country checklist, and the checklist is what's sent, as a JSON `countries` array. JSON rather
+than comma-joined because `country` is free text. Every country ticked sends no `countries` at
+all, so "all" really means all. The search term travels only with "Current filters". Same
+`dashboard.export_reports` gate as every other export, so a viewer can export but not edit.
+
+**The export pages through the table instead of making the lookups' single capped request.**
+Holidays grow every year across four countries, so `listHolidaysForExport()` fetches in
+1000-row pages (PostgREST's per-request ceiling) up to `MAX_HOLIDAY_EXPORT_ROWS`. `id` is the
+sort tiebreaker because many rows share a date.
+
+**The board's search box used to do nothing.** It writes `filters.name` (its `searchColumnId`),
+but `listHolidays()` only applied `filters.country`. It now applies `ilike` on `name`, which the
+export's "Current filters" count depends on.
+
 **The Calendar's holiday chip is one consistent style, not colour-coded by country.** Client
 request was "a special tag or highlight", not "a different colour per country" — the country
 checkboxes in the toolbar already do the job of distinguishing countries, so

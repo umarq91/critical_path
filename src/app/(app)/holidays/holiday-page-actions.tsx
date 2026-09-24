@@ -6,18 +6,23 @@ import { Button } from "@/components/ui/button";
 import { FormDialog } from "@/components/shared/form-dialog";
 import { HolidayForm } from "@/app/(app)/holidays/holiday-form";
 import { CsvBulkImport } from "@/app/(app)/holidays/csv-bulk-import";
+import { HolidaysExportButton } from "@/app/(app)/holidays/holidays-export-button";
 
 interface HolidayPageActionsProps {
   canManage: boolean;
+  canExport: boolean;
+  rowCount: number;
+  countries: string[];
 }
 
-export const HolidayPageActions = ({ canManage }: HolidayPageActionsProps) => {
+export const HolidayPageActions = ({ canManage, canExport, rowCount, countries }: HolidayPageActionsProps) => {
   const [open, setOpen] = useState(false);
 
-  if (!canManage) return null;
+  if (!canManage) return canExport ? <HolidaysExportButton rowCount={rowCount} countries={countries} /> : null;
 
   return (
     <>
+      {canExport ? <HolidaysExportButton rowCount={rowCount} countries={countries} /> : null}
       <CsvBulkImport />
       <FormDialog
         title="Add Holiday"

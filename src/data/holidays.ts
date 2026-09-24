@@ -16,6 +16,8 @@ export async function listHolidays({ page = 1, pageSize = 10, sortBy, sortDir, f
   let query = supabase.from("public_holidays").select("*", { count: "exact" });
 
   if (filters.country) query = query.eq("country", filters.country);
+  // The board's search box writes its term under its searchColumnId, `name`.
+  if (filters.name) query = query.ilike("name", `%${filters.name}%`);
 
   const orderColumn = sortBy && SORTABLE_COLUMNS.has(sortBy) ? sortBy : "holiday_date";
   query = query.order(orderColumn, { ascending: sortDir !== "desc" });
@@ -29,6 +31,46 @@ export async function listHolidays({ page = 1, pageSize = 10, sortBy, sortDir, f
 }
 
 export type Holiday = Awaited<ReturnType<typeof listHolidays>>["data"][number];
+
+export interface ListHolidaysForExportParams {
+  /** Omitted or empty means every country. */
+  countries?: string[];
+  search?: string;
+  sortBy?: string;
+  sortDir?: string;
+}
+
+/** Page size of each request — PostgREST's own per-request row ceiling (`db-max-rows`). */
+const EXPORT_PAGE_SIZE = 1000;
+export const MAX_HOLIDAY_EXPORT_ROWS = 10_000;
+
+// Paged, unlike the other lookup exports' single MAX_LOOKUP_EXPORT_ROWS request: four countries'
+// holidays accumulate every year, so this table can realistically pass 1000 rows where
+// brands/seasons never will. `id` is the tiebreaker so rows can't straddle or skip a page
+// boundary when dates tie (they do, heavily — one date, several countries).
+export async function listHolidaysForExport({ countries, search, sortBy, sortDir }: ListHolidaysForExportParams = {}) {
+  const supabase = await createClient();
+  const orderColumn = sortBy && SORTABLE_COLUMNS.has(sortBy) ? sortBy : "holiday_date";
+  const term = search?.trim();
+  const rows: Holiday[] = [];
+
+  for (let from = 0; from < MAX_HOLIDAY_EXPORT_ROWS; from += EXPORT_PAGE_SIZE) {
+    let query = supabase.from("public_holidays").select("*");
+    if (countries && countries.length > 0) query = query.in("country", countries);
+    if (term) query = query.ilike("name", `%${term}%`);
+
+    const { data, error } = await query
+      .order(orderColumn, { ascending: sortDir !== "desc" })
+      .order("id", { ascending: true })
+      .range(from, from + EXPORT_PAGE_SIZE - 1);
+    if (error) throw error;
+
+    rows.push(...(data ?? []));
+    if (!data || data.length < EXPORT_PAGE_SIZE) return { data: rows, truncated: false };
+  }
+
+  return { data: rows, truncated: true };
+}
 
 interface ListHolidaysByDateRangeParams {
   from: string;
