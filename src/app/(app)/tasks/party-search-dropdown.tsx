@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Loader2, Plus, Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { searchAssignableParties } from "@/app/(app)/tasks/_participant-actions";
@@ -43,6 +43,7 @@ function ResultSkeleton() {
 export const PartySearchDropdown = ({ excludeKeys, onAdd, disabled, placeholder }: PartySearchDropdownProps) => {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [activeIndex, setActiveIndex] = useState(0);
   const [state, setState] = useState<SearchState>({ status: "pending" });
   const containerRef = useRef<HTMLDivElement>(null);
   const debouncedQuery = useDebouncedValue(query, SEARCH_DEBOUNCE_MS);
@@ -82,6 +83,9 @@ export const PartySearchDropdown = ({ excludeKeys, onAdd, disabled, placeholder 
   const showClear = !disabled && (open || query.length > 0);
   // Already-picked parties disappear the moment they're added, without refetching.
   const results = state.status === "ready" ? state.results.filter((party) => !excludeKeys.includes(party.key)) : [];
+  // Clamped at read time: adding a party drops it from `results`, which can leave the stored
+  // index one past the end.
+  const highlightedIndex = Math.min(activeIndex, results.length - 1);
 
   // Rendered in flow rather than in a popover: this sits inside a scrollable sheet, where a
   // portalled panel needs anchor tracking to behave. The trade is that dismissal is ours to
@@ -120,16 +124,26 @@ export const PartySearchDropdown = ({ excludeKeys, onAdd, disabled, placeholder 
         )}
         <Input
           value={query}
-          onChange={(event) => setQuery(event.target.value)}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            setActiveIndex(0);
+          }}
           onFocus={() => setOpen(true)}
           // This input lives inside the task form — without preventDefault, Enter would submit
-          // the task instead. Enter adds the top result (same as clicking its Add button) so
-          // typing a name and hitting Enter is enough; it's a no-op while results are still
-          // catching up with what's typed, same guard as the "no matches" empty state below.
+          // the task instead. Enter adds the highlighted result (the top one unless the arrow
+          // keys moved it) so typing a name and hitting Enter is enough; it's a no-op while
+          // results are still catching up with what's typed, same guard as the "no matches"
+          // empty state below.
           onKeyDown={(event) => {
             if (event.key === "Enter") {
               event.preventDefault();
-              if (!isLoading && results.length > 0) onAdd(results[0]);
+              if (!isLoading && results.length > 0) onAdd(results[highlightedIndex]);
+            }
+            if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+              event.preventDefault();
+              setOpen(true);
+              const step = event.key === "ArrowDown" ? 1 : -1;
+              setActiveIndex(Math.max(0, Math.min(highlightedIndex + step, results.length - 1)));
             }
             if (event.key === "Escape") setOpen(false);
           }}
@@ -173,18 +187,29 @@ export const PartySearchDropdown = ({ excludeKeys, onAdd, disabled, placeholder 
             </p>
           ) : (
             <>
-              {results.map((party) => (
-                <PartyRow
+              {results.map((party, index) => (
+                // The whole row is the click target, not just the Add pill — which is therefore
+                // a styled span, since a button can't nest inside another.
+                <button
                   key={party.key}
-                  party={party}
-                  className="px-3 py-2 hover:bg-accent"
-                  trailing={
-                    <Button type="button" size="sm" variant="outline" className="gap-1" onClick={() => onAdd(party)}>
-                      <Plus className="size-3.5" />
-                      Add
-                    </Button>
-                  }
-                />
+                  type="button"
+                  onClick={() => onAdd(party)}
+                  onMouseEnter={() => setActiveIndex(index)}
+                  className={cn(
+                    "block w-full cursor-pointer px-3 py-2 text-left outline-none focus-visible:bg-accent",
+                    index === highlightedIndex && "bg-accent"
+                  )}
+                >
+                  <PartyRow
+                    party={party}
+                    trailing={
+                      <span className={buttonVariants({ size: "sm", variant: "outline", className: "gap-1" })}>
+                        <Plus className="size-3.5" />
+                        Add
+                      </span>
+                    }
+                  />
+                </button>
               ))}
               {state.status === "ready" && state.truncated ? (
                 <p className="px-3 py-2 text-center text-xs text-muted-foreground">

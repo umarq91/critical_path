@@ -323,6 +323,12 @@ discarding. This replaced an optimistic per-click write (`addTaskParticipant` /
 session produced a scatter of audit-log rows instead of one entry saying what changed. There is
 now exactly one write path for participants; don't add a second.
 
+**A search result's whole row is the click target, and its "Add" is decoration.** The row is
+the `<button>`; the Add pill inside it is a `<span>` styled with `buttonVariants`, because a
+button can't nest in a button. Don't turn it back into a `<Button>` with its own `onClick`: a
+click on the rest of the row would stop adding anything. Enter adds the highlighted row (the top
+one by default, moved with ↑/↓) and does nothing while results still lag behind the typed term.
+
 **A party is addressed as a `kind:uuid` string** (`lib/party.ts`) everywhere on the client —
 form values, option values, React keys — and split back into `profile_id`/`department_id` on
 write. `task_participants` has no single id column to key on, so this encoding is what lets one
