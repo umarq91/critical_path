@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { CalendarToolbar } from "@/app/(app)/calendar/calendar-toolbar";
 import { CalendarBoard } from "@/app/(app)/calendar/calendar-board";
 import { useCalendarQueryState } from "@/app/(app)/calendar/calendar-query-state";
-import { toQueryDate, type CalendarRange } from "@/app/(app)/calendar/calendar-utils";
+import { hasActiveTaskFilters, toQueryDate, type CalendarRange } from "@/app/(app)/calendar/calendar-utils";
 import type { CalendarView } from "@/app/(app)/calendar/calendar-search-params";
 import type { DataTableFilterOption } from "@/components/data-table/table-features";
 import type { Task } from "@/data/tasks";
@@ -22,6 +22,7 @@ interface CalendarWorkspaceProps {
   canSyncGoogleCalendar: boolean;
   seasonOptions: DataTableFilterOption[];
   brandOptions: DataTableFilterOption[];
+  partyOptions: DataTableFilterOption[];
   statusOptions: DataTableFilterOption[];
   genderOptions: DataTableFilterOption[];
 }
@@ -41,13 +42,13 @@ export const CalendarWorkspace = ({
   canSyncGoogleCalendar,
   seasonOptions,
   brandOptions,
+  partyOptions,
   statusOptions,
   genderOptions,
 }: CalendarWorkspaceProps) => {
   const queryState = useCalendarQueryState();
   const { state, setState } = queryState;
-  const hasActiveFilters =
-    state.seasonId.length > 0 || state.brandId.length > 0 || state.status.length > 0 || state.gender.length > 0;
+  const hasActiveFilters = hasActiveTaskFilters(state);
   const [isSyncing, setIsSyncing] = useState(false);
 
   // Clicking a date number or a day's "+N more" overflow both land here — jumping to Day
@@ -64,6 +65,7 @@ export const CalendarWorkspace = ({
           queryState={queryState}
           seasonOptions={seasonOptions}
           brandOptions={brandOptions}
+          partyOptions={partyOptions}
           statusOptions={statusOptions}
           genderOptions={genderOptions}
           holidayCountryOptions={holidayCountryOptions}

@@ -1,10 +1,11 @@
 import { PageHeader } from "@/components/shared/page-header";
 import { CalendarWorkspace } from "@/app/(app)/calendar/calendar-workspace";
 import { loadCalendarSearchParams } from "@/app/(app)/calendar/calendar-search-params";
-import { getCalendarRange, resolveAnchorDate, toQueryDate } from "@/app/(app)/calendar/calendar-utils";
+import { getCalendarRange, resolveAnchorDate, toQueryDate, toTaskRangeFilters } from "@/app/(app)/calendar/calendar-utils";
 import { listTasksByDueDateRange } from "@/data/tasks";
 import { listSeasonOptions } from "@/data/seasons";
 import { listBrandOptions } from "@/data/brands";
+import { listPartyOptions } from "@/data/parties";
 import { listHolidaysByDateRange, listDistinctHolidayCountries } from "@/data/holidays";
 import { getCurrentProfile } from "@/data/profiles";
 import { can } from "@/lib/permissions";
@@ -28,7 +29,7 @@ export default async function CalendarPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const { view, date, seasonId, brandId, status, gender, countries } = await loadCalendarSearchParams(searchParams);
+  const { view, date, countries, ...taskFilterState } = await loadCalendarSearchParams(searchParams);
   const anchorDate = resolveAnchorDate(date);
   const range = getCalendarRange(view, anchorDate);
 
@@ -38,20 +39,21 @@ export default async function CalendarPage({
   // for them — the server action refuses the same call independently (see _actions.ts).
   const canSyncGoogleCalendar = !!profile && isGoogleCalendarEligible(profile);
 
-  const [tasks, seasons, brands, holidays, holidayCountries] = await Promise.all([
+  // The Owner / People Involved options are every department and active person in the
+  // organisation, the same whole-org list lookups.view guards elsewhere. External users don't
+  // get it, so those two filters simply don't render for them (no options, no dropdown).
+  const canFilterByParty = !!profile && can(profile.role, "lookups.view");
+
+  const [tasks, seasons, brands, partyOptions, holidays, holidayCountries] = await Promise.all([
     listTasksByDueDateRange({
       from: toQueryDate(range.start),
       to: toQueryDate(range.end),
-      filters: {
-        season_id: seasonId.join(","),
-        brand_id: brandId.join(","),
-        status: status.join(","),
-        gender: gender.join(","),
-      },
+      filters: toTaskRangeFilters(taskFilterState),
       involvesProfileId: profile?.id,
     }),
     listSeasonOptions(),
     listBrandOptions(),
+    canFilterByParty ? listPartyOptions() : Promise.resolve([]),
     // Visible to every signed-in role including external — a public holiday date isn't
     // organisation-sensitive the way brand/season lookups are (see docs/specs/0001-public-holidays).
     listHolidaysByDateRange({
@@ -80,6 +82,7 @@ export default async function CalendarPage({
           canSyncGoogleCalendar={canSyncGoogleCalendar}
           seasonOptions={seasonOptions}
           brandOptions={brandOptions}
+          partyOptions={partyOptions}
           statusOptions={STATUS_OPTIONS}
           genderOptions={GENDER_OPTIONS}
         />

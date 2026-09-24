@@ -16,6 +16,10 @@ interface ConfirmDialogProps {
   title: string;
   description?: string;
   confirmLabel?: string;
+  /** Delete is the common case; a non-destructive confirmation (e.g. "sync these") passes
+   * "default" plus its own pendingLabel. */
+  confirmVariant?: "destructive" | "default";
+  pendingLabel?: string;
   onConfirm: () => Promise<void> | void;
   /** Use for a plain trigger element (e.g. a Button). Omit and use `open`/`onOpenChange`
    * instead when the trigger is a DropdownMenuItem — nesting a Dialog trigger inside a menu
@@ -29,6 +33,8 @@ export const ConfirmDialog = ({
   title,
   description,
   confirmLabel = "Delete",
+  confirmVariant = "destructive",
+  pendingLabel = "Deleting…",
   onConfirm,
   trigger,
   open,
@@ -58,8 +64,8 @@ export const ConfirmDialog = ({
           <Button variant="outline" onClick={() => setOpen(false)} disabled={isPending}>
             Cancel
           </Button>
-          <Button variant="destructive" onClick={handleConfirm} disabled={isPending}>
-            {isPending ? "Deleting…" : confirmLabel}
+          <Button variant={confirmVariant} onClick={handleConfirm} disabled={isPending}>
+            {isPending ? pendingLabel : confirmLabel}
           </Button>
         </DialogFooter>
       </DialogContent>

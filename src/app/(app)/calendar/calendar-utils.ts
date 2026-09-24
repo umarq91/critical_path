@@ -11,6 +11,7 @@ import {
   subMonths,
   subWeeks,
 } from "date-fns";
+import { encodeMultiFilterValue } from "@/constants/data-table-filters";
 import type { CalendarView } from "@/app/(app)/calendar/calendar-search-params";
 
 // Tasks only carry a due_date (date, no time-of-day) — so unlike a real Google Calendar,
@@ -57,4 +58,32 @@ export function toDateKey(value: Date | string) {
 
 export function toQueryDate(value: Date) {
   return format(value, "yyyy-MM-dd");
+}
+
+export interface CalendarTaskFilterState {
+  seasonId: string[];
+  brandId: string[];
+  status: string[];
+  gender: string[];
+  owner: string[];
+  involved: string[];
+}
+
+export function hasActiveTaskFilters(state: CalendarTaskFilterState) {
+  return Object.values(state).some((values) => values.length > 0);
+}
+
+// The one translation from the Calendar's URL state to listTasksByDueDateRange's `filters`
+// vocabulary. Shared by the page (what the grid shows) and the Sync action (what gets pushed),
+// so "what you see is what syncs" can't drift between the two.
+export function toTaskRangeFilters(state: CalendarTaskFilterState): Record<string, string> {
+  const entries: [string, string | undefined][] = [
+    ["season_id", encodeMultiFilterValue(state.seasonId)],
+    ["brand_id", encodeMultiFilterValue(state.brandId)],
+    ["status", encodeMultiFilterValue(state.status)],
+    ["gender", encodeMultiFilterValue(state.gender)],
+    ["owner", encodeMultiFilterValue(state.owner)],
+    ["involved", encodeMultiFilterValue(state.involved)],
+  ];
+  return Object.fromEntries(entries.filter((entry): entry is [string, string] => entry[1] !== undefined));
 }

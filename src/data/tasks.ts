@@ -432,6 +432,8 @@ export async function listTasksByDueDateRange({
   if (involvesProfileId) {
     involvedTaskIds = await taskIdsForProfile(supabase, involvesProfileId);
   }
+  // Owner / People Involved toolbar filters, same matching as the Tasks grid's taskScope().
+  const participantIds = await participantTaskIds(supabase, filters);
 
   let query = supabase
     .from("tasks")
@@ -446,6 +448,9 @@ export async function listTasksByDueDateRange({
   query = applyMultiEq(query, "brand_id", decodeMultiFilterValue(filters.brand_id));
   query = applyMultiEq(query, "status", decodeMultiFilterValue(filters.status).filter((value) => isTaskStatus(value)));
   query = applyMultiEq(query, "gender", decodeMultiFilterValue(filters.gender).filter((value) => isTaskGender(value)));
+  if (participantIds) {
+    query = participantIds.length > 0 ? query.in("id", participantIds) : query.eq("id", EMPTY_RESULT_ID);
+  }
 
   if (involvesProfileId) {
     const orConditions = [`created_by.eq.${involvesProfileId}`];

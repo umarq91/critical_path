@@ -22,6 +22,10 @@ export function calendarSearchParams() {
     brandId: parseAsArrayOf(parseAsString).withDefault([]),
     status: parseAsArrayOf(parseAsString).withDefault([]),
     gender: parseAsArrayOf(parseAsString).withDefault([]),
+    // Party keys ("user:<uuid>" / "department:<uuid>"), same vocabulary as the Tasks grid's
+    // Owner / People Involved filters, matched by participantTaskIds (data/task-participants.ts).
+    owner: parseAsArrayOf(parseAsString).withDefault([]),
+    involved: parseAsArrayOf(parseAsString).withDefault([]),
     // Empty array means unfiltered (every country shown) — there's no fixed country list to
     // default to, since public_holidays.country is open text (0027_public_holidays.sql).
     countries: parseAsArrayOf(parseAsString).withDefault([]),

@@ -143,6 +143,23 @@ resync go through, so both paths format identically. Both call sites had to wide
 profile:profiles(full_name, email), department:departments(name))` to have the data to format
 with.
 
+**Sync follows the Calendar's filters: what you see is what syncs.** The Sync button sends the
+Calendar's active filters (Season, Brand, Status, Gender, Owner, People Involved, holiday
+Country) to `syncGoogleCalendar`, which narrows the push through the same
+`toTaskRangeFilters` + `listTasksByDueDateRange` pair the grid renders from (and
+`listHolidaysByDateRange` for countries). The page and the action must keep sharing that pair,
+or the two drift apart. Three rules are easy to break:
+- **Filters narrow the push, never the removal pass.** A task filtered out of this sync keeps
+  its Google event. Only leaving the user's scope (deleted, or removed from the task) removes
+  one. Sync Season A and then Season B, and both stay on Google.
+- **The date window stays fixed** (90 days back to 180 days ahead), whatever month is on screen.
+  Filters narrow that window's tasks; the visible range does not.
+- **A filtered sync asks first.** `calendar-sync-button.tsx` opens a confirm listing the active
+  filters. With no filters it syncs straight away, as it always did.
+Owner / People Involved options are the whole-organisation party list, so the page only loads
+them for roles with `lookups.view`. External users get no options, and those two filters don't
+render for them.
+
 **Push scope is exactly the My Tasks scope, not just "owner".** `syncGoogleCalendar`
 (`calendar/_actions.ts`) pushes every task this profile created, owns, or is People-Involved
 on — named directly or through their department, via `task_participant_profiles`
@@ -818,8 +835,8 @@ task's owner-column trick.
 **Every eligible user who syncs gets every holiday — there is no first-claim-wins here, unlike
 tasks.** A holiday has no owner to contest, so there's nothing to skip: 10 users syncing the same
 holiday get 10 independent events, one per calendar, each tracked by its own
-`holiday_calendar_events` row. Not scoped by the Calendar page's own country filter — same "sync
-ignores view state" reasoning the task window already follows.
+`holiday_calendar_events` row. Narrowed by the Calendar's country filter when one is set (see
+"Sync follows the Calendar's filters" in the Google Calendar sync section).
 
 **Editing a holiday re-pushes it to every calendar that already has it; deleting one tries to
 remove it everywhere, but can leave an orphan.** `updateHoliday` calls
