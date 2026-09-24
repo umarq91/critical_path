@@ -346,7 +346,7 @@ Exists so "tasks relevant to me" stays one query rather than the three hops (me 
 ### `google_oauth_tokens`
 *Migration: `0012_google_oauth_tokens.sql`. Per-user Google OAuth access/refresh tokens, used only to call the Calendar API as that specific user.*
 
-**⚠️ TEMPORARY — read before touching Google Calendar sync.** Domain-wide delegation (the `GOOGLE_SERVICE_ACCOUNT_*` service account already used for role sync above) can only impersonate accounts inside a real Google Workspace domain — there's no admin console for a personal `@gmail.com` address to grant it from. While dev/test sign-ins use personal Gmail accounts (`NEXT_PUBLIC_GOOGLE_WORKSPACE_DOMAIN=gmail.com`), Calendar sync instead uses standard per-user OAuth consent: `google-button.tsx` requests the `calendar.events` scope at sign-in, `auth/callback/route.ts` stores the resulting token here, and `lib/google/calendar.ts` reads/refreshes it. **Once real Workspace accounts are in use, revisit switching Calendar sync to domain-wide delegation instead** (consistent with role sync, and avoids every user re-consenting to a Calendar permission at every sign-in) — at that point this table, `lib/google/oauth-tokens.ts`, the `scopes`/`access_type`/`prompt` additions in `google-button.tsx`, and the `GOOGLE_OAUTH_CLIENT_ID`/`GOOGLE_OAUTH_CLIENT_SECRET` env vars can all be retired.
+**⚠️ TEMPORARY — read before touching Google Calendar sync.** Domain-wide delegation (the `GOOGLE_SERVICE_ACCOUNT_*` service account already used for role sync above) can only impersonate accounts inside a real Google Workspace domain — there's no admin console for a personal `@gmail.com` address to grant it from. While dev/test sign-ins use personal Gmail accounts (`NEXT_PUBLIC_GOOGLE_WORKSPACE_DOMAIN=gmail.com`), Calendar sync instead uses standard per-user OAuth consent: `google-button.tsx` requests the Calendar scopes (`GOOGLE_CALENDAR_OAUTH_SCOPES`) at sign-in, `auth/callback/route.ts` stores the resulting token here, and `lib/google/calendar.ts` reads/refreshes it. **Once real Workspace accounts are in use, revisit switching Calendar sync to domain-wide delegation instead** (consistent with role sync, and avoids every user re-consenting to a Calendar permission at every sign-in) — at that point this table, `lib/google/oauth-tokens.ts`, the `scopes`/`access_type`/`prompt` additions in `google-button.tsx`, and the `GOOGLE_OAUTH_CLIENT_ID`/`GOOGLE_OAUTH_CLIENT_SECRET` env vars can all be retired.
 
 | Column | Type | Notes |
 |---|---|---|
@@ -356,6 +356,7 @@ Exists so "tasks relevant to me" stays one query rather than the three hops (me 
 | `refresh_token` | text, nullable | Google only returns one on first consent (or a forced re-consent); preserved across routine access-token refreshes, see `saveGoogleTokens()` |
 | `expires_at` | timestamptz, not null | when `access_token` expires — `lib/google/calendar.ts` lets `googleapis` auto-refresh once this passes |
 | `scope` | text, nullable | the scope string granted, for reference |
+| `calendar_id` | text, nullable | cached Google id of this user's "Critical Path" secondary calendar, where every event is pushed (`0031`). null until the first push, and reset to null when the calendar turns out to have been deleted on Google's side |
 | `created_at` / `updated_at` | timestamptz | |
 
 **RLS: zero policies.** RLS is enabled but nothing grants access — not even a `profile_id = auth.uid()` self-read, since these are live API credentials, not display data. The only access path is `lib/google/oauth-tokens.ts`, which always goes through the service-role client (`lib/supabase/admin.ts`) and scopes every query to a specific `profile_id` in application code.
@@ -425,6 +426,7 @@ Exists so "tasks relevant to me" stays one query rather than the three hops (me 
 | `0028_holiday_calendar_events.sql` | `holiday_calendar_events` join table (holiday × profile → Google event id), unique per pair, self-or-admin RLS. Backs pushing holidays to Google Calendar from the existing Sync button, alongside tasks. |
 | `0029_viewer_calendar_sync.sql` | Adds `tasks_update_viewer_calendar_sync` (a second, additive UPDATE policy admitting active `viewer`s, alongside the existing `tasks_update_standard_or_admin`) and `restrict_viewer_task_columns()` — a `BEFORE UPDATE` trigger that rejects a viewer's write unless it's confined to `google_event_id`/`google_calendar_owner_id`/`google_synced_at`/`updated_at`. Lets viewer use the Calendar page's Sync button without gaining general `task.update`. |
 | `0030_saved_views.sql` | `saved_views` table (profile-owned name + filters/sort_by/sort_dir jsonb/text snapshot, unique per `(profile_id, name)`), owner-only RLS. Backs the Tasks grid's "Save current filters" feature. |
+| `0031_google_calendar_id.sql` | Adds nullable `google_oauth_tokens.calendar_id`, the cached id of each user's "Critical Path" secondary calendar that Calendar sync now pushes to instead of `primary`. |
 
 ## Not built yet
 

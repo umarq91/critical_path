@@ -110,8 +110,8 @@ fails, rather than leaving an account of indeterminate role behind.
 ## Google Calendar sync
 
 **One-way, and that's a product rule, not an implementation detail.** Platform task → Google
-Calendar. Nothing reads events back. `lib/google/calendar.ts` deliberately has no list/read
-function; if you find yourself adding one, that's the rule being broken, not a gap being filled.
+Calendar. Nothing reads events back. `lib/google/calendar.ts` deliberately has no event
+list/read function (it lists *calendars*, to find "Critical Path" — see below); if you find yourself adding one, that's the rule being broken, not a gap being filled.
 `0011` originally pulled two ways — a Google event whose `updated` beat `google_synced_at`
 overwrote the task's name and due date, which made anyone's phone a writer to org-wide data —
 and cached every unrelated calendar event in `external_calendar_events` for display. Both were
@@ -186,6 +186,29 @@ the next click mints a duplicate event. `0029`'s fix is a second, additive UPDAT
 trigger restricting a viewer's write to exactly those three columns plus `updated_at` — so
 `viewer` gets working sync without gaining general `task.update`. See `supabase/schema.md`'s
 `tasks` RLS note for the policy/trigger names.
+
+**Events go to a secondary calendar named "Critical Path", not the user's primary one.**
+`resolveCalendarId()` (`lib/google/calendar.ts`) looks for a calendar with that name that the user
+can write to (`calendarList.list`, `minAccessRole: "writer"`, matched on `summaryOverride ??
+summary`). If there is none, it creates one (`calendars.insert`). The id is cached in
+`google_oauth_tokens.calendar_id` (`0031`), so only the first push lists calendars. If the user
+deletes the calendar in Google, the next insert 404s. The cache is then cleared and the calendar
+is found or created again. Listing calendars reads metadata only (name, id, access role), not
+events, so it doesn't break the one-way rule above.
+
+**Events already pushed to primary before this change are deliberately left there.** Nothing
+migrates or deletes them. A task or holiday whose stored `google_event_id` is a primary-calendar
+id 404s against "Critical Path". `upsertEvent` then inserts a fresh copy there and relinks it.
+`deleteCalendarEvent` treats the 404 as already gone. So after the switch, a user can see a task
+twice: the old primary copy and the new "Critical Path" copy. That's accepted.
+
+**This needs two more OAuth scopes than `calendar.events`, and existing tokens don't have them.**
+`GOOGLE_CALENDAR_OAUTH_SCOPES` (`constants/google-calendar.ts`) adds
+`calendar.calendarlist.readonly` (to find the calendar by name) and `calendar.app.created` (to
+create it). Both are narrower than the full `calendar` scope. A token granted before this change
+gets a 403 on the calendar list. `ensureCriticalPathCalendar` runs first in `syncGoogleCalendar`
+and turns that 403 into a "sign out and sign back in" message. The scopes must also be listed on
+the Google Cloud OAuth consent screen, or Google won't grant them.
 
 **`upsertCalendarEvent`/`deleteCalendarEvent` (`lib/google/calendar.ts`) are generic, not
 task-specific — the names were changed from `upsertTaskCalendarEvent`/`deleteTaskCalendarEvent`

@@ -7,7 +7,7 @@ import { getGoogleOAuthEnv } from "@/lib/env.server";
 import { hasGoogleCalendarToken } from "@/lib/google/oauth-tokens";
 import { pushTaskToGoogleCalendar } from "@/lib/google/task-calendar-sync";
 import { pushHolidayToGoogleCalendar } from "@/lib/google/holiday-calendar-sync";
-import { deleteCalendarEvent } from "@/lib/google/calendar";
+import { deleteCalendarEvent, ensureCriticalPathCalendar } from "@/lib/google/calendar";
 import { isGoogleCalendarEligible } from "@/lib/calendar-eligibility";
 import { taskIdsForProfile } from "@/data/task-participants";
 
@@ -43,6 +43,20 @@ export async function syncGoogleCalendar() {
     return {
       ok: false as const,
       error: "Google Calendar isn't connected yet — sign out and sign back in to grant access.",
+    };
+  }
+
+  // Finds or creates the "Critical Path" calendar before anything is pushed. A token granted
+  // before the calendar-list/create scopes were added fails here once, with a clear message,
+  // instead of every push below failing silently.
+  const calendarStatus = await ensureCriticalPathCalendar(auth.userId);
+  if (calendarStatus === "not_connected") {
+    return { ok: false as const, error: "Google Calendar isn't connected yet — sign out and sign back in to grant access." };
+  }
+  if (calendarStatus === "missing_scope") {
+    return {
+      ok: false as const,
+      error: "Google Calendar needs an updated permission — sign out and sign back in, and allow all Calendar access.",
     };
   }
 
