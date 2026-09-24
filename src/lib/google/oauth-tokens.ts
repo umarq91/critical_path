@@ -10,17 +10,23 @@ export interface StoredGoogleTokens {
   accessToken: string;
   refreshToken: string | null;
   expiresAt: string;
+  calendarId: string | null;
 }
 
 export async function getStoredGoogleTokens(profileId: string): Promise<StoredGoogleTokens | null> {
   const admin = createAdminClient();
   const { data } = await admin
     .from("google_oauth_tokens")
-    .select("access_token, refresh_token, expires_at")
+    .select("access_token, refresh_token, expires_at, calendar_id")
     .eq("profile_id", profileId)
     .maybeSingle();
   if (!data) return null;
-  return { accessToken: data.access_token, refreshToken: data.refresh_token, expiresAt: data.expires_at };
+  return {
+    accessToken: data.access_token,
+    refreshToken: data.refresh_token,
+    expiresAt: data.expires_at,
+    calendarId: data.calendar_id,
+  };
 }
 
 export async function hasGoogleCalendarToken(profileId: string): Promise<boolean> {
@@ -56,4 +62,11 @@ export async function saveGoogleTokens(
     },
     { onConflict: "profile_id" }
   );
+}
+
+// The cached id of the user's "Critical Path" calendar (0031). null clears it, so the next push
+// searches Google again. Used after the calendar is deleted on Google's side.
+export async function saveGoogleCalendarId(profileId: string, calendarId: string | null): Promise<void> {
+  const admin = createAdminClient();
+  await admin.from("google_oauth_tokens").update({ calendar_id: calendarId }).eq("profile_id", profileId);
 }

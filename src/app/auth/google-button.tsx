@@ -6,6 +6,7 @@ import { GoogleLogo } from "@/components/icons/google-logo";
 import { createClient } from "@/lib/supabase/client";
 import { publicEnv } from "@/lib/env";
 import { ROUTES } from "@/constants/routes";
+import { GOOGLE_CALENDAR_OAUTH_SCOPES } from "@/constants/google-calendar";
 
 export function GoogleButton({ next }: { next: string }) {
   const [isLoading, setIsLoading] = useState(false);
@@ -27,7 +28,7 @@ export function GoogleButton({ next }: { next: string }) {
         // Once users move to a real Workspace domain, re-evaluate switching Calendar sync
         // back to domain-wide delegation (like admin-directory.ts's role sync already
         // uses) and drop this scope + the google_oauth_tokens table entirely.
-        scopes: "https://www.googleapis.com/auth/calendar.events",
+        scopes: GOOGLE_CALENDAR_OAUTH_SCOPES,
         queryParams: {
           // Narrows the Google account chooser to the workspace domain. Not a security
           // boundary on its own — the callback route re-verifies the signed-in email's

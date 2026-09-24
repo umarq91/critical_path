@@ -2,7 +2,8 @@ import "server-only";
 import { google, type calendar_v3 } from "googleapis";
 import { addDays, format } from "date-fns";
 import { getGoogleOAuthEnv } from "@/lib/env.server";
-import { getStoredGoogleTokens, saveGoogleTokens } from "@/lib/google/oauth-tokens";
+import { getStoredGoogleTokens, saveGoogleCalendarId, saveGoogleTokens } from "@/lib/google/oauth-tokens";
+import { GOOGLE_CALENDAR_NAME } from "@/constants/google-calendar";
 
 // ONE-WAY: platform task → Google Calendar. This module writes events and deletes them; it
 // deliberately has no read path. Nothing here may return calendar data into the app, because
@@ -12,7 +13,7 @@ import { getStoredGoogleTokens, saveGoogleTokens } from "@/lib/google/oauth-toke
 // Per-user OAuth (not domain-wide delegation — see auth.ts/admin-directory.ts for that path,
 // still used for role sync). Works with any Google account, which is what makes it usable in
 // dev against personal @gmail.com test accounts as well as a real Workspace later.
-// google-button.tsx requests the calendar.events scope + offline access at sign-in;
+// google-button.tsx requests the GOOGLE_CALENDAR_OAUTH_SCOPES + offline access at sign-in;
 // auth/callback/route.ts stores the resulting tokens; this module reads and refreshes them.
 async function getCalendarClientForProfile(profileId: string) {
   const env = getGoogleOAuthEnv();
@@ -40,12 +41,81 @@ async function getCalendarClientForProfile(profileId: string) {
     });
   });
 
-  return google.calendar({ version: "v3", auth: oauth2Client });
+  return { calendar: google.calendar({ version: "v3", auth: oauth2Client }), cachedCalendarId: tokens.calendarId };
 }
 
-// Generic all-day event push — shared by tasks (task-calendar-sync.ts) and holidays
-// (holiday-calendar-sync.ts), neither of which carries a time of day. Google's all-day
-// convention is an exclusive end date, so `end.date` is one day after start.
+type CalendarClient = NonNullable<Awaited<ReturnType<typeof getCalendarClientForProfile>>>;
+
+// Every push goes to the user's "Critical Path" secondary calendar, never "primary". Events that
+// were pushed to primary before this change are left there. A stored google_event_id that points
+// at one of them 404s against the secondary calendar. upsertEvent then re-inserts it there and
+// deleteCalendarEvent treats it as already gone. So old links move over the next time they are
+// pushed, and the primary copies are never touched.
+//
+// Listing the user's calendars reads calendar metadata only (name, id, access role). No event
+// data comes back into the app, so this keeps the one-way rule above.
+//
+// The resolved id is cached in google_oauth_tokens.calendar_id (0031), so only the first push
+// for a user lists their calendars. The in-flight map is not a cache. It only makes concurrent
+// first pushes in one process share a single find-or-create, so they can't create two calendars.
+const pendingResolutions = new Map<string, Promise<string>>();
+
+async function resolveCalendarId(profileId: string, client: CalendarClient): Promise<string> {
+  if (client.cachedCalendarId) return client.cachedCalendarId;
+
+  const inFlight = pendingResolutions.get(profileId);
+  if (inFlight) return inFlight;
+
+  const pending = findOrCreateCriticalPathCalendar(client.calendar).then(async (calendarId) => {
+    await saveGoogleCalendarId(profileId, calendarId);
+    client.cachedCalendarId = calendarId;
+    return calendarId;
+  });
+  pendingResolutions.set(profileId, pending);
+  try {
+    return await pending;
+  } finally {
+    pendingResolutions.delete(profileId);
+  }
+}
+
+async function findOrCreateCriticalPathCalendar(calendar: calendar_v3.Calendar): Promise<string> {
+  let pageToken: string | undefined;
+  do {
+    // minAccessRole "writer" leaves out a same-named calendar that was only shared read-only with
+    // this user. We can't push to it, so it doesn't count as "already exists".
+    const { data } = await calendar.calendarList.list({ minAccessRole: "writer", showDeleted: false, pageToken });
+    const match = data.items?.find(
+      (entry) => entry.id && (entry.summaryOverride ?? entry.summary) === GOOGLE_CALENDAR_NAME
+    );
+    if (match?.id) return match.id;
+    pageToken = data.nextPageToken ?? undefined;
+  } while (pageToken);
+
+  const { data: created } = await calendar.calendars.insert({ requestBody: { summary: GOOGLE_CALENDAR_NAME } });
+  if (!created.id) throw new Error("Google Calendar did not return an id for the new calendar");
+  return created.id;
+}
+
+// Called by syncGoogleCalendar before any push, so a missing permission shows up as one clear
+// error instead of every push failing on its own. Also creates the calendar on the first sync.
+// Returns "missing_scope" for an account whose stored token was granted before the extra
+// calendar scopes were added (or where the user unticked them on Google's consent screen).
+export async function ensureCriticalPathCalendar(profileId: string): Promise<"ok" | "not_connected" | "missing_scope"> {
+  const client = await getCalendarClientForProfile(profileId);
+  if (!client) return "not_connected";
+  try {
+    await resolveCalendarId(profileId, client);
+    return "ok";
+  } catch (error) {
+    if (errorCode(error) === 403) return "missing_scope";
+    throw error;
+  }
+}
+
+// Generic all-day event push. Shared by tasks (task-calendar-sync.ts) and holidays
+// (holiday-calendar-sync.ts), neither of which has a time of day. Google's all-day convention
+// uses an exclusive end date, so `end.date` is one day after start.
 //
 // Returns the event id and Google's `updated` timestamp; the caller stores the id to find
 // this event again and stamps its own "last pushed" column. Neither value is ever compared
@@ -55,8 +125,8 @@ export async function upsertCalendarEvent(
   profileId: string,
   { eventId, title, date, description }: { eventId: string | null; title: string; date: string; description?: string }
 ): Promise<{ id: string; updatedAt: string } | null> {
-  const calendar = await getCalendarClientForProfile(profileId);
-  if (!calendar) return null;
+  const client = await getCalendarClientForProfile(profileId);
+  if (!client) return null;
 
   const requestBody: calendar_v3.Schema$Event = {
     summary: title,
@@ -65,45 +135,65 @@ export async function upsertCalendarEvent(
     end: { date: format(addDays(new Date(`${date}T00:00:00`), 1), "yyyy-MM-dd") },
   };
 
-  const data = await upsertEvent(calendar, eventId, requestBody);
-  if (!data?.id || !data.updated) return null;
+  const calendarId = await resolveCalendarId(profileId, client);
+  let data: calendar_v3.Schema$Event;
+  try {
+    data = await upsertEvent(client.calendar, calendarId, eventId, requestBody);
+  } catch (error) {
+    // A 404 on insert means the cached calendar was deleted on Google's side since we resolved
+    // it. Forget it, find or recreate it, and insert fresh. The old event went with the calendar.
+    if (!isGoneOrNotFound(error)) throw error;
+    await saveGoogleCalendarId(profileId, null);
+    client.cachedCalendarId = null;
+    const freshCalendarId = await resolveCalendarId(profileId, client);
+    data = await upsertEvent(client.calendar, freshCalendarId, null, requestBody);
+  }
+
+  if (!data.id || !data.updated) return null;
   return { id: data.id, updatedAt: data.updated };
 }
 
 // Falls back to creating a new event if the stored eventId was deleted on Google's side
 // (manually removed from the user's calendar between syncs) instead of failing the whole
 // sync run — self-heals the link on the next push.
-async function upsertEvent(calendar: calendar_v3.Calendar, eventId: string | null, requestBody: calendar_v3.Schema$Event) {
+async function upsertEvent(
+  calendar: calendar_v3.Calendar,
+  calendarId: string,
+  eventId: string | null,
+  requestBody: calendar_v3.Schema$Event
+) {
   if (!eventId) {
-    const { data } = await calendar.events.insert({ calendarId: "primary", requestBody });
+    const { data } = await calendar.events.insert({ calendarId, requestBody });
     return data;
   }
   try {
-    const { data } = await calendar.events.update({ calendarId: "primary", eventId, requestBody });
+    const { data } = await calendar.events.update({ calendarId, eventId, requestBody });
     return data;
   } catch (error) {
     if (!isGoneOrNotFound(error)) throw error;
-    const { data } = await calendar.events.insert({ calendarId: "primary", requestBody });
+    const { data } = await calendar.events.insert({ calendarId, requestBody });
     return data;
   }
 }
 
 export async function deleteCalendarEvent(profileId: string, eventId: string): Promise<void> {
-  const calendar = await getCalendarClientForProfile(profileId);
-  if (!calendar) return;
+  const client = await getCalendarClientForProfile(profileId);
+  if (!client) return;
   try {
-    await calendar.events.delete({ calendarId: "primary", eventId });
+    const calendarId = await resolveCalendarId(profileId, client);
+    await client.calendar.events.delete({ calendarId, eventId });
   } catch (error) {
     // Best-effort cleanup — already gone / unreachable shouldn't block the source row's own delete.
     if (!isGoneOrNotFound(error)) throw error;
   }
 }
 
+function errorCode(error: unknown): number | undefined {
+  if (typeof error !== "object" || error === null || !("code" in error)) return undefined;
+  return Number((error as { code?: unknown }).code);
+}
+
 function isGoneOrNotFound(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    [404, 410].includes((error as { code?: number }).code as number)
-  );
+  const code = errorCode(error);
+  return code === 404 || code === 410;
 }

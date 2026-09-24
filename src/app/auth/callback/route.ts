@@ -8,6 +8,7 @@ import { isWorkspaceEmail } from "@/lib/calendar-eligibility";
 import { isBannedError } from "@/lib/auth-errors";
 import { ROLE } from "@/constants/roles";
 import { ROUTES } from "@/constants/routes";
+import { GOOGLE_CALENDAR_OAUTH_SCOPES } from "@/constants/google-calendar";
 
 // Google's own access tokens last ~3600s; Supabase doesn't surface the provider's exact
 // expiry, so this is a deliberately conservative estimate — a little short is harmless
@@ -103,8 +104,8 @@ export async function GET(request: Request) {
   // for domain-wide delegation not reaching personal @gmail.com test accounts (see
   // google-button.tsx's scopes comment and lib/google/calendar.ts). Only ever reached by a
   // Workspace account, which is what keeps external users tokenless by construction.
-  // provider_token is only present when the sign-in actually requested the calendar.events
-  // scope; older sessions re-authenticating without a fresh consent may come back without
+  // provider_token is only present when the sign-in actually requested the calendar
+  // scopes; older sessions re-authenticating without a fresh consent may come back without
   // one, which is fine — saveGoogleTokens is simply skipped that run.
   const providerToken = exchangeData.session?.provider_token;
   if (providerToken) {
@@ -112,7 +113,7 @@ export async function GET(request: Request) {
       accessToken: providerToken,
       refreshToken: exchangeData.session?.provider_refresh_token,
       expiresAt: addSeconds(new Date(), ASSUMED_PROVIDER_TOKEN_TTL_SECONDS).toISOString(),
-      scope: "https://www.googleapis.com/auth/calendar.events",
+      scope: GOOGLE_CALENDAR_OAUTH_SCOPES,
     });
   }
 
