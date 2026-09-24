@@ -44,6 +44,7 @@ async function handleTaskReminders(request: NextRequest) {
       const result = await sendMail(
         taskReminderEmail({
           to: reminder.profileEmail,
+          taskId: reminder.taskId,
           taskName: reminder.taskName,
           dueDate: reminder.dueDate,
           seasonName: reminder.seasonName,

@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { parseAsString, useQueryState } from "nuqs";
 import { toast } from "sonner";
 import { CalendarClock } from "lucide-react";
 import { DataTable } from "@/components/data-table/data-table";
@@ -13,6 +14,7 @@ import { updateTask } from "@/app/(app)/tasks/_actions";
 import { refreshMyTasks } from "@/app/(app)/my-tasks/_actions";
 import { TaskDetailDrawer } from "@/app/(app)/tasks/task-detail-drawer";
 import { TASK_STATUS_CONFIG } from "@/constants/task-status";
+import { TASK_LINK_PARAM } from "@/constants/routes";
 import type { Task } from "@/data/tasks";
 import type { DataTableFilterOption } from "@/components/data-table/table-features";
 
@@ -33,6 +35,9 @@ interface MyTasksBoardProps {
   seasonOptions: DataTableFilterOption[];
   brandOptions: DataTableFilterOption[];
   keyStageOptions: DataTableFilterOption[];
+  /** The task named by `?task=` (e.g. a reminder email's link), opened in the drawer on load.
+   *  Null when the param is absent or names a task this person can't see. */
+  linkedTask: Task | null;
 }
 
 // Deliberately not a re-skin of TasksBoard — same underlying DataTable/columns machinery
@@ -51,11 +56,29 @@ export const MyTasksBoard = ({
   seasonOptions,
   brandOptions,
   keyStageOptions,
+  linkedTask,
 }: MyTasksBoardProps) => {
   const queryState = useDataTableQueryState({ defaultPageSize: 15, defaultSort: { id: "due_date", desc: false } });
   const rowEditing = useRowEditing();
   const [isSaving, setIsSaving] = useState(false);
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(linkedTask);
+  const [linkedTaskId, setLinkedTaskId] = useQueryState(TASK_LINK_PARAM, parseAsString);
+
+  // A link to a task that's since been deleted, or was never theirs, would otherwise land on
+  // the plain list with no hint why nothing opened.
+  useEffect(() => {
+    if (!linkedTaskId || linkedTask) return;
+    toast.error("That task is no longer available.");
+    void setLinkedTaskId(null);
+    // Mount-only: this reacts to the link the page was opened with, not later URL changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function closeDrawer() {
+    setSelectedTask(null);
+    // Otherwise a reload (or Back into this page) would reopen the drawer they just closed.
+    if (linkedTaskId) void setLinkedTaskId(null);
+  }
 
   // Stable reference unless the server actually sent a new tasks/rowCount pair (real
   // pagination/sort/filter navigation) — see useRefreshableData's contract.
@@ -168,7 +191,7 @@ export const MyTasksBoard = ({
           key={selectedTask.id}
           task={selectedTask}
           open
-          onOpenChange={(open) => !open && setSelectedTask(null)}
+          onOpenChange={(open) => !open && closeDrawer()}
           canAssignPeople={canAssignPeople}
           onSaved={refresh}
         />

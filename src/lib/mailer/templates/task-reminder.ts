@@ -1,10 +1,12 @@
 import "server-only";
 import { formatDate } from "@/lib/dates";
 import { publicEnv } from "@/lib/env";
+import { ROUTES, TASK_LINK_PARAM } from "@/constants/routes";
 import type { EmailMessage } from "@/lib/mailer/send";
 
 export interface TaskReminderEmailInput {
   to: string;
+  taskId: string;
   taskName: string;
   dueDate: string;
   seasonName: string | null;
@@ -13,20 +15,19 @@ export interface TaskReminderEmailInput {
   offsetDays: number;
 }
 
-// The one email this feature sends. Links to /my-tasks (where the reminder was configured and
-// where the task itself is visible) rather than a task-specific deep link — TaskDetailDrawer is
-// client-only state today, not URL-addressable, so there's nowhere more specific to send them.
-export function taskReminderEmail({ to, taskName, dueDate, seasonName, offsetDays }: TaskReminderEmailInput): EmailMessage {
+// The one email this feature sends. Links to My Tasks with the task's drawer already open — every
+// remindable task is in the recipient's own My Tasks scope (see listMyReminderCandidateTasks).
+export function taskReminderEmail({ to, taskId, taskName, dueDate, seasonName, offsetDays }: TaskReminderEmailInput): EmailMessage {
   const whenLabel = offsetDays === 0 ? "today" : offsetDays === 1 ? "in 1 day" : `in ${offsetDays} days`;
   const subject = `Reminder: "${taskName}" is due ${whenLabel}`;
   const dueDateLabel = formatDate(dueDate);
   const seasonLine = seasonName ? ` (${seasonName})` : "";
-  const link = `${publicEnv.NEXT_PUBLIC_APP_URL}/my-tasks`;
+  const link = `${publicEnv.NEXT_PUBLIC_APP_URL}${ROUTES.myTasks}?${TASK_LINK_PARAM}=${encodeURIComponent(taskId)}`;
 
   const text = `Reminder: "${taskName}"${seasonLine} is due ${dueDateLabel} — ${whenLabel}.\n\nView it: ${link}`;
   const html = `
     <p>Reminder: <strong>${escapeHtml(taskName)}</strong>${escapeHtml(seasonLine)} is due <strong>${dueDateLabel}</strong> — ${whenLabel}.</p>
-    <p><a href="${link}">View your tasks</a></p>
+    <p><a href="${link}">View this task</a></p>
   `.trim();
 
   return { to, subject, html, text };

@@ -402,6 +402,20 @@ export function listTasksForProfile(profileId: string, params: ListTasksParams =
   return listTasks({ ...params, scopeToProfileId: profileId });
 }
 
+// One task by id, for a `?task=` deep link. RLS decides visibility, same as every list here —
+// null covers "no such task", "soft-deleted" and "not yours to see" alike.
+export async function getTaskById(taskId: string): Promise<Task | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("tasks")
+    .select(TASK_SELECT)
+    .eq("id", taskId)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (error) throw error;
+  return data as Task | null;
+}
+
 export interface ListTasksByDueDateRangeParams {
   /** Inclusive, `yyyy-MM-dd`. */
   from: string;

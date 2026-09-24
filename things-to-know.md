@@ -1087,6 +1087,15 @@ was created by someone who isn't also a participant on it, so the leg matches 0 
 today — it exists so a task someone raises and then hands to another department doesn't vanish
 from the raiser's own list.
 
+**`?task=<id>` opens that task's drawer on load — the only URL that addresses a single task.**
+The drawer is otherwise client-only state. The page fetches the task separately via
+`getTaskById()` (RLS-scoped, soft-deleted excluded), so it opens even when the task isn't on the
+current page of the list. Closing the drawer strips the param, or a reload would reopen it. An id
+that resolves to nothing (deleted, not visible, malformed) shows a toast and strips the param.
+Reminder emails link here (see Reminders). Opening a second `?task=` link in the SAME tab via
+client-side navigation won't reopen the drawer (the initial state is only read on mount); email
+links open a fresh tab, so this doesn't come up today.
+
 **Its search box is still task-name-only** (`searchColumnId: "task_name"`), unlike `/tasks`,
 which searches across relations. Not an oversight — it was left alone deliberately; switching it
 is one line (`"search"`) if the same behaviour is wanted here.
@@ -1463,6 +1472,10 @@ branch is a plain `continue` again. Any (rule, task, offset) rows that got logge
 this fix will **not** retry on their own: the dedupe log already thinks they're done. Check for
 leftover rows with `select * from notifications_log where <timestamp before the fix>` and delete
 any you want to actually go out for real; new rows only get logged on a genuine send from here on.
+
+**The email's button deep-links to the task itself** — `/my-tasks?task=<id>` (see My Tasks),
+not the bare list. That's safe because every remindable task comes from the recipient's own
+My Tasks scope.
 
 **Completed or soft-deleted tasks never get reminded about**, checked in `listDueReminders()`
 itself (`status = 'completed'` or `deleted_at is not null` excludes the candidate) — a reminder

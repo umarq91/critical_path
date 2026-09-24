@@ -13,7 +13,8 @@ export async function proxy(request: NextRequest) {
 
   if (isProtected && !user) {
     const signInUrl = new URL(ROUTES.signIn, request.url);
-    signInUrl.searchParams.set("next", pathname);
+    // Search included so a deep link (e.g. a reminder email's /my-tasks?task=<id>) survives sign-in.
+    signInUrl.searchParams.set("next", `${pathname}${request.nextUrl.search}`);
     return NextResponse.redirect(signInUrl);
   }
 

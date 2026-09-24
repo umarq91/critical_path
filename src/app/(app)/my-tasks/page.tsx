@@ -1,12 +1,14 @@
 import { PageHeader } from "@/components/shared/page-header";
 import { MyTasksBoard } from "@/app/(app)/my-tasks/my-tasks-board";
-import { listTasksForProfile } from "@/data/tasks";
+import { z } from "zod";
+import { getTaskById, listTasksForProfile } from "@/data/tasks";
 import { listSeasonOptions } from "@/data/seasons";
 import { listBrandOptions } from "@/data/brands";
 import { listKeyStageOptions } from "@/data/key-stages";
 import { getCurrentProfile } from "@/data/profiles";
 import { can } from "@/lib/permissions";
 import { loadDataTableSearchParams } from "@/components/data-table/data-table-search-params";
+import { TASK_LINK_PARAM } from "@/constants/routes";
 
 const QUERY_STATE_OPTIONS = { defaultPageSize: 15, defaultSort: { id: "due_date", desc: false } };
 
@@ -17,14 +19,16 @@ export default async function MyTasksPage({
 }) {
   const queryState = await loadDataTableSearchParams(searchParams, QUERY_STATE_OPTIONS);
   const profile = await getCurrentProfile();
+  const linkedTaskId = z.string().uuid().safeParse((await searchParams)[TASK_LINK_PARAM]);
 
   // No signed-in profile shouldn't happen here — (app)/layout.tsx already guards auth for the
   // whole authenticated shell — but without one there's no "me" to scope this page to.
-  const [{ data: tasks, rowCount }, seasons, brands, keyStages] = await Promise.all([
+  const [{ data: tasks, rowCount }, seasons, brands, keyStages, linkedTask] = await Promise.all([
     profile ? listTasksForProfile(profile.id, queryState) : Promise.resolve({ data: [], rowCount: 0 }),
     listSeasonOptions(),
     listBrandOptions(),
     listKeyStageOptions(),
+    linkedTaskId.success ? getTaskById(linkedTaskId.data) : Promise.resolve(null),
   ]);
 
   const canManage = !!profile && can(profile.role, "task.update");
@@ -51,6 +55,7 @@ export default async function MyTasksPage({
           seasonOptions={seasonOptions}
           brandOptions={brandOptions}
           keyStageOptions={keyStageOptions}
+          linkedTask={linkedTask}
         />
       </div>
     </div>

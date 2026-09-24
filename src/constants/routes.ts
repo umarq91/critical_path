@@ -3,7 +3,13 @@ export const ROUTES = {
   authCallback: "/auth/callback",
   dashboard: "/dashboard",
   tasks: "/tasks",
+  myTasks: "/my-tasks",
 } as const;
+
+// `/my-tasks?task=<id>` opens that task's detail drawer on load — the drawer is otherwise
+// client-only state, so this param is the only way to link straight to one task (e.g. from a
+// reminder email).
+export const TASK_LINK_PARAM = "task";
 
 // Checked by src/proxy.ts — any request under these prefixes requires a session.
 // Kept as the full set of (app) route-group modules (see CLAUDE.md file tree + the
