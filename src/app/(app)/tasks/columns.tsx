@@ -14,8 +14,10 @@ import { TASK_GENDER_CONFIG } from "@/constants/task-gender";
 import { DPSP_CATEGORY_CONFIG } from "@/constants/dpsp-category";
 import { cn } from "@/lib/utils";
 import { TaskRowActions } from "@/app/(app)/tasks/task-row-actions";
-import { PartyStack } from "@/app/(app)/tasks/party-stack";
+import { PartyNames } from "@/app/(app)/tasks/party-names";
+import { PartyCellEditor } from "@/app/(app)/tasks/party-cell-editor";
 import { taskOwners, taskPeopleInvolved } from "@/app/(app)/tasks/task-parties";
+import type { ParticipantList, RowParticipantsState } from "@/app/(app)/tasks/use-row-participants";
 import type { Task } from "@/data/tasks";
 import { formatDate } from "@/lib/dates";
 
@@ -41,7 +43,10 @@ const EDITABLE_FIELDS = [
 interface CreateTaskColumnsOptions {
   canManage: boolean;
   canDelete: boolean;
+  /** task.assign — Owners / People Involved become editable in a row's edit mode only with it. */
+  canAssignPeople: boolean;
   rowEditing: RowEditingState;
+  rowParticipants: RowParticipantsState;
   isSaving: boolean;
   onConfirmEdit: (task: Task) => void;
   seasonOptions: DataTableFilterOption[];
@@ -58,7 +63,9 @@ interface CreateTaskColumnsOptions {
 export function createTaskColumns({
   canManage,
   canDelete,
+  canAssignPeople,
   rowEditing,
+  rowParticipants,
   isSaving,
   onConfirmEdit,
   seasonOptions,
@@ -74,6 +81,21 @@ export function createTaskColumns({
   const keyStageEditOptions = [{ value: "none", label: "No key stage" }, ...keyStageOptions];
   const brandEditOptions = [{ value: "none", label: "No brand" }, ...brandOptions];
   const dpspCategoryEditOptions = [{ value: "none", label: "No category" }, ...DPSP_CATEGORY_OPTIONS];
+
+  const partyCell = (task: Task, list: ParticipantList) => {
+    const draft = rowEditing.isEditing(task.id) ? rowParticipants.draftFor(task.id) : null;
+    if (!draft) return <PartyNames parties={list === "owners" ? taskOwners(task) : taskPeopleInvolved(task)} />;
+    return (
+      <PartyCellEditor
+        parties={draft[list]}
+        onAdd={(party) => rowParticipants.add(list, party)}
+        onRemove={(party) => rowParticipants.remove(list, party)}
+        noun={list === "owners" ? "owner" : "person"}
+        minCount={list === "owners" ? 1 : 0}
+        disabled={isSaving}
+      />
+    );
+  };
 
   return [
     columnHelper.accessor("status", {
@@ -147,24 +169,25 @@ export function createTaskColumns({
         />
       ),
     }),
-    // Display, not accessor: owners are rows in task_participants, not a column on the task,
-    // so there's nothing to sort on and no single value an inline select could edit. Owners
-    // are changed in the detail drawer, where the full add/remove list fits.
+    // Display, not accessor: owners and people are rows in task_participants, not columns on
+    // the task, so there's nothing to sort on and no single value an EditableCell could hold.
+    // Their inline edit is PartyCellEditor, buffered by useRowParticipants alongside the row's
+    // own draft and saved on the same tick.
     columnHelper.display({
       id: "owners",
       header: "Owner",
-      meta: { label: "Owner", width: "sm" },
-      size: 150,
+      meta: { label: "Owner", width: "md" },
+      size: 190,
       minSize: 90,
-      cell: ({ row }) => <PartyStack parties={taskOwners(row.original)} showSoleName />,
+      cell: ({ row }) => partyCell(row.original, "owners"),
     }),
     columnHelper.display({
       id: "people",
       header: "People Involved",
-      meta: { label: "People Involved", width: "sm" },
-      size: 170,
+      meta: { label: "People Involved", width: "md" },
+      size: 210,
       minSize: 90,
-      cell: ({ row }) => <PartyStack parties={taskPeopleInvolved(row.original)} />,
+      cell: ({ row }) => partyCell(row.original, "people"),
     }),
     // Display, not accessor: shows the working-timeline date range (start_date/end_date), a
     // separate concept from due_date below — neither field has an EditableCell variant that
@@ -327,6 +350,8 @@ export function createTaskColumns({
                     ])
                   );
                   rowEditing.startEditing(task.id, initialDraft);
+                  if (canAssignPeople) rowParticipants.start(task);
+                  else rowParticipants.clear();
                 }}
                 onConfirm={() => onConfirmEdit(task)}
               />

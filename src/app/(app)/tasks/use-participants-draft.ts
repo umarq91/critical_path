@@ -83,7 +83,7 @@ export type ParticipantsDraft = ReturnType<typeof useParticipantsDraft>;
 
 // Order is presentation, not meaning — a task's owners are a set, so reordering them is not an
 // unsaved change.
-function isSameSet(a: PartySummary[], b: PartySummary[]) {
+export function isSameSet(a: PartySummary[], b: PartySummary[]) {
   if (a.length !== b.length) return false;
   const keys = new Set(b.map((party) => party.key));
   return a.every((party) => keys.has(party.key));

@@ -334,10 +334,25 @@ form values, option values, React keys — and split back into `profile_id`/`dep
 write. `task_participants` has no single id column to key on, so this encoding is what lets one
 `<PartyListField>` hold a mixed set.
 
-**The Owner grid column is display-only.** Owners are rows in another table, so there's nothing
-to sort on and no single value an inline `<EditableCell>` select could write. Owners are edited
-in the detail drawer. `assignee_id` is gone from `EDITABLE_FIELDS` and from `taskSchema` for the
-same reason.
+**In the grid, Owner and People Involved show names and are edited in the row's pencil/tick mode,
+but not through `<EditableCell>`.** They're rows in another table, so there's nothing to sort on
+and no single draft string to hold. `assignee_id` is gone from `EDITABLE_FIELDS` and from
+`taskSchema` for the same reason.
+- **Display** is `party-names.tsx`: name chips on one line with a "+N more" tooltip. How many
+  fit is *measured* (an offscreen copy of each chip plus a `ResizeObserver` on the cell), not a
+  fixed count, because Tasks columns can be resized.
+- **Edit mode** is `party-cell-editor.tsx`: removable chips, and an Add popover around the same
+  `PartySearchDropdown`. It's buffered by `use-row-participants.ts`, which sits beside
+  `useRowEditing` because a draft party needs a name and avatar, not just a `kind:uuid` key. On
+  the tick, the board writes participants first through the same single `setTaskParticipants`
+  call the drawer uses, then `updateTask`. A failed participant save stops the tick before the
+  row's own fields are written.
+- **Only with `task.assign`.** Someone with `task.update` but not `task.assign` still gets the
+  pencil, but these two cells stay read-only.
+- **The last owner can't be removed** (its ✕ is disabled). This mirrors
+  `taskParticipantsSchema`'s `owners.min(1)`.
+- Both Tasks and My Tasks get this, since both build their columns with `createTaskColumns`.
+  `PartyStack` (avatars only) is still used by the drawer header and calendar chips.
 
 **`tasks.assignee_id` is still written, as a shim.** `createTask` sets it to the first
 *individual* owner, or null when every owner is a department (the common case). Calendar sync
@@ -1220,9 +1235,9 @@ deliberately: a table with many columns runs tighter than any single column woul
 `width` kind for the *typical* value regardless, truncation covers the rest. Adding a column
 without a `width` silently gets `md`, which is usually wrong for a badge or a count.
 
-**Manual column resizing is the one opt-out from the weighted-percentage system, and Tasks is
-the only table using it — but it renders IDENTICALLY to a non-resizable table until the person
-actually drags a column.** `<DataTable enableColumnResizing resizeStorageKey="...">` composes
+**Manual column resizing is the one opt-out from the weighted-percentage system, and only Tasks
+and My Tasks use it (each with its own `resizeStorageKey`) — but it renders IDENTICALLY to a
+non-resizable table until the person actually drags a column.** `<DataTable enableColumnResizing resizeStorageKey="...">` composes
 TanStack's `columnSizingFeature`/`columnResizingFeature` (added to the shared `dataTableFeatures`
 in `table-features.ts`, but inert for every other table — nothing reads `getSize()`/renders a
 resize handle unless `enableColumnResizing` is passed) and always renders a drag handle on each
@@ -1274,6 +1289,13 @@ doesn't render vertically centered against a squashed row. Every `<DataTableColu
 function is supplied by each `columns.tsx`, not something `DataTable` can inject a prop into
 after the fact), so a new resizable table must remember to wire its own `isResized` through the
 same way.
+
+**Never put `line-clamp-*` on a `<th>`/`<td>` itself.** Tailwind's line-clamp sets
+`display: -webkit-box`, which replaces `table-cell`. In resized mode it did exactly that: every
+header stacked vertically down the first column, above the rows. The `<TableHead>` carries only
+`whitespace-normal`/`align-top`. The 3-line clamp goes on the label inside it:
+`DataTableColumnHeader`'s `wrap` for sortable columns, and a `<span className="line-clamp-3">`
+that `DataTable` puts around plain-string headers (Owner, People Involved, Comments…).
 
 **Cells clip, so pick the width for the typical value, not the longest one.** `td`/`th` carry
 `truncate`; anything that doesn't fit ellipsises. `showTitleWhenTruncated` (on `onMouseEnter`)

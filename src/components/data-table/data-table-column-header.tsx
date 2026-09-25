@@ -11,7 +11,7 @@ interface DataTableColumnHeaderProps<TData extends Record<string, unknown>, TVal
   title: string;
   className?: string;
   /** Wraps the title onto up to 3 lines instead of truncating to one. Pass this for a table
-   *  rendered with <DataTable enableColumnResizing> (currently only Tasks) — a manually-shrunk
+   *  rendered with <DataTable enableColumnResizing> (currently Tasks and My Tasks) — a manually-shrunk
    *  column needs its label to stay legible rather than clip to an ellipsis; the parent
    *  <TableHead> already sets whitespace-normal, but this component's own `truncate` classes
    *  would otherwise win over that for every sortable/titled column using it. */

@@ -10,6 +10,7 @@ import { useRowEditing } from "@/components/data-table/use-row-editing";
 import { useRefreshableData } from "@/components/shared/use-refreshable-data";
 import { EmptyState } from "@/components/shared/empty-state";
 import { createTaskColumns } from "@/app/(app)/tasks/columns";
+import { useRowParticipants } from "@/app/(app)/tasks/use-row-participants";
 import { updateTask } from "@/app/(app)/tasks/_actions";
 import { refreshMyTasks } from "@/app/(app)/my-tasks/_actions";
 import { TaskDetailDrawer } from "@/app/(app)/tasks/task-detail-drawer";
@@ -60,8 +61,11 @@ export const MyTasksBoard = ({
 }: MyTasksBoardProps) => {
   const queryState = useDataTableQueryState({ defaultPageSize: 15, defaultSort: { id: "due_date", desc: false } });
   const rowEditing = useRowEditing();
+  const rowParticipants = useRowParticipants();
   const [isSaving, setIsSaving] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(linkedTask);
+  // Same resizable grid as Tasks — see tasks-board.tsx and columns.tsx's `isResized`.
+  const [isColumnsResized, setIsColumnsResized] = useState(false);
   const [linkedTaskId, setLinkedTaskId] = useQueryState(TASK_LINK_PARAM, parseAsString);
 
   // A link to a task that's since been deleted, or was never theirs, would otherwise land on
@@ -89,8 +93,15 @@ export const MyTasksBoard = ({
     isRefreshing,
   } = useRefreshableData(initialTasks, () => refreshMyTasks(queryState.params));
 
+  // Participants first: they're the half with a client-side rule (at least one owner), so a
+  // violation stops the save before the row's own fields are written.
   async function handleConfirmEdit(task: Task) {
     setIsSaving(true);
+    const participants = await rowParticipants.save();
+    if (participants === "failed") {
+      setIsSaving(false);
+      return;
+    }
     const result = await updateTask(task.id, rowEditing.draft);
     setIsSaving(false);
 
@@ -100,6 +111,8 @@ export const MyTasksBoard = ({
     }
     toast.success(`${task.task_name} updated`);
     rowEditing.stopEditing();
+    rowParticipants.clear();
+    if (participants === "saved") refresh();
   }
 
   const taskColumns = useMemo(
@@ -107,15 +120,15 @@ export const MyTasksBoard = ({
       createTaskColumns({
         canManage,
         canDelete,
+        canAssignPeople,
         rowEditing,
+        rowParticipants,
         isSaving,
         onConfirmEdit: handleConfirmEdit,
         seasonOptions,
         brandOptions,
         keyStageOptions,
-        // My Tasks doesn't enable <DataTable enableColumnResizing> — always the default,
-        // untouched header styling.
-        isResized: false,
+        isResized: isColumnsResized,
       }),
     // rowEditing's methods are stable across renders (from useState setters); only its
     // values (editingId/draft) actually need to trigger a column rebuild.
@@ -125,10 +138,13 @@ export const MyTasksBoard = ({
       canDelete,
       rowEditing.editingId,
       rowEditing.draft,
+      rowParticipants.draft,
+      canAssignPeople,
       isSaving,
       seasonOptions,
       brandOptions,
       keyStageOptions,
+      isColumnsResized,
     ]
   );
 
@@ -145,6 +161,10 @@ export const MyTasksBoard = ({
         isRefreshing={isRefreshing}
         enableRowSelection
         enableColumnFilterRow={false}
+        enableColumnResizing
+        // Its own key, not Tasks': the two pages share columns but not a layout preference.
+        resizeStorageKey="my-tasks-column-widths"
+        onResizedChange={setIsColumnsResized}
         paginationLabel="my tasks"
         onRowClick={(task) => {
           if (!rowEditing.isEditing(task.id)) setSelectedTask(task);

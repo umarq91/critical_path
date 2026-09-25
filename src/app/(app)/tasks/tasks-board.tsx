@@ -7,6 +7,7 @@ import { useDataTableQueryState } from "@/components/data-table/use-data-table-q
 import { useRowEditing } from "@/components/data-table/use-row-editing";
 import { useRefreshableData } from "@/components/shared/use-refreshable-data";
 import { createTaskColumns } from "@/app/(app)/tasks/columns";
+import { useRowParticipants } from "@/app/(app)/tasks/use-row-participants";
 import { TASKS_QUERY_STATE } from "@/app/(app)/tasks/query-state";
 import { updateTask, refreshTasks } from "@/app/(app)/tasks/_actions";
 import { TaskDetailDrawer } from "@/app/(app)/tasks/task-detail-drawer";
@@ -45,6 +46,7 @@ export const TasksBoard = ({
 }: TasksBoardProps) => {
   const queryState = useDataTableQueryState(TASKS_QUERY_STATE);
   const rowEditing = useRowEditing();
+  const rowParticipants = useRowParticipants();
   const [isSaving, setIsSaving] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   // Whether the grid has actually been manually resized yet — see DataTable's own
@@ -56,8 +58,15 @@ export const TasksBoard = ({
   const initialTasks = useMemo(() => ({ data: tasks, rowCount }), [tasks, rowCount]);
   const { data: taskData, refresh, isRefreshing } = useRefreshableData(initialTasks, () => refreshTasks(queryState.params));
 
+  // Participants first: they're the half with a client-side rule (at least one owner), so a
+  // violation stops the save before the row's own fields are written.
   async function handleConfirmEdit(task: Task) {
     setIsSaving(true);
+    const participants = await rowParticipants.save();
+    if (participants === "failed") {
+      setIsSaving(false);
+      return;
+    }
     const result = await updateTask(task.id, rowEditing.draft);
     setIsSaving(false);
 
@@ -67,6 +76,8 @@ export const TasksBoard = ({
     }
     toast.success(`${task.task_name} updated`);
     rowEditing.stopEditing();
+    rowParticipants.clear();
+    if (participants === "saved") refresh();
   }
 
   const taskColumns = useMemo(
@@ -74,7 +85,9 @@ export const TasksBoard = ({
       createTaskColumns({
         canManage,
         canDelete,
+        canAssignPeople,
         rowEditing,
+        rowParticipants,
         isSaving,
         onConfirmEdit: handleConfirmEdit,
         seasonOptions,
@@ -90,6 +103,8 @@ export const TasksBoard = ({
       canDelete,
       rowEditing.editingId,
       rowEditing.draft,
+      rowParticipants.draft,
+      canAssignPeople,
       isSaving,
       seasonOptions,
       brandOptions,

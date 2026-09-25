@@ -59,6 +59,12 @@ function createSelectionColumn<TData extends Record<string, unknown>>(): ColumnD
     enableSorting: false,
     enableHiding: false,
     enableColumnFilter: false,
+    // Pixel width for a resized table (unresized ones use meta.width's weight instead). Without
+    // it, TanStack's 150px default applies and the checkbox sits in a wide empty gutter.
+    size: 44,
+    minSize: 44,
+    maxSize: 44,
+    enableResizing: false,
     meta: { label: "Select", width: "icon" },
   };
 }
@@ -272,7 +278,11 @@ export const DataTable = <TData extends Record<string, unknown>>({
                     key={header.id}
                     className={cn(
                       "relative px-3 py-2.5",
-                      isResized ? "line-clamp-3 align-top text-xs leading-snug whitespace-normal" : "truncate",
+                      // No line-clamp here: it sets `display: -webkit-box`, which knocks the <th>
+                      // out of `table-cell` layout and stacks every header down the first column.
+                      // The clamp goes on the label inside instead (below, and in
+                      // DataTableColumnHeader's own `wrap`).
+                      isResized ? "align-top text-xs leading-snug whitespace-normal" : "truncate",
                       getStickyCellClassName(
                         header.column.columnDef.meta as DataTableColumnMeta | undefined,
                         "bg-surface-header",
@@ -281,7 +291,13 @@ export const DataTable = <TData extends Record<string, unknown>>({
                     )}
                     onMouseEnter={isResized ? undefined : showTitleWhenTruncated}
                   >
-                    {header.isPlaceholder ? null : <FlexRender header={header} />}
+                    {header.isPlaceholder ? null : isResized && typeof header.column.columnDef.header === "string" ? (
+                      <span className="line-clamp-3">
+                        <FlexRender header={header} />
+                      </span>
+                    ) : (
+                      <FlexRender header={header} />
+                    )}
                     {enableColumnResizing && header.column.getCanResize() ? (
                       <div
                         onMouseDown={header.getResizeHandler()}
