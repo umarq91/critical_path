@@ -6,7 +6,7 @@ import { buildCsv } from "@/lib/export/csv";
 import { buildWorkbook } from "@/lib/export/xlsx";
 import { buildExportFilename } from "@/lib/export/filename";
 import { defaultColumnKeys, selectColumns, type ExportSheet } from "@/lib/export/types";
-import { TASK_RECORD_COLUMN_GROUPS } from "@/app/(app)/tasks/export/task-record-columns";
+import { TASK_GRID_COLUMN_ORDER, TASK_RECORD_COLUMN_GROUPS } from "@/app/(app)/tasks/export/task-record-columns";
 
 type ExportFormat = "xlsx" | "csv";
 const VALID_FORMATS: readonly ExportFormat[] = ["xlsx", "csv"];
@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
 
   const requestedColumns = (searchParams.get("columns") ?? "").split(",").map((value) => value.trim()).filter(Boolean);
   const columnKeys = requestedColumns.length > 0 ? requestedColumns : defaultColumnKeys(TASK_RECORD_COLUMN_GROUPS);
-  const columns = selectColumns(TASK_RECORD_COLUMN_GROUPS, columnKeys);
+  const columns = selectColumns(TASK_RECORD_COLUMN_GROUPS, columnKeys, TASK_GRID_COLUMN_ORDER);
   if (columns.length === 0) return errorResponse(400, "columns must include at least one valid column");
 
   const taskRecords = await listTasksForExport({ filters, sortBy, sortDir });

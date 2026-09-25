@@ -25,3 +25,14 @@ export const KEY_STAGE_RECORD_COLUMN_GROUPS: ExportColumnGroup<KeyStage>[] = [
     ],
   },
 ];
+
+// The file's column order: this page's table, left to right (key-stages/columns.tsx is "use client",
+// so the export route can't import it — update both together). Export-only fields sit beside
+// their table counterpart or trail after.
+export const KEY_STAGE_GRID_COLUMN_ORDER = [
+  "name",
+  "description",
+  "created_at",
+  "updated_at",
+  "id",
+];

@@ -7,7 +7,7 @@ import { buildWorkbook } from "@/lib/export/xlsx";
 import { buildExportFilename } from "@/lib/export/filename";
 import { defaultColumnKeys, selectColumns, type ExportSheet } from "@/lib/export/types";
 import { BREAKDOWN_COLUMNS, TREND_COLUMNS, buildBreakdownRows, buildTrendRows } from "@/app/(app)/dashboard/export/summary-rows";
-import { TASK_RECORD_COLUMN_GROUPS } from "@/app/(app)/tasks/export/task-record-columns";
+import { TASK_GRID_COLUMN_ORDER, TASK_RECORD_COLUMN_GROUPS } from "@/app/(app)/tasks/export/task-record-columns";
 
 type ExportFormat = "xlsx" | "csv";
 type ExportSection = "summary" | "trend" | "records";
@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
     sheets.push({ name: "Completion Trend", columns: TREND_COLUMNS, rows: buildTrendRows(metrics) } as ExportSheet);
   }
   if (taskRecords && sections.includes("records")) {
-    const recordColumns = selectColumns(TASK_RECORD_COLUMN_GROUPS, columnKeys);
+    const recordColumns = selectColumns(TASK_RECORD_COLUMN_GROUPS, columnKeys, TASK_GRID_COLUMN_ORDER);
     if (recordColumns.length === 0) return errorResponse(400, "columns must include at least one valid Task Records column");
     sheets.push({ name: "Task Records", columns: recordColumns, rows: taskRecords.data } as ExportSheet);
   }

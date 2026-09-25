@@ -41,3 +41,19 @@ export const BRAND_RECORD_COLUMN_GROUPS: ExportColumnGroup<Brand>[] = [
     ],
   },
 ];
+
+// The file's column order: this page's table, left to right (brands/columns.tsx is "use client",
+// so the export route can't import it — update both together). Export-only fields sit beside
+// their table counterpart or trail after.
+// Brand Code isn't on the table, so it sits beside Brand Name.
+export const BRAND_GRID_COLUMN_ORDER = [
+  "brand_name",
+  "brand_code",
+  "status",
+  "seasons",
+  "created_at",
+  "updated_at",
+  "description",
+  "color",
+  "id",
+];

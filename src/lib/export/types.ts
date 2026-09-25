@@ -62,9 +62,22 @@ export function allColumnKeys<TRow>(groups: ExportColumnGroup<TRow>[]): string[]
   return flattenColumns(groups).map((column) => column.key);
 }
 
-export function selectColumns<TRow>(groups: ExportColumnGroup<TRow>[], keys: readonly string[]): ExportColumn<TRow>[] {
+/** The chosen columns, in `order` when given — each page passes its own table's left-to-right
+ *  column order, so the file matches what's on screen rather than the dialog's grouping. Keys
+ *  missing from `order` keep their group order after every listed one. */
+export function selectColumns<TRow>(
+  groups: ExportColumnGroup<TRow>[],
+  keys: readonly string[],
+  order?: readonly string[]
+): ExportColumn<TRow>[] {
   const wanted = new Set(keys);
-  return flattenColumns(groups).filter((column) => wanted.has(column.key));
+  const selected = flattenColumns(groups).filter((column) => wanted.has(column.key));
+  if (!order) return selected;
+  const rank = (key: string) => {
+    const index = order.indexOf(key);
+    return index === -1 ? order.length : index;
+  };
+  return selected.sort((a, b) => rank(a.key) - rank(b.key));
 }
 
 // Shared cap for the lookup-entity exports (seasons, brands, key stages) — unlike tasks.ts's

@@ -1032,6 +1032,15 @@ checklist, because Task Management has exactly one table to export.
 - **`TASK_RECORD_COLUMN_GROUPS` lives at `tasks/export/task-record-columns.ts`**, not under either
   page's own folder, because both this page and the Dashboard's export dialog import it — see the
   file's own header note before moving it again.
+- **Column order in the file follows the grid, not the dialog's groups.** This applies to every
+  export: Tasks, the Dashboard's Task Records section, Brands, Seasons, Key Stages and Holidays.
+  Each `export/*-record-columns.ts` exports a `*_GRID_COLUMN_ORDER` list, and its route passes
+  that list as `selectColumns()`'s third argument (`lib/export/types.ts`). Each list copies that
+  page's `columns.tsx` left-to-right order by hand, because `columns.tsx` is `"use client"` and
+  can't be imported into a Route Handler. **If you reorder, add or remove a table column, update
+  that page's list too.** Unticked columns are left out and the rest keep their relative order.
+  Export-only fields go next to their table counterpart, or after the table's columns if they
+  have none. A key missing from the list isn't dropped; it goes last.
 - **Same permission as the Dashboard export** (`dashboard.export_reports`, checked via
   `requirePermission()` in the route and hidden client-side via `can()` in `page.tsx`) — one
   capability governs "can this user pull data out of the platform as a file" everywhere, rather

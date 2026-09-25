@@ -2,6 +2,7 @@ import { taskOwners, taskPeopleInvolved } from "@/app/(app)/tasks/task-parties";
 import { TASK_STATUS_CONFIG } from "@/constants/task-status";
 import { TASK_GENDER_CONFIG } from "@/constants/task-gender";
 import { TASK_PRIORITY_CONFIG } from "@/constants/task-priority";
+import { DPSP_CATEGORY_CONFIG } from "@/constants/dpsp-category";
 import { toExportDateOnly, toExportTimestamp } from "@/lib/export/dates";
 import type { ExportColumnGroup } from "@/lib/export/types";
 import type { Task } from "@/data/tasks";
@@ -62,6 +63,16 @@ export const TASK_RECORD_COLUMN_GROUPS: ExportColumnGroup<Task>[] = [
         getValue: (t) => TASK_GENDER_CONFIG[t.gender]?.label ?? t.gender,
       },
       {
+        key: "notes",
+        label: "Comments",
+        description: "The task's free-text notes — the grid's Comments column.",
+        category: "basic",
+        defaultSelected: true,
+        dataType: "string",
+        width: 40,
+        getValue: (t) => t.notes ?? null,
+      },
+      {
         key: "is_locked",
         label: "Locked",
         description: "Whether the due date is locked against further edits.",
@@ -100,6 +111,15 @@ export const TASK_RECORD_COLUMN_GROUPS: ExportColumnGroup<Task>[] = [
       },
       { key: "brand", label: "Brand", category: "classification", defaultSelected: true, dataType: "string", width: 20, getValue: (t) => t.brand?.brand_name ?? null },
       { key: "key_stage", label: "Key Stage", category: "classification", defaultSelected: true, dataType: "string", width: 24, getValue: (t) => t.key_stage?.name ?? null },
+      {
+        key: "dpsp_category",
+        label: "DPSP Category",
+        category: "classification",
+        defaultSelected: true,
+        dataType: "string",
+        width: 16,
+        getValue: (t) => (t.dpsp_category ? (DPSP_CATEGORY_CONFIG[t.dpsp_category]?.label ?? t.dpsp_category) : null),
+      },
     ],
   },
   {
@@ -199,4 +219,34 @@ export const TASK_RECORD_COLUMN_GROUPS: ExportColumnGroup<Task>[] = [
       },
     ],
   },
+];
+
+// The order columns land in the file: the Task Management grid's left-to-right order
+// (tasks/columns.tsx — kept as a plain list because that module is "use client" and can't be
+// imported into a Route Handler; update both together). The groups above only shape the export
+// dialog's checklist. Export-only fields sit beside their grid counterpart (Season Code after
+// Season, Start/Expected Finish where Working Timeline is); the rest trail after the grid's
+// own columns.
+export const TASK_GRID_COLUMN_ORDER = [
+  "status",
+  "season",
+  "season_code",
+  "key_stage",
+  "task_name",
+  "owners",
+  "people_involved",
+  "start_date",
+  "end_date",
+  "due_date",
+  "brand",
+  "gender",
+  "dpsp_category",
+  "notes",
+  "priority",
+  "is_locked",
+  "created_by",
+  "last_edited_by",
+  "created_at",
+  "updated_at",
+  "id",
 ];

@@ -6,7 +6,7 @@ import { buildCsv } from "@/lib/export/csv";
 import { buildWorkbook } from "@/lib/export/xlsx";
 import { buildExportFilename } from "@/lib/export/filename";
 import { defaultColumnKeys, selectColumns, type ExportSheet } from "@/lib/export/types";
-import { SEASON_RECORD_COLUMN_GROUPS } from "@/app/(app)/seasons/export/season-record-columns";
+import { SEASON_GRID_COLUMN_ORDER, SEASON_RECORD_COLUMN_GROUPS } from "@/app/(app)/seasons/export/season-record-columns";
 
 type ExportFormat = "xlsx" | "csv";
 const VALID_FORMATS: readonly ExportFormat[] = ["xlsx", "csv"];
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
 
   const requestedColumns = (searchParams.get("columns") ?? "").split(",").map((value) => value.trim()).filter(Boolean);
   const columnKeys = requestedColumns.length > 0 ? requestedColumns : defaultColumnKeys(SEASON_RECORD_COLUMN_GROUPS);
-  const columns = selectColumns(SEASON_RECORD_COLUMN_GROUPS, columnKeys);
+  const columns = selectColumns(SEASON_RECORD_COLUMN_GROUPS, columnKeys, SEASON_GRID_COLUMN_ORDER);
   if (columns.length === 0) return errorResponse(400, "columns must include at least one valid column");
 
   const seasonRecords = await listSeasonsForExport({ filters, sortBy, sortDir });
