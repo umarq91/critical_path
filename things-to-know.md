@@ -338,9 +338,11 @@ write. `task_participants` has no single id column to key on, so this encoding i
 but not through `<EditableCell>`.** They're rows in another table, so there's nothing to sort on
 and no single draft string to hold. `assignee_id` is gone from `EDITABLE_FIELDS` and from
 `taskSchema` for the same reason.
-- **Display** is `party-names.tsx`: name chips on one line with a "+N more" tooltip. How many
-  fit is *measured* (an offscreen copy of each chip plus a `ResizeObserver` on the cell), not a
-  fixed count, because Tasks columns can be resized.
+- **Display** is `party-names.tsx`: every name as a chip, wrapping onto further lines (the
+  column sets `meta.wrap`). This replaced a measured one-line "+N more" fold — the client wanted
+  names readable without hovering. The cost: a task with many people makes a tall row, which is
+  why the columns default to `lg` and the chips use `PartyChip size="sm"` (11px `text-overline`
+  type, the smallest token in the design system).
 - **Edit mode** is `party-cell-editor.tsx`: removable chips, and an Add popover around the same
   `PartySearchDropdown`. It's buffered by `use-row-participants.ts`, which sits beside
   `useRowEditing` because a draft party needs a name and avatar, not just a `kind:uuid` key. On
@@ -1298,7 +1300,12 @@ header stacked vertically down the first column, above the rows. The `<TableHead
 that `DataTable` puts around plain-string headers (Owner, People Involved, Comments…).
 
 **Cells clip, so pick the width for the typical value, not the longest one.** `td`/`th` carry
-`truncate`; anything that doesn't fit ellipsises. `showTitleWhenTruncated` (on `onMouseEnter`)
+`truncate`; anything that doesn't fit ellipsises. The opt-out is `meta.wrap: true`, which swaps
+the body cell's `truncate` for `text-xs leading-snug whitespace-normal break-words` (smaller type, so more fits per line) so the value grows the row
+instead. Tasks uses it on Key Stage, Task Name, Owner, People Involved and Working Timeline at
+the client's request. A wrapped column's content must not add `truncate`/`nowrap` back, or it
+clips again. Working Timeline puts start and end on their own lines instead of making each date
+`nowrap`. In a narrow column, a `nowrap` date got cut off. `showTitleWhenTruncated` (on `onMouseEnter`)
 puts the cell's *rendered* text in a native `title` when, and only when, it's actually clipped —
 rendered text rather than `cell.getValue()`, because the value behind a formatted date or a badge
 is an ISO string or an id and would be worse than useless in a tooltip.

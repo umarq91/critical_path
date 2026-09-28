@@ -139,7 +139,7 @@ export function createTaskColumns({
     }),
     columnHelper.accessor("key_stage_id", {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Key Stage" wrap={isResized} />,
-      meta: { label: "Key Stage", width: "xs" },
+      meta: { label: "Key Stage", width: "xs", wrap: true },
       size: 130,
       minSize: 80,
       filterFn: "weakEquals",
@@ -157,7 +157,7 @@ export function createTaskColumns({
     }),
     columnHelper.accessor("task_name", {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Task Name" wrap={isResized} />,
-      meta: { label: "Task Name", width: "lg" },
+      meta: { label: "Task Name", width: "lg", wrap: true },
       size: 240,
       minSize: 140,
       cell: ({ row, getValue }) => (
@@ -176,16 +176,16 @@ export function createTaskColumns({
     columnHelper.display({
       id: "owners",
       header: "Owner",
-      meta: { label: "Owner", width: "md" },
-      size: 190,
+      meta: { label: "Owner", width: "lg", wrap: true },
+      size: 240,
       minSize: 90,
       cell: ({ row }) => partyCell(row.original, "owners"),
     }),
     columnHelper.display({
       id: "people",
       header: "People Involved",
-      meta: { label: "People Involved", width: "md" },
-      size: 210,
+      meta: { label: "People Involved", width: "lg", wrap: true },
+      size: 280,
       minSize: 90,
       cell: ({ row }) => partyCell(row.original, "people"),
     }),
@@ -196,15 +196,16 @@ export function createTaskColumns({
     columnHelper.display({
       id: "working_timeline",
       header: "Working Timeline",
-      meta: { label: "Working Timeline", width: "sm" },
+      meta: { label: "Working Timeline", width: "sm", wrap: true },
       size: 170,
       minSize: 100,
       cell: ({ row }) => {
         const { start_date, end_date } = row.original;
         if (!start_date && !end_date) return <span className="text-muted-foreground">—</span>;
         return (
-          <span className="text-muted-foreground">
-            {start_date ? formatDate(start_date) : "—"} – {end_date ? formatDate(end_date) : "—"}
+          <span className="flex flex-col text-muted-foreground">
+            <span>{start_date ? formatDate(start_date) : "—"} –</span>
+            <span>{end_date ? formatDate(end_date) : "—"}</span>
           </span>
         );
       },

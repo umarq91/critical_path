@@ -20,8 +20,7 @@ interface PartyCellEditorProps {
 }
 
 // Owners / People Involved while their row is in pencil/tick edit mode. Every chip is shown
-// (wrapping, unlike the read-mode PartyNames' single line) so any one of them can be removed,
-// and Add opens the same search the drawer and create form use. Changes are buffered by
+// with its own ✕ so any one of them can be removed, and Add opens the same search the drawer and create form use. Changes are buffered by
 // useRowParticipants and only written on the row's tick.
 //
 // The popover is portalled, but React still bubbles its clicks through the component tree to

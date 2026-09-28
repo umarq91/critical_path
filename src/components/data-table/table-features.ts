@@ -37,6 +37,9 @@ export interface DataTableColumnMeta {
   sticky?: "left" | "right";
   /** Relative width weight for the column; defaults to "md". See column-widths.ts. */
   width?: DataTableColumnWidth;
+  /** Body cells wrap onto as many lines as the value needs instead of clipping to one with an
+   *  ellipsis. For free-text columns whose full value matters more than a uniform row height. */
+  wrap?: boolean;
 }
 
 export const dataTableFeatures = tableFeatures({

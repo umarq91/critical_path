@@ -335,22 +335,22 @@ export const DataTable = <TData extends Record<string, unknown>>({
                     getRowClassName?.(row.original)
                   )}
                 >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell
-                      key={cell.id}
-                      className={cn(
-                        "truncate px-3 py-2.5",
-                        getStickyCellClassName(
-                          cell.column.columnDef.meta as DataTableColumnMeta | undefined,
-                          STICKY_BODY_BACKGROUND,
-                          scrollEdges
-                        )
-                      )}
-                      onMouseEnter={showTitleWhenTruncated}
-                    >
-                      <FlexRender cell={cell} />
-                    </TableCell>
-                  ))}
+                  {row.getVisibleCells().map((cell) => {
+                    const meta = cell.column.columnDef.meta as DataTableColumnMeta | undefined;
+                    return (
+                      <TableCell
+                        key={cell.id}
+                        className={cn(
+                          "px-3 py-2.5",
+                          meta?.wrap ? "text-xs leading-snug whitespace-normal break-words" : "truncate",
+                          getStickyCellClassName(meta, STICKY_BODY_BACKGROUND, scrollEdges)
+                        )}
+                        onMouseEnter={meta?.wrap ? undefined : showTitleWhenTruncated}
+                      >
+                        <FlexRender cell={cell} />
+                      </TableCell>
+                    );
+                  })}
                 </TableRow>
               ))
             )}
