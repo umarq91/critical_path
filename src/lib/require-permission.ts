@@ -1,6 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { can, type Action } from "@/lib/permissions";
+import { isExternalRole } from "@/constants/roles";
 
 // The one place every Server Action goes through to enforce a permission — auth.getUser() +
 // profile fetch + can() should never be re-implemented per entity's _actions.ts. Kept out of
@@ -29,6 +30,11 @@ export async function requirePermission(action: Action, resource?: { isLocked?: 
   // message rather than reaching the database and coming back as an opaque empty result.
   if (profile.status !== "active") {
     return { ok: false as const, error: "This account has been deactivated" };
+  }
+
+  if (isExternalRole(profile.role)) {
+    const { data: verified } = await supabase.rpc("is_active_user");
+    if (verified !== true) return { ok: false as const, error: "Enter your sign-in code first" };
   }
 
   if (!can(profile.role, action, resource)) {

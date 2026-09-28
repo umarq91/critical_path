@@ -10,6 +10,10 @@ import { TextField } from "@/components/form-fields/text-field";
 import { createClient } from "@/lib/supabase/client";
 import { passwordSignInSchema, type PasswordSignInInput } from "@/app/auth/schema";
 import { isBannedError } from "@/lib/auth-errors";
+import { isExternalRole } from "@/constants/roles";
+import { ROUTES } from "@/constants/routes";
+import { SIGN_IN_SUPPORT_EMAIL } from "@/constants/sign-in-code";
+import { sendSignInCodeAction } from "@/app/auth/verify/_actions";
 
 const DEACTIVATED_MESSAGE = "Unable to log in, please contact techsupport@threebyone.com.au";
 
@@ -55,7 +59,7 @@ export const PasswordForm = ({ next }: { next: string }) => {
     // here. Reading your own profile is always permitted, deactivated or not.
     const { data: profile } = await supabase
       .from("profiles")
-      .select("status")
+      .select("status, role")
       .eq("id", data.user.id)
       .single();
 
@@ -63,6 +67,20 @@ export const PasswordForm = ({ next }: { next: string }) => {
       await supabase.auth.signOut();
       setIsSubmitting(false);
       setError(DEACTIVATED_MESSAGE);
+      return;
+    }
+
+    // External accounts owe an emailed code before RLS will return any data (0032). Sent from
+    // here rather than on /auth/verify's render, so a send failure stops sign-in on this form.
+    if (isExternalRole(profile.role)) {
+      const sendResult = await sendSignInCodeAction().catch(() => null);
+      if (!sendResult || (!sendResult.ok && sendResult.reason !== "cooldown")) {
+        await supabase.auth.signOut();
+        setIsSubmitting(false);
+        setError(`We couldn't send your sign-in code. Try again, or contact ${SIGN_IN_SUPPORT_EMAIL}.`);
+        return;
+      }
+      router.push(`${ROUTES.verifySignIn}?next=${encodeURIComponent(next)}`);
       return;
     }
 

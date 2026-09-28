@@ -14,6 +14,9 @@ interface TextFieldProps<TFieldValues extends FieldValues> {
   placeholder?: string;
   description?: string;
   type?: "text" | "email" | "password";
+  inputMode?: "text" | "numeric" | "email";
+  autoComplete?: string;
+  maxLength?: number;
 }
 
 export const TextField = <TFieldValues extends FieldValues>({
@@ -23,6 +26,9 @@ export const TextField = <TFieldValues extends FieldValues>({
   placeholder,
   description,
   type = "text",
+  inputMode,
+  autoComplete,
+  maxLength,
 }: TextFieldProps<TFieldValues>) => {
   const [isRevealed, setIsRevealed] = useState(false);
   const isPassword = type === "password";
@@ -43,6 +49,9 @@ export const TextField = <TFieldValues extends FieldValues>({
               value={field.value ?? ""}
               type={resolvedType}
               placeholder={placeholder}
+              inputMode={inputMode}
+              autoComplete={autoComplete}
+              maxLength={maxLength}
               aria-invalid={!!fieldState.error}
               // Room for the toggle, so a long password doesn't run underneath it.
               className={cn(isPassword && "pr-9")}

@@ -10,6 +10,10 @@ export async function proxy(request: NextRequest) {
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   );
   const isAuthCallback = pathname === ROUTES.authCallback;
+  // A signed-in external user who hasn't entered their emailed code yet belongs here, so this
+  // page is exempt from the "signed in → leave /auth" bounce below. The page redirects anyone
+  // who doesn't owe a code.
+  const isVerifySignIn = pathname === ROUTES.verifySignIn;
 
   if (isProtected && !user) {
     const signInUrl = new URL(ROUTES.signIn, request.url);
@@ -18,7 +22,10 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(signInUrl);
   }
 
-  if (pathname.startsWith("/auth") && !isAuthCallback && user) {
+  // GET only: a Server Action is a POST to the page it was called from, and redirecting that
+  // POST hands the action a page instead of its result ("unexpected response"). The password
+  // form calls one on /auth/sign-in right after the session cookie is set.
+  if (request.method === "GET" && pathname.startsWith("/auth") && !isAuthCallback && !isVerifySignIn && user) {
     return NextResponse.redirect(new URL(ROUTES.dashboard, request.url));
   }
 

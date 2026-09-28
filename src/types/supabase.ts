@@ -592,6 +592,44 @@ export type Database = {
           },
         ]
       }
+      session_verifications: {
+        Row: {
+          session_id: string
+          user_id: string
+          code_hash: string | null
+          code_sent_at: string | null
+          code_expires_at: string | null
+          failed_attempts: number
+          verified_at: string | null
+        }
+        Insert: {
+          session_id: string
+          user_id: string
+          code_hash?: string | null
+          code_sent_at?: string | null
+          code_expires_at?: string | null
+          failed_attempts?: number
+          verified_at?: string | null
+        }
+        Update: {
+          session_id?: string
+          user_id?: string
+          code_hash?: string | null
+          code_sent_at?: string | null
+          code_expires_at?: string | null
+          failed_attempts?: number
+          verified_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_verifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       seasons: {
         Row: {
           color: string

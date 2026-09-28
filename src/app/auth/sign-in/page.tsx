@@ -1,7 +1,7 @@
-import Image from "next/image";
 import { Card, CardContent } from "@/components/ui/card";
 import { GoogleButton } from "@/app/auth/google-button";
 import { PasswordForm } from "@/app/auth/password-form";
+import { AuthBrand } from "@/app/auth/auth-brand";
 import { ROUTES } from "@/constants/routes";
 
 // "auth" is deliberately the same text as "deactivated": in practice almost every hit of the
@@ -17,6 +17,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   external_account:
     "This account signs in with an email and password, not with Google. Use the form below.",
   deactivated: DEACTIVATED_MESSAGE,
+  code_locked: `Too many wrong codes, so you've been signed out. Sign in again to get a new code.`,
 };
 
 export default async function SignInPage({ searchParams }: PageProps<"/auth/sign-in">) {
@@ -26,20 +27,7 @@ export default async function SignInPage({ searchParams }: PageProps<"/auth/sign
 
   return (
     <div className="flex w-full max-w-md flex-col items-center gap-6">
-      <div className="flex flex-col items-center gap-1.5">
-        <Image
-          src="/icons/logo.jpeg"
-          alt="Threebyone"
-          width={1600}
-          height={328}
-          priority
-          className="h-14 w-auto object-contain"
-        />
-        {/* Same treatment as the sidebar's wordmark (app-sidebar.tsx) — same hex, weight, and font-serif,
-            matching the logo's own ink and typeface, so both instances match the logo exactly. */}
-        <span className="text-2xl font-light uppercase tracking-[0.02em] text-[#3B3D3F] font-serif">Critical Path</span>
-        {/* <p className="text-sm text-muted-foreground">Threebyone Pty Ltd</p> */}
-      </div>
+      <AuthBrand />
 
       <Card className="w-full shadow-lg">
         <CardContent className="flex flex-col items-center gap-6 px-10 py-12 text-center xl:px-14">

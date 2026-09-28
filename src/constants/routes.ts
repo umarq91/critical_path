@@ -1,6 +1,7 @@
 export const ROUTES = {
   signIn: "/auth/sign-in",
   authCallback: "/auth/callback",
+  verifySignIn: "/auth/verify",
   dashboard: "/dashboard",
   tasks: "/tasks",
   myTasks: "/my-tasks",

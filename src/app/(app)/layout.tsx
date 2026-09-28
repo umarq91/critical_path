@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
-import { getCurrentProfile } from "@/data/profiles";
+import { getCurrentProfile, isCurrentSessionVerified } from "@/data/profiles";
+import { isExternalRole } from "@/constants/roles";
 import { ROUTES } from "@/constants/routes";
 import { UserMenu } from "@/app/(app)/user-menu";
 import { AppSidebar } from "@/app/(app)/app-sidebar";
@@ -18,6 +19,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // the app refuses to render for them. RLS (is_active_user(), 0018) is the real boundary —
   // this just explains why everything would otherwise be empty.
   if (profile.status !== "active") return <DeactivatedNotice email={profile.email} />;
+
+  // An external account that hasn't entered its emailed sign-in code yet gets nothing from RLS
+  // (is_active_user(), 0032) — send it to the code screen rather than render an empty shell.
+  if (isExternalRole(profile.role) && !(await isCurrentSessionVerified())) redirect(ROUTES.verifySignIn);
 
   return (
     <SidebarProvider>

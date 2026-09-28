@@ -16,7 +16,8 @@ Once accounts can exist for people outside the company (`external`), a blanket
 directory. `tasks`, `task_participants`, `task_people` and `profiles` are therefore scoped:
 internal roles still read everything, an `external` user reads only tasks they participate
 in (and only the people on those tasks). Lookup tables (`seasons`, `brands`, `key_stages`,
-`departments`) stay readable by any active user — an external user's own task rows have to
+`departments`, `brand_seasons`, `public_holidays`) stay readable by any active user (`0032`
+replaced their `using (true)` with `is_active_user()`) — an external user's own task rows have to
 render their season/brand/department labels — and those *pages* are gated in the app layer
 instead (`lookups.view` / `brand.view` + `requirePageAccess`).
 
@@ -46,7 +47,7 @@ policy — see `0006_tasks.sql`.
 | `set_updated_at()` | Trigger fn — stamps `updated_at = now()` on every table that has the column. Attach via `create trigger ..._set_updated_at before update ... execute function public.set_updated_at();` |
 | `current_user_role()` | Returns the caller's role. `security definer`, bypasses RLS on `profiles` internally so it can be called *from inside* other RLS policies without recursion. |
 | `is_admin()` | `current_user_role() = 'admin'`. What every write policy checks. |
-| `is_active_user()` | `0018`. True when the caller's profile exists and `status = 'active'`. Gates every task/participant/profile read and write policy — this is what makes deactivating a user a real revocation rather than a badge. |
+| `is_active_user()` | `0018`, extended in `0032`. True when the caller's profile exists, `status = 'active'`, and — for an `external` profile only — the current session (`auth.jwt() ->> 'session_id'`) has a verified `session_verifications` row. Gates every task/participant/profile read and write policy, and since `0032` the lookup tables and own-row tables too — this is what makes deactivating a user a real revocation rather than a badge, and what makes the emailed sign-in code impossible to skip by calling Supabase directly. The app also calls it via `rpc` to ask "has this external session entered its code?". |
 | `is_external_user()` | `0018`. `current_user_role() = 'external'`. |
 | `task_involves_current_user(task_id)` | `0018`. Is the caller a participant on this task — named directly, or via their department? The `task_participant_profiles` UNION expressed as a per-row predicate. Row-dependent, so it genuinely runs per row. |
 | `profile_shares_task_with_current_user(profile_id)` | `0018`. Does this profile appear on any task the caller is also on? Gates which people an external user can resolve. |
@@ -395,6 +396,20 @@ Exists so "tasks relevant to me" stays one query rather than the three hops (me 
 
 ---
 
+### `session_verifications`
+*Migration: `0032_external_sign_in_code.sql`. The emailed sign-in code for external accounts — one row per Supabase session, see things-to-know.md § Accounts.*
+
+| Column | Type | Notes |
+|---|---|---|
+| `session_id` | uuid, PK, FK → `auth.sessions.id`, `on delete cascade` | Sign-out deletes the session and so this row: the next sign-in starts unverified, no cleanup job |
+| `user_id` | uuid, FK → `profiles.id`, not null, `on delete cascade` | |
+| `code_hash` | text, nullable | HMAC-SHA256 (keyed by the service role key) of `session_id:code`. Never the code. Null once verified or after a failed send |
+| `code_sent_at` / `code_expires_at` | timestamptz, nullable | Resend cooldown (60s) and expiry (5 min) |
+| `failed_attempts` | integer, not null, default 0 | Per session, not per code — a resend doesn't reset it. The 5th wrong code signs the session out |
+| `verified_at` | timestamptz, nullable | Set on a correct code; what `is_active_user()` checks |
+
+**RLS:** enabled with **no policies** — service role only (`lib/sign-in-code.ts`). A user must never be able to write their own `verified_at`.
+
 ## Migration log
 
 | File | What it does |
@@ -427,6 +442,7 @@ Exists so "tasks relevant to me" stays one query rather than the three hops (me 
 | `0029_viewer_calendar_sync.sql` | Adds `tasks_update_viewer_calendar_sync` (a second, additive UPDATE policy admitting active `viewer`s, alongside the existing `tasks_update_standard_or_admin`) and `restrict_viewer_task_columns()` — a `BEFORE UPDATE` trigger that rejects a viewer's write unless it's confined to `google_event_id`/`google_calendar_owner_id`/`google_synced_at`/`updated_at`. Lets viewer use the Calendar page's Sync button without gaining general `task.update`. |
 | `0030_saved_views.sql` | `saved_views` table (profile-owned name + filters/sort_by/sort_dir jsonb/text snapshot, unique per `(profile_id, name)`), owner-only RLS. Backs the Tasks grid's "Save current filters" feature. |
 | `0031_google_calendar_id.sql` | Adds nullable `google_oauth_tokens.calendar_id`, the cached id of each user's "Critical Path" secondary calendar that Calendar sync now pushes to instead of `primary`. |
+| `0032_external_sign_in_code.sql` | `session_verifications` (service-role-only), `is_active_user()` now also requires a verified session for `external` profiles, and the lookup (`seasons`, `brands`, `brand_seasons`, `key_stages`, `departments`, `public_holidays`) and own-row (`saved_views`, `reminder_rules`, `reminder_rule_tasks`, `holiday_calendar_events`, `profiles` update) policies now pass through `is_active_user()` too. Backs the emailed sign-in code for external accounts. |
 
 ## Not built yet
 

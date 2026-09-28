@@ -100,7 +100,32 @@ valid session, so redirecting to `/auth/sign-in` gets bounced straight back to `
 (`id = auth.uid()`, outside the `is_active_user()` gate) exists purely so the layout can read
 its own row and tell "deactivated" from "signed out".
 
-**Creating an auth user is the one sanctioned service-role call inside a Server Action.**
+**External accounts enter an emailed code on every sign-in, and RLS enforces it, not just the
+app.** After a correct password, `password-form.tsx` calls `sendSignInCodeAction()` and moves to
+`/auth/verify`. A 6-digit code, valid 5 minutes, resend at most every 60s, 5 wrong codes signs
+the session out. If the email can't be sent, sign-in stops on the password form — a broken SMTP
+locks out every external user (staff are unaffected), which was the client's call over letting
+them in unchecked.
+- **Why RLS and not just the screen:** the Supabase URL and anon key are public, so a password
+  alone can mint a token straight from Supabase and skip `/auth/verify`. `is_active_user()`
+  (`0032`) therefore returns false for an external profile until the current token's
+  `session_id` has a verified `session_verifications` row, and since `0032` every policy,
+  lookups included, passes through it. Only the unconditional self-read on `profiles` stays open,
+  which is what lets `(app)/layout.tsx` see the role and redirect.
+- **Keyed by session, not user,** because "every sign-in needs a code" is the requirement. The FK
+  to `auth.sessions` cascades, so sign-out clears it. Don't add a "remember this device" by
+  reusing the row across sessions without revisiting that.
+- **The app asks the same question RLS does:** `isCurrentSessionVerified()` (`data/profiles.ts`)
+  and `requirePermission()` call `rpc("is_active_user")`, so the redirect can't disagree with
+  what the database returns.
+- **`failed_attempts` survives a resend.** Resetting it would turn "5 guesses" into "5 guesses a
+  minute, forever". The increment is conditional on the value read, so racing guesses can't
+  share a number.
+- `/auth/verify` is exempt from `proxy.ts`'s "signed in → leave `/auth`" bounce; the page itself
+  redirects anyone who doesn't owe a code. No audit log rows for code events, by request.
+
+**Creating an auth user is the one sanctioned service-role call inside a Server Action**
+(besides `lib/sign-in-code.ts`, whose table must be unwritable by the user it verifies).
 `supabase.auth.admin.createUser` has no per-user equivalent. `createExternalUser` gates on
 `admin.manage_users` first, and deletes the auth user again if the follow-up profile write
 fails, rather than leaving an account of indeterminate role behind.

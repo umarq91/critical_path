@@ -22,6 +22,15 @@ export const getCurrentProfile = cache(async () => {
   return profile;
 });
 
+// For an external account: has this session passed the emailed sign-in code? is_active_user()
+// is the same predicate RLS applies (0032), so this can't disagree with what the database
+// will actually return. Only meaningful after the caller has checked the profile is active.
+export const isCurrentSessionVerified = cache(async () => {
+  const supabase = await createClient();
+  const { data } = await supabase.rpc("is_active_user");
+  return data === true;
+});
+
 // Options for pickers that assign another entity to a person (e.g. the task form's
 // Owner/Assignee select, the task grid's Owner filter) — every active profile, not just
 // people already assigned to something.
