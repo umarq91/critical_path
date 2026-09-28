@@ -15,7 +15,7 @@ export const PartyNames = ({ parties }: PartyNamesProps) => {
   if (parties.length === 0) return <span className="text-muted-foreground">—</span>;
 
   return (
-    <div className="flex min-w-0 flex-wrap items-center gap-0.5">
+    <div className="flex min-w-0 flex-wrap items-center gap-x-0.5 gap-y-1">
       {parties.map((party) => (
         <PartyChip key={party.key} party={party} size="sm" />
       ))}
