@@ -28,7 +28,7 @@ export default async function DpspFlywheelPage({
     <div className="flex flex-col">
       <PageHeader
         title="DPSP Flywheel"
-        description="Deliverables grouped by Demand, Product, Sales and Profit — the client's recurring critical-path loop."
+        description="Deliverables grouped by Demand, Product, Sales and Profit."
       />
       <div className="flex flex-col gap-4 px-6 pt-4 pb-6">
         <DpspFlywheelWorkspace
