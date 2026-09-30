@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, type ReactElement } from "react";
+import { useState, useTransition, type ReactElement, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -14,7 +14,10 @@ import {
 
 interface ConfirmDialogProps {
   title: string;
-  description?: string;
+  /** Inline content only (it renders inside a <p>) — text, <strong>, and the like. */
+  description?: ReactNode;
+  /** Block content under the description, e.g. a list of what the action covers. */
+  children?: ReactNode;
   confirmLabel?: string;
   /** Delete is the common case; a non-destructive confirmation (e.g. "sync these") passes
    * "default" plus its own pendingLabel. */
@@ -39,6 +42,7 @@ export const ConfirmDialog = ({
   trigger,
   open,
   onOpenChange,
+  children,
 }: ConfirmDialogProps) => {
   const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
   const isOpen = open ?? uncontrolledOpen;
@@ -57,9 +61,10 @@ export const ConfirmDialog = ({
       {trigger ? <DialogTrigger render={trigger} /> : null}
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
+          <DialogTitle className="leading-snug">{title}</DialogTitle>
           {description ? <DialogDescription>{description}</DialogDescription> : null}
         </DialogHeader>
+        {children ? <div className="flex flex-col gap-3 px-5 pb-5">{children}</div> : null}
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)} disabled={isPending}>
             Cancel

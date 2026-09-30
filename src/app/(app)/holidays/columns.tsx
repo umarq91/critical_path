@@ -8,6 +8,7 @@ import { RowEditToggle } from "@/components/shared/row-edit-toggle";
 import type { RowEditingState } from "@/components/data-table/use-row-editing";
 import { dataTableFeatures } from "@/components/data-table/table-features";
 import { getVizColorForId } from "@/constants/chart-colors";
+import { formatHolidayTitle } from "@/constants/holiday-country";
 import { HolidayRowActions } from "@/app/(app)/holidays/holiday-row-actions";
 import type { Holiday } from "@/data/holidays";
 import { formatDate } from "@/lib/dates";
@@ -46,6 +47,7 @@ export function createHolidayColumns({ canManage, rowEditing, isSaving, onConfir
       cell: ({ row, getValue }) => (
         <EditableCell
           value={getValue()}
+          display={formatHolidayTitle(row.original)}
           isEditing={rowEditing.isEditing(row.original.id)}
           draftValue={rowEditing.draft.name}
           onDraftChange={(next) => rowEditing.setDraftField("name", next)}

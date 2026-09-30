@@ -20,6 +20,7 @@ import {
   TIMELINE_PREVIEW_ROW_COUNT,
   getTimelinePreviewBand,
 } from "@/app/(app)/dashboard/timeline-preview-range";
+import { decodeMultiFilterValue } from "@/constants/data-table-filters";
 import type { FilterSelectOption } from "@/components/shared/filter-select";
 import type { Task } from "@/data/tasks";
 
@@ -94,9 +95,11 @@ export const TimelineGanttCard = ({
   );
 
   const { rows, matchCount, overdue } = useMemo(() => {
+    const seasonIds = decodeMultiFilterValue(controls.seasonId);
+    const brandIds = decodeMultiFilterValue(controls.brandId);
     const matchesFilters = (task: Task) =>
-      (!controls.seasonId || task.season_id === controls.seasonId) &&
-      (!controls.brandId || task.brand_id === controls.brandId);
+      (seasonIds.length === 0 || seasonIds.includes(task.season_id)) &&
+      (brandIds.length === 0 || (!!task.brand_id && brandIds.includes(task.brand_id)));
 
     // Off-window tasks are dropped rather than left to TimelineGrid, which would give each one
     // an empty row: the band holds three months of work and the window may be a single week.

@@ -179,8 +179,9 @@ or the two drift apart. Three rules are easy to break:
   one. Sync Season A and then Season B, and both stay on Google.
 - **The date window stays fixed** (90 days back to 180 days ahead), whatever month is on screen.
   Filters narrow that window's tasks; the visible range does not.
-- **A filtered sync asks first.** `calendar-sync-button.tsx` opens a confirm listing the active
-  filters. With no filters it syncs straight away, as it always did.
+- **Every sync asks first.** `calendar-sync-button.tsx` opens a confirm listing the active
+  filters, or, with none, one saying ALL tasks and holidays will be synced (client request; it
+  used to sync straight away when unfiltered).
 Owner / People Involved options are the whole-organisation party list, so the page only loads
 them for roles with `lookups.view`. External users get no options, and those two filters don't
 render for them.
@@ -750,6 +751,13 @@ or the filters, the page would be sliced from a different set than it was fetche
   parser-level debounce would flush the accompanying `page: null` reset immediately and the term
   400ms later — two navigations and a flash of unfiltered results per keystroke. Dropdowns and
   the period buttons stay immediate.
+- **Every dropdown filter is multi-select, in the Tasks grid's encoding.** Season, Brand, Key
+  Stage, Owner and People Involved each keep ONE string URL param (`seasonId`, `owner`, …)
+  holding the ticked values joined with `MULTI_FILTER_DELIMITER`, so an old single-value link
+  still means the same thing. Values within a filter are a union; filters still intersect.
+  `timelineScope()` and `listOverdueTasks()` decode them with `applyMultiEq`, and the Dashboard
+  preview decodes season/brand in the browser. The control is `MultiFilterSelect`
+  (`components/shared/`), the same component `DataTableToolbar` renders for `multiple: true`.
 - **Any toolbar change resets to page 1** — `setControls` always sends `page: null` alongside.
   The render also **clamps** `page` for display, so a stale or hand-edited URL pointing past the
   end of a narrowed result shows the first page rather than an empty chart reading as "no tasks".
@@ -854,6 +862,15 @@ spacing-insensitively (`"Event Name"`, `"event_name"`, `"EVENT NAME"` all resolv
 column), since a CSV re-opened and re-saved in different spreadsheet software doesn't reliably
 preserve exact header casing.
 
+**CSV dates are day-first (`DD-MM-YYYY`), by client request; everything else stays ISO.** The
+template's date header reads `Date (DD-MM-YYYY)` — the template has no sample row, so the header
+is the only place to state the format, and `normaliseHeader` strips the bracketed hint before
+matching (a plain `Date` header still works). `csvDateToIso()` (`holidays/schema.ts`) converts
+each row before `holidaySchema` sees it, so the schema and the Add Holiday form are unchanged.
+It also accepts `DD/MM/YYYY` (spreadsheets swap separators on re-save) and ISO (files built from
+the older template). A two-number-first date is always read as day-month, never month-day. The
+results dialog echoes the date as typed.
+
 **The row cap (`MAX_BULK_HOLIDAY_ROWS = 500`) rejects the whole file up front**, before any row
 is written — not a partial import that silently stops at row 500. Sized against
 `lib/export/types.ts`'s `MAX_LOOKUP_EXPORT_ROWS` (1000) for a lookup table, halved since an
@@ -875,6 +892,14 @@ sort tiebreaker because many rows share a date.
 **The board's search box used to do nothing.** It writes `filters.name` (its `searchColumnId`),
 but `listHolidays()` only applied `filters.country`. It now applies `ilike` on `name`, which the
 export's "Current filters" count depends on.
+
+**A holiday is titled "Country - Name" everywhere it is shown, e.g. "Australia - New Year's
+Day" (client request).** `formatHolidayTitle()` (`constants/holiday-country.ts`) is the one
+formatter, used by the Holidays table's Event Name column (read mode only; the inline edit and
+the Add form still hold the bare name), the Calendar chip, and the Google Calendar event title.
+It is display only: `public_holidays.name` is unchanged, so CSV import, duplicate detection and
+export still use the bare name. A known code (`AU`) becomes its label; anything else is shown as
+typed. Google events pushed before this change keep their old title until the next sync or edit.
 
 **The Calendar's holiday chip is one consistent style, not colour-coded by country.** Client
 request was "a special tag or highlight", not "a different colour per country" — the country
@@ -1245,6 +1270,24 @@ but the split keeps both files readable; `participantRows()` moved to `lib/party
 
 ---
 
+## Dates & timezone (`lib/dates.ts`)
+
+**Timestamps are shown in Melbourne time (`ORG_TIMEZONE`), whoever is looking and wherever the
+code runs.** Without an explicit zone, a Server Component formats on the host's clock (UTC on
+Vercel) and a Client Component on the browser's, so one instant could show two dates.
+- `formatDateTime()` — date and time of a `timestamptz` (logs, trash, API keys).
+- `formatTimestampDate()` — date only of a `timestamptz` (Created / Last Updated in the task
+  drawer and the season panel).
+- `formatDate()` is for `date` columns only (due/start/end dates, holidays). Don't pass it a
+  timestamp: it keeps the string's first ten characters, which is the UTC date.
+- **Exports use Melbourne time too.** `toExportTimestamp()` (`lib/export/dates.ts`) hands the
+  writers a Date shifted so its UTC fields read as the Melbourne wall clock, because both
+  writers print on the UTC clock. Headers read "Created At (Melbourne time)". The files show
+  the date only (`yyyy-mm-dd`), as before.
+- A person outside Victoria sees Melbourne time, not their own — the client is one office.
+
+---
+
 ## Data tables (`components/data-table/`)
 
 **Columns are relatively-weighted, not content-sized, and the table always fills its container.**
@@ -1309,8 +1352,11 @@ Setting `whitespace-normal`/`line-clamp-3` on the parent `<TableHead>` alone doe
 *sortable* column — `DataTableColumnHeader` renders its own `<span className="truncate">` (or
 `"block truncate"` for a non-sortable title) inside that cell, and a descendant's own explicit
 `white-space` always wins over an ancestor's. Its `wrap` prop swaps that for `line-clamp-3
-whitespace-normal` and switches the sortable `Button` to `h-auto items-start` so a 3-line label
-doesn't render vertically centered against a squashed row. Every `<DataTableColumnHeader>` call in
+whitespace-normal` and switches the sortable `Button` to `h-auto items-start py-0` so a 3-line
+label doesn't render vertically centered against a squashed row. The same goes for font size:
+`wrap` also applies `text-xs leading-snug`, matching what the resized `<TableHead>` gives
+plain-string headers. Without it the component's own `text-sm` won, and sortable headings
+(Status, Season…) rendered larger and lower than unsortable ones (Owner, Comments…). Every `<DataTableColumnHeader>` call in
 `tasks/columns.tsx` passes `wrap={isResized}`; every other table's calls don't pass it at all
 (defaults to `false`, truncating) — `wrap` has to be threaded per call site (the header render
 function is supplied by each `columns.tsx`, not something `DataTable` can inject a prop into
@@ -1376,6 +1422,14 @@ border is always present but `border-transparent` at rest, so toggling it can't 
 by a pixel; and the hook finds the scroll container by `data-slot="table-container"` because
 that element belongs to the shadcn `<Table>` primitive, not to us. Renaming that slot silently
 disables the effect — there's nothing to throw.
+
+**Body cells are rendered by calling `columnDef.cell(...)` directly, not through `<FlexRender>`.**
+`FlexRender` mounts the renderer as a React component. Every `columns.tsx` rebuilds its cell
+functions when the row-edit draft changes (the `useMemo` depends on `rowEditing.draft`), and a new
+function is a new component type, so each keystroke remounted the cell and the input lost focus
+after one character. Calling it as a plain function keeps `<EditableCell>` mounted. Two rules
+follow: don't switch body cells back to `FlexRender`, and don't call a hook inside a `cell:`
+renderer — put it in a child component. Headers still use `FlexRender`.
 
 ## Board / DPSP Flywheel / Timeline (three separate pages, not tabs)
 

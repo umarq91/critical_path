@@ -36,8 +36,8 @@ export const BRAND_RECORD_COLUMN_GROUPS: ExportColumnGroup<Brand>[] = [
     key: "dates",
     label: "Dates",
     columns: [
-      { key: "created_at", label: "Created At (UTC)", category: "dates", defaultSelected: false, dataType: "date", width: 20, getValue: (b) => toExportTimestamp(b.created_at) },
-      { key: "updated_at", label: "Last Updated (UTC)", category: "dates", defaultSelected: false, dataType: "date", width: 20, getValue: (b) => toExportTimestamp(b.updated_at) },
+      { key: "created_at", label: "Created At (Melbourne time)", category: "dates", defaultSelected: false, dataType: "date", width: 20, getValue: (b) => toExportTimestamp(b.created_at) },
+      { key: "updated_at", label: "Last Updated (Melbourne time)", category: "dates", defaultSelected: false, dataType: "date", width: 20, getValue: (b) => toExportTimestamp(b.updated_at) },
     ],
   },
 ];

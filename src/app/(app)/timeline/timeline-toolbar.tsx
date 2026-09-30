@@ -3,7 +3,7 @@
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { FilterSelect } from "@/components/shared/filter-select";
+import { MultiFilterSelect } from "@/components/shared/multi-filter-select";
 import { timelineViewValues, type TimelineView } from "@/app/(app)/timeline/timeline-search-params";
 import {
   containsRange,
@@ -29,12 +29,14 @@ const VIEW_LABELS: Record<TimelineView, string> = {
 export interface TimelineControls {
   view: TimelineView;
   date: string;
+  /** The five filters below are multi-select: each holds its selected values joined with
+   *  MULTI_FILTER_DELIMITER (constants/data-table-filters.ts), the Tasks grid's encoding. */
   seasonId: string;
   brandId: string;
   keyStageId: string;
-  /** `kind:uuid` party key — see lib/party.ts. */
+  /** `kind:uuid` party keys — see lib/party.ts. */
   owner: string;
-  /** `kind:uuid` party key, matched against the `involved` participant role. */
+  /** `kind:uuid` party keys, matched against the `involved` participant role. */
   involved: string;
   /** Free-text term, matched against task name, key stage, owners and people involved. */
   search: string;
@@ -176,40 +178,50 @@ export const TimelineToolbar = ({
             />
           </div>
         ) : null}
-        <FilterSelect
-          value={state.seasonId || null}
-          onValueChange={(value) => setState({ seasonId: value })}
+        <MultiFilterSelect
+          value={state.seasonId}
+          onValueChange={(value) => setState({ seasonId: value ?? null })}
           options={seasonOptions}
+          title="Season"
           allLabel="All Seasons"
+          className="h-8"
         />
-        <FilterSelect
-          value={state.brandId || null}
-          onValueChange={(value) => setState({ brandId: value })}
+        <MultiFilterSelect
+          value={state.brandId}
+          onValueChange={(value) => setState({ brandId: value ?? null })}
           options={brandOptions}
+          title="Brand"
           allLabel="All Brands"
+          className="h-8"
         />
         {keyStageOptions ? (
-          <FilterSelect
-            value={state.keyStageId || null}
-            onValueChange={(value) => setState({ keyStageId: value })}
+          <MultiFilterSelect
+            value={state.keyStageId}
+            onValueChange={(value) => setState({ keyStageId: value ?? null })}
             options={keyStageOptions}
+            title="Key Stage"
             allLabel="All Key Stages"
+            className="h-8"
           />
         ) : null}
         {ownerOptions ? (
-          <FilterSelect
-            value={state.owner || null}
-            onValueChange={(value) => setState({ owner: value })}
+          <MultiFilterSelect
+            value={state.owner}
+            onValueChange={(value) => setState({ owner: value ?? null })}
             options={ownerOptions}
+            title="Owner"
             allLabel="All Owners"
+            className="h-8"
           />
         ) : null}
         {involvedOptions ? (
-          <FilterSelect
-            value={state.involved || null}
-            onValueChange={(value) => setState({ involved: value })}
+          <MultiFilterSelect
+            value={state.involved}
+            onValueChange={(value) => setState({ involved: value ?? null })}
             options={involvedOptions}
+            title="People Involved"
             allLabel="All People Involved"
+            className="h-8"
           />
         ) : null}
         {hasFilters ? (

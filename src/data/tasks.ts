@@ -512,9 +512,9 @@ function timelineOverlapFilter(from: string, to: string) {
 async function timelineScope(supabase: SupabaseClient, select: string, { from, to, filters = {} }: ListTasksForTimelineParams) {
   let query = supabase.from("tasks").select(select).is("deleted_at", null);
 
-  if (filters.season_id) query = query.eq("season_id", filters.season_id);
-  if (filters.brand_id) query = query.eq("brand_id", filters.brand_id);
-  if (filters.key_stage_id) query = query.eq("key_stage_id", filters.key_stage_id);
+  query = applyMultiEq(query, "season_id", decodeMultiFilterValue(filters.season_id));
+  query = applyMultiEq(query, "brand_id", decodeMultiFilterValue(filters.brand_id));
+  query = applyMultiEq(query, "key_stage_id", decodeMultiFilterValue(filters.key_stage_id));
   if (isTaskStatus(filters.status)) query = query.eq("status", filters.status);
 
   const participantIds = await participantTaskIds(supabase, filters);
@@ -635,9 +635,9 @@ export async function listOverdueTasks({ filters = {}, limit = 50 }: { filters?:
   const supabase = await createClient();
   let query = supabase.from("tasks").select(TASK_SELECT).is("deleted_at", null).eq("status", "overdue");
 
-  if (filters.season_id) query = query.eq("season_id", filters.season_id);
-  if (filters.brand_id) query = query.eq("brand_id", filters.brand_id);
-  if (filters.key_stage_id) query = query.eq("key_stage_id", filters.key_stage_id);
+  query = applyMultiEq(query, "season_id", decodeMultiFilterValue(filters.season_id));
+  query = applyMultiEq(query, "brand_id", decodeMultiFilterValue(filters.brand_id));
+  query = applyMultiEq(query, "key_stage_id", decodeMultiFilterValue(filters.key_stage_id));
 
   const participantIds = await participantTaskIds(supabase, filters);
   if (participantIds) {

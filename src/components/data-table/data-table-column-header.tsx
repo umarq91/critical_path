@@ -25,9 +25,13 @@ export const DataTableColumnHeader = <TData extends Record<string, unknown>, TVa
   wrap = false,
 }: DataTableColumnHeaderProps<TData, TValue>) => {
   const titleClassName = wrap ? "line-clamp-3 text-left whitespace-normal" : "truncate";
+  // Matches what DataTable's resized <TableHead> gives a plain-string header (Owner, Comments…),
+  // so titled and untitled headings share one size and line height instead of this component's
+  // own text-sm winning for sortable columns only.
+  const wrapTextClassName = wrap && "text-xs leading-snug";
 
   if (!column.getCanSort()) {
-    return <span className={cn("block text-sm font-medium text-foreground", titleClassName, className)}>{title}</span>;
+    return <span className={cn("block text-sm font-medium text-foreground", titleClassName, wrapTextClassName, className)}>{title}</span>;
   }
 
   const sorted = column.getIsSorted();
@@ -39,7 +43,8 @@ export const DataTableColumnHeader = <TData extends Record<string, unknown>, TVa
       onClick={column.getToggleSortingHandler()}
       className={cn(
         "-ml-2 max-w-full gap-1 px-2 text-sm font-medium text-foreground hover:bg-muted",
-        wrap && "h-auto items-start py-1",
+        wrap && "h-auto items-start py-0",
+        wrapTextClassName,
         className
       )}
     >

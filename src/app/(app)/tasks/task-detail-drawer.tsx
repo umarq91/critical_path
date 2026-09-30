@@ -12,7 +12,6 @@ import {
   History,
   Lock,
   Milestone,
-  MoreVertical,
   RefreshCw,
   Tag,
   UserCheck,
@@ -35,7 +34,7 @@ import { taskOwners, taskPeopleInvolved } from "@/app/(app)/tasks/task-parties";
 import { TASK_STATUS_CONFIG } from "@/constants/task-status";
 import { TASK_GENDER_CONFIG } from "@/constants/task-gender";
 import { DPSP_CATEGORY_CONFIG } from "@/constants/dpsp-category";
-import { formatDate } from "@/lib/dates";
+import { formatDate, formatTimestampDate } from "@/lib/dates";
 import type { Task } from "@/data/tasks";
 import type { LucideIcon } from "lucide-react";
 
@@ -113,15 +112,10 @@ export const TaskDetailDrawer = ({ task, open, onOpenChange, canAssignPeople, on
                 ) : null}
               </div>
             </div>
-            <div className="flex shrink-0 items-center gap-0.5">
-              <Button variant="ghost" size="icon-sm" disabled aria-label="More actions">
-                <MoreVertical className="size-4" />
-              </Button>
-              <SheetClose render={<Button variant="ghost" size="icon-sm" />}>
-                <X className="size-4" />
-                <span className="sr-only">Close</span>
-              </SheetClose>
-            </div>
+            <SheetClose render={<Button variant="ghost" size="icon-sm" className="shrink-0" />}>
+              <X className="size-4" />
+              <span className="sr-only">Close</span>
+            </SheetClose>
           </div>
 
           <div className="flex flex-1 flex-col gap-6 overflow-y-auto px-5 py-5">
@@ -158,10 +152,10 @@ export const TaskDetailDrawer = ({ task, open, onOpenChange, canAssignPeople, on
                   {task.due_date ? formatDate(task.due_date) : <span className="text-muted-foreground">Not set</span>}
                 </OverviewField>
                 <OverviewField icon={CalendarPlus} label="Created">
-                  {formatDate(task.created_at)}
+                  {formatTimestampDate(task.created_at)}
                 </OverviewField>
                 <OverviewField icon={History} label="Last Updated">
-                  {formatDate(task.updated_at)}
+                  {formatTimestampDate(task.updated_at)}
                 </OverviewField>
               </div>
             </div>

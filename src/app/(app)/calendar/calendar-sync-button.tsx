@@ -15,8 +15,8 @@ export interface CalendarSyncFilters extends CalendarTaskFilterState {
 
 interface CalendarSyncButtonProps {
   filters: CalendarSyncFilters;
-  /** One line per active filter, e.g. "Season: SS27, AW27". Empty means nothing is filtered. */
-  activeFilterLines: string[];
+  /** One entry per active filter, e.g. Season → ["SS27", "AW27"]. Empty means nothing is filtered. */
+  activeFilterLines: { title: string; labels: string[] }[];
   isSyncing: boolean;
   onSyncingChange: (isSyncing: boolean) => void;
 }
@@ -25,9 +25,9 @@ function pluralize(count: number, singular: string, plural: string) {
   return `${count} ${count === 1 ? singular : plural}`;
 }
 
-// Sync pushes exactly what the Calendar's filters show (see syncGoogleCalendar). With nothing
-// filtered it syncs straight away, as it always has. With filters on it asks first, listing
-// them, since a narrowed sync is easy to trigger without noticing a filter left on.
+// Sync pushes exactly what the Calendar's filters show (see syncGoogleCalendar), and always
+// asks first: with filters on it lists them, since a narrowed sync is easy to trigger without
+// noticing a filter left on; with none it says everything is going (client request).
 export const CalendarSyncButton = ({ filters, activeFilterLines, isSyncing, onSyncingChange }: CalendarSyncButtonProps) => {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const isFiltered = activeFilterLines.length > 0;
@@ -69,7 +69,7 @@ export const CalendarSyncButton = ({ filters, activeFilterLines, isSyncing, onSy
         size="sm"
         variant="outline"
         className="transition-colors duration-150"
-        onClick={() => (isFiltered ? setConfirmOpen(true) : void runSync())}
+        onClick={() => setConfirmOpen(true)}
         disabled={isSyncing}
         title={isFiltered ? "Push the tasks matching your filters to Google Calendar" : "Push your tasks to Google Calendar"}
       >
@@ -79,13 +79,48 @@ export const CalendarSyncButton = ({ filters, activeFilterLines, isSyncing, onSy
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
-        title="Sync filtered tasks to Google?"
-        description={`Only tasks and holidays matching these filters will be pushed. ${activeFilterLines.join(". ")}. Events already on Google Calendar stay there.`}
+        title={isFiltered ? "Sync filtered tasks to Google Calendar?" : "Sync ALL tasks to Google Calendar?"}
+        description={
+          isFiltered ? (
+            <>
+              <strong className="font-semibold text-foreground">Only</strong> the tasks and holidays matching these
+              filters will be synced:
+            </>
+          ) : (
+            <>
+              No filters are selected. <strong className="font-semibold text-foreground">ALL</strong> your tasks and
+              holidays will be synced to your Google Calendar.
+            </>
+          )
+        }
         confirmLabel="Sync"
         confirmVariant="default"
         pendingLabel="Syncing…"
         onConfirm={runSync}
-      />
+      >
+        {isFiltered ? (
+          <>
+            <dl className="flex flex-col divide-y divide-border-subtle rounded-lg border border-border">
+              {activeFilterLines.map((line) => (
+                <div key={line.title} className="flex flex-col gap-1.5 px-3.5 py-3">
+                  <dt className="text-overline text-muted-foreground uppercase">{line.title}</dt>
+                  <dd className="flex flex-wrap gap-1.5">
+                    {line.labels.map((label) => (
+                      <span
+                        key={label}
+                        className="rounded-full bg-primary-tint px-2.5 py-0.5 text-xs font-medium text-primary"
+                      >
+                        {label}
+                      </span>
+                    ))}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+            <p className="text-xs text-muted-foreground">Events already on your Google Calendar stay there.</p>
+          </>
+        ) : null}
+      </ConfirmDialog>
     </>
   );
 };

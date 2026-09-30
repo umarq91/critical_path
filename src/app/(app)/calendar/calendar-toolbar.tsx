@@ -23,7 +23,7 @@ const VIEW_LABELS: Record<CalendarView, string> = { day: "Day", week: "Week", mo
 function filterLine(title: string, selected: string[], options: DataTableFilterOption[]) {
   if (selected.length === 0) return null;
   const labels = selected.map((value) => options.find((option) => option.value === value)?.label ?? value);
-  return `${title}: ${labels.join(", ")}`;
+  return { title, labels };
 }
 
 function rangeLabel(view: CalendarView, anchorDate: Date) {
@@ -86,7 +86,7 @@ export const CalendarToolbar = ({
     filterLine("Owner", state.owner, partyOptions),
     filterLine("People Involved", state.involved, partyOptions),
     filterLine("Holiday country", state.countries, holidayCountryOptions),
-  ].filter((line): line is string => line !== null);
+  ].filter((line) => line !== null);
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">

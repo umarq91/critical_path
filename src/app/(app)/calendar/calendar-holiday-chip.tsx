@@ -1,4 +1,5 @@
 import { PartyPopper } from "lucide-react";
+import { formatHolidayTitle } from "@/constants/holiday-country";
 import type { Holiday } from "@/data/holidays";
 
 interface CalendarHolidayChipProps {
@@ -11,7 +12,8 @@ interface CalendarHolidayChipProps {
 // already do the job of distinguishing countries; this chip's job is just "this day is a
 // public holiday".
 export const CalendarHolidayChip = ({ holiday, variant = "compact" }: CalendarHolidayChipProps) => {
-  const title = holiday.description ? `${holiday.name} — ${holiday.description}` : holiday.name;
+  const name = formatHolidayTitle(holiday);
+  const title = holiday.description ? `${name} — ${holiday.description}` : name;
 
   if (variant === "compact") {
     return (
@@ -20,7 +22,7 @@ export const CalendarHolidayChip = ({ holiday, variant = "compact" }: CalendarHo
         title={title}
       >
         <PartyPopper className="size-3 shrink-0" />
-        <span className="truncate">{holiday.name}</span>
+        <span className="truncate">{name}</span>
       </span>
     );
   }
@@ -29,8 +31,7 @@ export const CalendarHolidayChip = ({ holiday, variant = "compact" }: CalendarHo
     <div className="flex flex-col gap-1 rounded-lg border border-accent-teal/30 bg-accent-teal/15 p-3">
       <div className="flex items-center gap-2">
         <PartyPopper className="size-4 shrink-0 text-accent-teal" />
-        <span className="text-base font-medium text-accent-teal lg:text-lg">{holiday.name}</span>
-        <span className="text-sm text-accent-teal/80">{holiday.country}</span>
+        <span className="text-base font-medium text-accent-teal lg:text-lg">{name}</span>
       </div>
       {holiday.description ? <p className="text-sm text-accent-teal/80">{holiday.description}</p> : null}
     </div>

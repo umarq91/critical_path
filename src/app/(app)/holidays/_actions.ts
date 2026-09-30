@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import Papa from "papaparse";
 import { requirePermission } from "@/lib/require-permission";
-import { holidaySchema, MAX_BULK_HOLIDAY_ROWS } from "@/app/(app)/holidays/schema";
+import { csvDateToIso, holidaySchema, HOLIDAY_CSV_DATE_FORMAT_ERROR, MAX_BULK_HOLIDAY_ROWS } from "@/app/(app)/holidays/schema";
 import { listHolidays, type ListHolidaysParams } from "@/data/holidays";
 import { resyncHolidayCalendarEvents, deleteHolidayCalendarEvents } from "@/lib/google/holiday-calendar-sync";
 
@@ -91,7 +91,8 @@ export interface BulkImportRowResult {
 // Matches a parsed CSV header against HOLIDAY_CSV_HEADERS regardless of case or spacing, so
 // "Event Name", "event_name" and "EVENT NAME" all resolve the same column.
 function normaliseHeader(header: string) {
-  return header.trim().toLowerCase().replace(/[\s_-]+/g, "");
+  // The template's date header carries a "(DD-MM-YYYY)" hint — dropped before matching.
+  return header.replace(/\(.*\)/, "").trim().toLowerCase().replace(/[\s_-]+/g, "");
 }
 
 const FIELD_BY_HEADER: Record<string, "holiday_date" | "name" | "description" | "country"> = {
@@ -137,22 +138,25 @@ export async function bulkImportHolidays(formData: FormData): Promise<
 
   for (const [index, rawRow] of parsed.data.entries()) {
     const rowNumber = index + 2; // +1 for the header row, +1 for 1-based counting
+    // Results echo the date as typed (day-first), not the ISO form it's stored as.
+    const typedDate = (rawRow.holiday_date ?? "").trim();
+    const isoDate = csvDateToIso(typedDate);
     const candidate = {
       country: rawRow.country ?? "",
-      holiday_date: rawRow.holiday_date ?? "",
+      holiday_date: isoDate ?? "",
       name: rawRow.name ?? "",
       description: rawRow.description || undefined,
     };
 
-    const rowParsed = holidaySchema.safeParse(candidate);
-    if (!rowParsed.success) {
+    const rowParsed = isoDate ? holidaySchema.safeParse(candidate) : null;
+    if (!rowParsed?.success) {
       results.push({
         row: rowNumber,
-        date: candidate.holiday_date,
+        date: typedDate,
         name: candidate.name,
         country: candidate.country,
         status: "invalid",
-        error: rowParsed.error.issues[0]?.message ?? "Invalid row",
+        error: rowParsed ? (rowParsed.error.issues[0]?.message ?? "Invalid row") : HOLIDAY_CSV_DATE_FORMAT_ERROR,
       });
       continue;
     }
@@ -161,7 +165,7 @@ export async function bulkImportHolidays(formData: FormData): Promise<
     if (acceptedThisBatch.has(dedupeKey)) {
       results.push({
         row: rowNumber,
-        date: rowParsed.data.holiday_date,
+        date: typedDate,
         name: rowParsed.data.name,
         country: rowParsed.data.country,
         status: "duplicate",
@@ -175,7 +179,7 @@ export async function bulkImportHolidays(formData: FormData): Promise<
       const isDuplicate = error.code === "23505";
       results.push({
         row: rowNumber,
-        date: rowParsed.data.holiday_date,
+        date: typedDate,
         name: rowParsed.data.name,
         country: rowParsed.data.country,
         status: isDuplicate ? "duplicate" : "invalid",
@@ -187,7 +191,7 @@ export async function bulkImportHolidays(formData: FormData): Promise<
     acceptedThisBatch.add(dedupeKey);
     results.push({
       row: rowNumber,
-      date: rowParsed.data.holiday_date,
+      date: typedDate,
       name: rowParsed.data.name,
       country: rowParsed.data.country,
       status: "created",

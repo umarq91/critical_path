@@ -16,7 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { decodeMultiFilterValue, encodeMultiFilterValue } from "@/constants/data-table-filters";
+import { MultiFilterSelect } from "@/components/shared/multi-filter-select";
 import type { dataTableFeatures, DataTableColumnMeta, DataTableFilterOption } from "@/components/data-table/table-features";
 
 export interface DataTableToolbarFilter {
@@ -114,47 +114,15 @@ export const DataTableToolbar = <TData extends Record<string, unknown>>({
         const allLabel = filter.placeholder ?? `All ${filter.title}`;
 
         if (filter.multiple) {
-          const selected = decodeMultiFilterValue(column.getFilterValue() as string | undefined);
-          const toggleOption = (optionValue: string, checked: boolean) => {
-            const next = checked ? [...selected, optionValue] : selected.filter((value) => value !== optionValue);
-            column.setFilterValue(encodeMultiFilterValue(next));
-          };
-          const triggerLabel =
-            selected.length === 0
-              ? allLabel
-              : selected.length === 1
-                ? (filter.options.find((option) => option.value === selected[0])?.label ?? selected[0])
-                : `${filter.title} (${selected.length})`;
-
           return (
-            <DropdownMenu key={filter.columnId}>
-              <DropdownMenuTrigger
-                className={cn(buttonVariants({ variant: "outline" }), "h-10 min-w-0 justify-between gap-2 font-normal")}
-              >
-                {triggerLabel}
-              </DropdownMenuTrigger>
-              {/* min-w-56 overrides the primitive's default w-(--anchor-width) — that ties the
-                  popup's width to the trigger button's, which shrinks to fit whatever short
-                  label ("All X" / "X (2)") it currently shows, squeezing genuinely long option
-                  labels (department/person/season names) into a too-narrow list. min-width
-                  doesn't fight the anchor-width class (different CSS property), it just puts a
-                  floor under it. */}
-              <DropdownMenuContent align="start" className="min-w-56">
-                <DropdownMenuGroup>
-                  <DropdownMenuLabel>{filter.title}</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  {filter.options.map((option) => (
-                    <DropdownMenuCheckboxItem
-                      key={option.value}
-                      checked={selected.includes(option.value)}
-                      onCheckedChange={(checked) => toggleOption(option.value, !!checked)}
-                    >
-                      {option.label}
-                    </DropdownMenuCheckboxItem>
-                  ))}
-                </DropdownMenuGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <MultiFilterSelect
+              key={filter.columnId}
+              value={column.getFilterValue() as string | undefined}
+              onValueChange={(next) => column.setFilterValue(next)}
+              options={filter.options}
+              title={filter.title}
+              allLabel={allLabel}
+            />
           );
         }
 

@@ -337,6 +337,12 @@ export const DataTable = <TData extends Record<string, unknown>>({
                 >
                   {row.getVisibleCells().map((cell) => {
                     const meta = cell.column.columnDef.meta as DataTableColumnMeta | undefined;
+                    // Called as a plain function, NOT through <FlexRender>: FlexRender mounts the
+                    // renderer as a component, and every columns.tsx rebuilds its cell functions
+                    // whenever the row-edit draft changes. A new function is a new component type
+                    // to React, so each keystroke remounted the cell and dropped the input's focus.
+                    // The catch: a cell renderer must not call hooks itself (put them in a child).
+                    const cellDef = cell.column.columnDef.cell;
                     return (
                       <TableCell
                         key={cell.id}
@@ -347,7 +353,7 @@ export const DataTable = <TData extends Record<string, unknown>>({
                         )}
                         onMouseEnter={meta?.wrap ? undefined : showTitleWhenTruncated}
                       >
-                        <FlexRender cell={cell} />
+                        {typeof cellDef === "function" ? cellDef(cell.getContext()) : cellDef}
                       </TableCell>
                     );
                   })}

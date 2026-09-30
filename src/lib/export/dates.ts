@@ -1,4 +1,4 @@
-import { parseDateOnly } from "@/lib/dates";
+import { ORG_TIMEZONE, parseDateOnly } from "@/lib/dates";
 
 // A COLUMN DEFINITION calls these, not a writer — csv.ts and xlsx.ts both just receive an
 // already-correct `Date` off `ExportColumn.getValue()` and format it, so there is exactly one
@@ -22,11 +22,23 @@ export function toExportDateOnly(value: string): Date {
   return new Date(Date.UTC(local.getFullYear(), local.getMonth(), local.getDate()));
 }
 
-// `timestamptz` columns (created_at/updated_at) carry a real instant with explicit offset info,
-// so `new Date(value)` is unambiguous and needs no correction — a writer's UTC-based rendering
-// is then simply "display this instant on the UTC clock", which is what the exported column is
-// labelled as ("(UTC)"). Kept as a named export so call sites don't have to reason about which
-// date columns need the fix above and which don't.
+// `timestamptz` columns (created_at/updated_at) are exported on the client's own clock
+// (ORG_TIMEZONE, Melbourne), matching what the app shows on screen. Both writers render a Date
+// on the UTC clock (see above), so this returns a Date whose UTC fields are the Melbourne
+// wall-clock reading of the instant — deliberately NOT the true instant. The column label says
+// "(Melbourne time)" for that reason; don't do arithmetic on the result.
+const ORG_CLOCK = new Intl.DateTimeFormat("en-CA", {
+  timeZone: ORG_TIMEZONE,
+  hourCycle: "h23",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+});
+
 export function toExportTimestamp(value: string): Date {
-  return new Date(value);
+  const parts = Object.fromEntries(ORG_CLOCK.formatToParts(new Date(value)).map((part) => [part.type, Number(part.value)]));
+  return new Date(Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second));
 }

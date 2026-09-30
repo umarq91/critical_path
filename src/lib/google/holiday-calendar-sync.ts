@@ -1,4 +1,5 @@
 import "server-only";
+import { formatHolidayTitle } from "@/constants/holiday-country";
 import { upsertCalendarEvent, deleteCalendarEvent } from "@/lib/google/calendar";
 import type { createClient } from "@/lib/supabase/server";
 
@@ -7,6 +8,7 @@ type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
 export interface SyncableHoliday {
   id: string;
   name: string;
+  country: string;
   holiday_date: string;
 }
 
@@ -22,7 +24,7 @@ export async function pushHolidayToGoogleCalendar(
 ): Promise<boolean> {
   const result = await upsertCalendarEvent(profileId, {
     eventId: existingEventId,
-    title: holiday.name,
+    title: formatHolidayTitle(holiday),
     date: holiday.holiday_date,
   });
   if (!result) return false;

@@ -158,7 +158,7 @@ export const TASK_RECORD_COLUMN_GROUPS: ExportColumnGroup<Task>[] = [
       },
       {
         key: "created_at",
-        label: "Created At (UTC)",
+        label: "Created At (Melbourne time)",
         category: "dates",
         defaultSelected: false,
         dataType: "date",
@@ -167,7 +167,7 @@ export const TASK_RECORD_COLUMN_GROUPS: ExportColumnGroup<Task>[] = [
       },
       {
         key: "updated_at",
-        label: "Last Updated (UTC)",
+        label: "Last Updated (Melbourne time)",
         category: "dates",
         defaultSelected: false,
         dataType: "date",

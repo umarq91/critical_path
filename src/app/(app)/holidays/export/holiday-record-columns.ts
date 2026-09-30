@@ -20,8 +20,8 @@ export const HOLIDAY_RECORD_COLUMN_GROUPS: ExportColumnGroup<Holiday>[] = [
     key: "dates",
     label: "Record Dates",
     columns: [
-      { key: "created_at", label: "Created At (UTC)", category: "dates", defaultSelected: false, dataType: "date", width: 20, getValue: (h) => toExportTimestamp(h.created_at) },
-      { key: "updated_at", label: "Last Updated (UTC)", category: "dates", defaultSelected: false, dataType: "date", width: 20, getValue: (h) => toExportTimestamp(h.updated_at) },
+      { key: "created_at", label: "Created At (Melbourne time)", category: "dates", defaultSelected: false, dataType: "date", width: 20, getValue: (h) => toExportTimestamp(h.created_at) },
+      { key: "updated_at", label: "Last Updated (Melbourne time)", category: "dates", defaultSelected: false, dataType: "date", width: 20, getValue: (h) => toExportTimestamp(h.updated_at) },
     ],
   },
 ];

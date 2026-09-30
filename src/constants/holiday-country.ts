@@ -7,3 +7,14 @@ export const KNOWN_HOLIDAY_COUNTRIES = [
   { code: "IN", label: "India" },
   { code: "TR", label: "Türkiye" },
 ] as const;
+
+/** "AU" → "Australia"; a country outside the known list is shown exactly as it was typed. */
+export function holidayCountryLabel(country: string) {
+  return KNOWN_HOLIDAY_COUNTRIES.find((known) => known.code === country.trim().toUpperCase())?.label ?? country;
+}
+
+/** How a holiday is titled wherever it is shown (client request): "Australia - New Year's Day".
+ *  Display only — `public_holidays.name` stays the bare event name. */
+export function formatHolidayTitle(holiday: { country: string; name: string }) {
+  return `${holidayCountryLabel(holiday.country)} - ${holiday.name}`;
+}

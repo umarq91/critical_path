@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { SEASON_STATUS_CONFIG } from "@/constants/season-status";
 import type { Season } from "@/data/seasons";
-import { formatDate } from "@/lib/dates";
+import { formatDate, formatTimestampDate } from "@/lib/dates";
 
 const DetailRow = ({ label, value, icon: Icon }: { label: string; value: string; icon?: LucideIcon }) => (
   <div className="flex items-center justify-between py-2 text-sm">
@@ -40,7 +40,7 @@ export const SelectedSeasonPanel = ({ season }: { season: Season }) => {
         <DetailRow label="Start Date" value={formatDate(season.start_date)} icon={Calendar} />
         <DetailRow label="End Date" value={formatDate(season.end_date)} icon={Calendar} />
         <DetailRow label="Owner" value={ownerName} />
-        <DetailRow label="Last Updated" value={formatDate(season.updated_at)} />
+        <DetailRow label="Last Updated" value={formatTimestampDate(season.updated_at)} />
       </div>
       {/* Brands/Tasks/Completed/In Progress/Not Started/Overdue/Owners rows from the mockup
           are dropped here — no real source until tasks (and a brand<->season link) exist. */}

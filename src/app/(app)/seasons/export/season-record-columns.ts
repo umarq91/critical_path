@@ -33,8 +33,8 @@ export const SEASON_RECORD_COLUMN_GROUPS: ExportColumnGroup<Season>[] = [
     columns: [
       { key: "start_date", label: "Start Date", category: "dates", defaultSelected: true, dataType: "date", width: 14, getValue: (s) => toExportDateOnly(s.start_date) },
       { key: "end_date", label: "End Date", category: "dates", defaultSelected: true, dataType: "date", width: 14, getValue: (s) => toExportDateOnly(s.end_date) },
-      { key: "created_at", label: "Created At (UTC)", category: "dates", defaultSelected: false, dataType: "date", width: 20, getValue: (s) => toExportTimestamp(s.created_at) },
-      { key: "updated_at", label: "Last Updated (UTC)", category: "dates", defaultSelected: false, dataType: "date", width: 20, getValue: (s) => toExportTimestamp(s.updated_at) },
+      { key: "created_at", label: "Created At (Melbourne time)", category: "dates", defaultSelected: false, dataType: "date", width: 20, getValue: (s) => toExportTimestamp(s.created_at) },
+      { key: "updated_at", label: "Last Updated (Melbourne time)", category: "dates", defaultSelected: false, dataType: "date", width: 20, getValue: (s) => toExportTimestamp(s.updated_at) },
     ],
   },
 ];
