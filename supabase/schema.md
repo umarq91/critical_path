@@ -357,7 +357,7 @@ Exists so "tasks relevant to me" stays one query rather than the three hops (me 
 | `refresh_token` | text, nullable | Google only returns one on first consent (or a forced re-consent); preserved across routine access-token refreshes, see `saveGoogleTokens()` |
 | `expires_at` | timestamptz, not null | when `access_token` expires — `lib/google/calendar.ts` lets `googleapis` auto-refresh once this passes |
 | `scope` | text, nullable | the scope string granted, for reference |
-| `calendar_id` | text, nullable | cached Google id of this user's "Critical Path" secondary calendar, where every event is pushed (`0031`). null until the first push, and reset to null when the calendar turns out to have been deleted on Google's side |
+| `calendar_id` | text, nullable | cached Google id of this user's "Critical Path Calendar" secondary calendar, where every event is pushed (`0031`). null until the first push, and reset to null when the calendar turns out to have been deleted on Google's side |
 | `created_at` / `updated_at` | timestamptz | |
 
 **RLS: zero policies.** RLS is enabled but nothing grants access — not even a `profile_id = auth.uid()` self-read, since these are live API credentials, not display data. The only access path is `lib/google/oauth-tokens.ts`, which always goes through the service-role client (`lib/supabase/admin.ts`) and scopes every query to a specific `profile_id` in application code.

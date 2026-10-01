@@ -72,7 +72,7 @@ export async function syncGoogleCalendar(input: unknown) {
     };
   }
 
-  // Finds or creates the "Critical Path" calendar before anything is pushed. A token granted
+  // Finds or creates the "Critical Path Calendar" calendar before anything is pushed. A token granted
   // before the calendar-list/create scopes were added fails here once, with a clear message,
   // instead of every push below failing silently.
   const calendarStatus = await ensureCriticalPathCalendar(auth.userId);

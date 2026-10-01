@@ -64,7 +64,7 @@ export async function saveGoogleTokens(
   );
 }
 
-// The cached id of the user's "Critical Path" calendar (0031). null clears it, so the next push
+// The cached id of the user's "Critical Path Calendar" calendar (0031). null clears it, so the next push
 // searches Google again. Used after the calendar is deleted on Google's side.
 export async function saveGoogleCalendarId(profileId: string, calendarId: string | null): Promise<void> {
   const admin = createAdminClient();
