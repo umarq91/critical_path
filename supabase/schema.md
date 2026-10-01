@@ -217,9 +217,9 @@ Seeded from real client data — see `supabase/seed-departments.sql` and the Dep
 | `deleted_by` | uuid, FK → `profiles.id`, nullable, `on delete set null` | stamped by `deleteTask` alongside `deleted_at` |
 | `is_locked` | boolean, default `false` | column only — no enforcement yet, see below |
 | `locked_by` / `locked_at` | uuid FK → `profiles.id` / timestamptz, nullable | columns only — no enforcement yet, see below |
-| `google_event_id` | text, nullable | Google Calendar event id this task is pushed to — set by `syncGoogleCalendar()`, see below |
-| `google_calendar_owner_id` | uuid, FK → `profiles.id`, nullable, `on delete set null` | whose Google Calendar `google_event_id` actually lives on. A task maps to exactly one event, so the first eligible **owner** to sync claims it and other owners skip it — needed so `updateTask`/`deleteTask` touch the event on the right account |
-| `google_synced_at` | timestamptz, nullable | last time this task was **pushed** to Google Calendar. Since `0019` there is no pull, so this is a record of the last outbound write and never an input to a conflict check |
+| `google_event_id` | text, nullable | **Superseded by `task_calendar_events` (`0034`); no longer written or read.** Was the single Google event this task was pushed to |
+| `google_calendar_owner_id` | uuid, FK → `profiles.id`, nullable, `on delete set null` | **Superseded by `task_calendar_events` (`0034`); no longer written or read.** Was whose calendar `google_event_id` lived on (first-claim-wins) |
+| `google_synced_at` | timestamptz, nullable | **Superseded by `task_calendar_events.synced_at` (`0034`); no longer written or read.** Was the last outbound push |
 | `created_at` / `updated_at` | timestamptz | |
 | `deleted_at` | timestamptz, nullable | soft delete |
 | `dpsp_category` | `task_dpsp_category`, nullable, added `0023_tasks_dpsp_category.sql` | Optional — groups a task into the DPSP Flywheel board (`/dpsp-flywheel`) under Demand, Product, Sales or Profit. Most tasks have no category and simply don't appear on that board; it's an additional lens over the same task, not a replacement for `key_stage_id` |
@@ -363,7 +363,7 @@ Exists so "tasks relevant to me" stays one query rather than the three hops (me 
 **RLS: zero policies.** RLS is enabled but nothing grants access — not even a `profile_id = auth.uid()` self-read, since these are live API credentials, not display data. The only access path is `lib/google/oauth-tokens.ts`, which always goes through the service-role client (`lib/supabase/admin.ts`) and scopes every query to a specific `profile_id` in application code.
 
 ### `holiday_calendar_events`
-*Migration: `0028_holiday_calendar_events.sql`. Tracks which `public_holidays` row has been pushed to which user's Google Calendar — the join table a task doesn't need (a task has exactly one owner, so its own `google_event_id`/`google_calendar_owner_id` columns are enough), because a holiday has none: it can be pushed to many users' calendars independently.*
+*Migration: `0028_holiday_calendar_events.sql`. Tracks which `public_holidays` row has been pushed to which user's Google Calendar: a holiday can be pushed to many users' calendars independently. Tasks have used the same shape since `0034` (`task_calendar_events`).*
 
 | Column | Type | Notes |
 |---|---|---|
@@ -378,6 +378,22 @@ Exists so "tasks relevant to me" stays one query rather than the three hops (me 
 **RLS: self or admin**, same shape as `profiles_update_self_or_admin` — a user manages only their own sync links (`profile_id = auth.uid()`); `deleteHoliday`/`updateHoliday` need the broader `is_admin()` leg because cleaning up or refreshing a deleted/edited holiday's events means touching every affected user's row, not just the acting admin's own.
 
 **On delete, read before you cascade.** Deleting a holiday cascades its `holiday_calendar_events` rows away immediately — so `deleteHoliday` (`holidays/_actions.ts`) reads every `(profile_id, google_event_id)` pair *first* and best-effort deletes each Google event, because that link is unrecoverable the moment the row is gone. If a Google call fails at that moment (network blip, revoked token), the event is orphaned on that one user's calendar with no later retry path — accepted, not fixed, see `things-to-know.md`'s Holidays section.
+
+### `task_calendar_events`
+*Migration: `0034_task_calendar_events.sql`. One row per (task, user) whose Google Calendar holds a copy of that task. Sync pushes every task on the platform to every syncing user, so a task can be on many calendars; replaces `tasks.google_event_id`/`google_calendar_owner_id`/`google_synced_at`, whose existing links `0034` copied in.*
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid, PK | |
+| `task_id` | uuid, FK → `tasks.id`, not null, `on delete cascade` | |
+| `profile_id` | uuid, FK → `profiles.id`, not null, `on delete cascade` | whose calendar the event is on |
+| `google_event_id` | text, not null | |
+| `content_hash` | text, nullable | hash of the title, description and date last pushed. Sync skips the Google call when unchanged; null forces a push |
+| `synced_at` | timestamptz, not null, default `now()` | last outbound push of this copy |
+
+Unique `(task_id, profile_id)`; index on `profile_id`.
+
+**RLS.** Select: any active internal (non-`external`) user, because editing or deleting a task updates every user's copy. Insert: own rows (or admin). Update/delete: own rows, or `standard_user`/`admin` on any row (the edit/delete fan-out). A push updates an existing row rather than upserting, since an upsert is also checked against the self-only insert policy.
 
 ### `api_keys`
 *Migration: `0025_api_keys.sql`. Backs `/management/integrations` and auth for the read-only integration API (`/integration/v1/*`) — see things-to-know.md's Integrations section and `docs/databricks-integration-api-spec.md`.*
@@ -444,6 +460,7 @@ Exists so "tasks relevant to me" stays one query rather than the three hops (me 
 | `0031_google_calendar_id.sql` | Adds nullable `google_oauth_tokens.calendar_id`, the cached id of each user's "Critical Path" secondary calendar that Calendar sync now pushes to instead of `primary`. |
 | `0032_external_sign_in_code.sql` | `session_verifications` (service-role-only), `is_active_user()` now also requires a verified session for `external` profiles, and the lookup (`seasons`, `brands`, `brand_seasons`, `key_stages`, `departments`, `public_holidays`) and own-row (`saved_views`, `reminder_rules`, `reminder_rule_tasks`, `holiday_calendar_events`, `profiles` update) policies now pass through `is_active_user()` too. Backs the emailed sign-in code for external accounts. |
 | `0033_reset_google_calendar_id.sql` | Data only: sets every `google_oauth_tokens.calendar_id` to null, because the synced calendar was renamed to "Critical Path Calendar" and the cached ids pointed at the old "Critical Path" one. No schema change. |
+| `0034_task_calendar_events.sql` | `task_calendar_events` (task × profile → Google event id + `content_hash`), unique per pair, RLS as described above; copies every existing `tasks.google_event_id`/`google_calendar_owner_id` link into it. Backs syncing every task to every user's own calendar. The `tasks` sync columns and `0029`'s viewer policy/trigger are left in place but unused. |
 
 ## Not built yet
 

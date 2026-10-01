@@ -142,16 +142,42 @@ overwrote the task's name and due date, which made anyone's phone a writer to or
 and cached every unrelated calendar event in `external_calendar_events` for display. Both were
 removed in `0019`.
 
-**`google_synced_at` no longer means what its name suggests.** It is the last time we *pushed*,
-full stop. It is not compared against anything Google reports, because there is no conflict to
-resolve when only one side writes.
+**Every syncing user gets their own copy of every task (`task_calendar_events`, `0034`).**
+Client request: Sync pushes every task on the platform, not the caller's My Tasks. A task used
+to carry one `google_event_id`/`google_calendar_owner_id` pair, so it reached only whoever synced
+it first (first-claim-wins), which with department-only owners meant one member of a department
+and nobody else. Now each (task, profile) pair has its own row, the same shape as
+`holiday_calendar_events`. `tasks.google_event_id`/`google_calendar_owner_id`/`google_synced_at`
+are **no longer written or read** (0034 copied their links over); the integration API derives
+its one `calendar_event_id`/`last_synced_at` per task from the latest push of any copy
+(`lib/integration/task-calendar-links.ts`). `synced_at` is the last time we *pushed*, never
+compared with anything Google reports.
 
-**One task = one Google event, so joint ownership is first-claim-wins.** A task carries a single
-`google_event_id`/`google_calendar_owner_id` pair, but owners are 1..n (34% of the client's rows
-have two). Whoever syncs first claims the event; other owners skip that task rather than minting
-a duplicate and orphaning the original — `syncGoogleCalendar` reports those as `skippedCount`.
-If per-owner calendar copies are ever wanted, that's a `task_calendar_events(task_id, profile_id,
-event_id)` table, not a tweak to these two columns.
+**Unchanged tasks aren't re-pushed.** `content_hash` is a hash of the title, description and
+date the event was last pushed with; `pushTaskToGoogleCalendar` skips the Google call when it
+matches. That's what keeps a repeat sync of ~800+ tasks to a handful of calls. The catch: an
+event someone deletes by hand in Google isn't recreated until the task changes. Holidays use a
+simpler rule: one already linked for this user is skipped (an admin's holiday edit already
+updates every copy via `resyncHolidayCalendarEvents`).
+
+**Sync runs as a plan plus browser-driven batches, so it can show progress.** A user's first
+sync pushes every task (~800 events, roughly 1½–3 minutes). One Server Action can't report
+progress, so `planGoogleCalendarSync` does the checks, the removal pass and works out which
+items need a Google call (the rest count as "skipped"), then `use-google-calendar-sync.ts` calls
+`pushGoogleCalendarBatch` once per `SYNC_BATCH_SIZE` (25) items and the progress dialog counts
+up between calls. Each batch re-reads its tasks rather than trusting the plan, and runs 4 Google
+calls at a time; `calendar.ts` backs off on rate-limit errors. The loop lives in the browser:
+closing or refreshing the tab stops it (hence the "Do not close this tab" warning and the
+`beforeunload` prompt), but moving to another page in the app doesn't, and a toast reports the
+result either way. Stopping or losing the tab is harmless: the next sync skips what's done. The
+Calendar page's `maxDuration = 300` is now just headroom for the plan step.
+
+**Edits and deletes fan out to every copy, after the response.** `updateTask` (name, due date,
+season) and `setTaskParticipants` call `resyncTaskCalendarEvents`; `deleteTask` calls
+`deleteTaskCalendarEvents`. Both run in `after()` so a save isn't held up by one Google call per
+user. An editor touching someone else's copy is why `0034`'s update/delete policies allow
+`standard_user`/`admin` on any row and why `pushTaskToGoogleCalendar` updates an existing link
+instead of upserting it (an upsert is checked against the insert policy too, which is self-only).
 
 **Event title/description are formatted, not a bare copy of `task_name`.** Client-requested:
 title is `"<Season> - <Task Name>"` and the description is always two lines, `"OWNER: …"` /
@@ -162,9 +188,9 @@ only needs flat strings, not a full party shape). Both lines are always present 
 is empty (`"OWNER: "` with nothing after the colon) — a consistently-shaped description scans
 better across many events than one that silently drops a line. Formatting lives in
 `formatEventTitle`/`formatEventDescription` (`lib/google/task-calendar-sync.ts`), which is what
-`pushTaskToGoogleCalendar` calls — the one shared push both the Sync button and `updateTask`'s
-resync go through, so both paths format identically. Both call sites had to widen their
-`tasks` select to join `season:seasons(season_name)` and `participants:task_participants(role,
+`pushTaskToGoogleCalendar` calls — the one shared push both the Sync button and the edit
+fan-out go through, so both paths format identically. Both load the task with
+`SYNCABLE_TASK_SELECT`-shaped joins `season:seasons(season_name)` and `participants:task_participants(role,
 profile:profiles(full_name, email), department:departments(name))` to have the data to format
 with.
 
@@ -175,8 +201,8 @@ Country) to `syncGoogleCalendar`, which narrows the push through the same
 `listHolidaysByDateRange` for countries). The page and the action must keep sharing that pair,
 or the two drift apart. Three rules are easy to break:
 - **Filters narrow the push, never the removal pass.** A task filtered out of this sync keeps
-  its Google event. Only leaving the user's scope (deleted, or removed from the task) removes
-  one. Sync Season A and then Season B, and both stay on Google.
+  its Google event. Only the task being deleted (or losing its due date) removes one. Sync
+  Season A and then Season B, and both stay on Google.
 - **The date window stays fixed** (2 years back to 3 years ahead), whatever month is on screen.
   Filters narrow that window's tasks; the visible range does not. It was 90 days back to 180 days ahead until a
   task due ~14 months out silently didn't sync (client request). Each in-window task is one
@@ -188,26 +214,16 @@ Owner / People Involved options are the whole-organisation party list, so the pa
 them for roles with `lookups.view`. External users get no options, and those two filters don't
 render for them.
 
-**Push scope is exactly the My Tasks scope, not just "owner".** `syncGoogleCalendar`
-(`calendar/_actions.ts`) pushes every task this profile created, owns, or is People-Involved
-on — named directly or through their department, via `task_participant_profiles`
-(`taskIdsForProfile`) — the same union `resolvePersonalScope` (`data/tasks.ts`) uses for the My
-Tasks page. It used to filter `task_participant_profiles` to `role = "owner"` only, which
-silently dropped every "Involved" task and made it look like only self-created tasks synced (a
-self-created task is nearly always also owner-participant, so that leg masked the bug). Not
-`tasks.assignee_id` either — department-owned tasks are the overwhelming majority (832 of 833
-rows), and `assignee_id` is null for all of them, so scoping by that superseded column would push
-almost nothing.
+**Push scope is every task on the platform, and the Calendar page shows the same set.**
+`listTasksByDueDateRange` no longer takes `involvesProfileId`; RLS still narrows an external
+user to their own tasks (they can't sync anyway). It pages through results 1000 at a time,
+because Sync asks for a five-year window and PostgREST silently caps one response at 1000 rows.
 
-**Sync also removes, not just pushes.** `syncGoogleCalendar` first scans every task whose
-`google_calendar_owner_id` is the calling profile and that has since fallen out of their scope
-(soft-deleted, or they were taken off it as owner/involved/creator), deletes that event via
-`deleteCalendarEvent` (best-effort, same as `deleteTask`'s own cleanup), and clears
-`google_event_id`/`google_calendar_owner_id`. This is necessary because the push is one-way and
-event-driven only at task-delete time — removing someone from a task's participants
-(`setTaskParticipants`) does **not** touch their calendar at all, so without this pass a task you
-were taken off of would sit on your Google Calendar forever. Not windowed to `[from, to]` — scope
-is the question here, not date range, and an already-synced event can carry any due date.
+**Sync also removes, not just pushes.** `syncGoogleCalendar` first scans the caller's own
+`task_calendar_events` rows and, for any whose task is soft-deleted, has no due date, or is no
+longer visible, deletes the event (best-effort) and the row. `deleteTask` already does this for
+every copy at delete time; this pass catches anything that slipped through (e.g. a failed
+cleanup). Not windowed to `[from, to]`: the question is whether the task still exists.
 
 **Calendar eligibility is a property of the account, not of token presence.**
 `isGoogleCalendarEligible()` requires a non-`external` role, `calendar.sync_google`, and a
@@ -215,22 +231,10 @@ Workspace email. Checking "is there a `google_oauth_tokens` row" instead would b
 directions: a token outlives a role change, and an absent token is indistinguishable from an
 expired one.
 
-**Granting `calendar.sync_google` to a role is not by itself enough to make sync work for
-it — check whether that role can also write the sync columns back onto `tasks`.**
-`pushTaskToGoogleCalendar` writes `google_event_id`/`google_calendar_owner_id`/`google_synced_at`
-through the caller's own RLS-scoped client on purpose (`lib/google/task-calendar-sync.ts`'s own
-comment: "a push must not be able to update a task the caller couldn't otherwise update"). `admin`
-and `standard_user` already have a general `tasks` UPDATE policy, so granting them the capability
-was sufficient on its own. `viewer` had no task-write RLS path at all until `0029` added one —
-without that migration, granting `viewer` the app-layer capability alone would have made the
-Sync button clickable while silently failing to persist the event id, which is worse than just
-not working: `upsertCalendarEvent` (the actual Google API call) runs *first* and creates the
-event regardless, so a rejected DB write leaves the task with no record it was ever synced and
-the next click mints a duplicate event. `0029`'s fix is a second, additive UPDATE policy for
-`viewer` (doesn't touch what `standard_user`/`admin` can do) paired with a `BEFORE UPDATE`
-trigger restricting a viewer's write to exactly those three columns plus `updated_at` — so
-`viewer` gets working sync without gaining general `task.update`. See `supabase/schema.md`'s
-`tasks` RLS note for the policy/trigger names.
+**Granting `calendar.sync_google` to a role: check it can write its own
+`task_calendar_events` rows.** Since `0034` a push writes only that table (insert policy:
+self or admin, any active user), not `tasks`. `0029` gave `viewer` a narrow UPDATE path onto
+`tasks`' three sync columns for the old model; it's now unused but harmless, and still in place.
 
 **Events go to a secondary calendar named "Critical Path Calendar", not the user's primary one.**
 `resolveCalendarId()` (`lib/google/calendar.ts`) looks for a calendar with that name that the user
@@ -271,13 +275,9 @@ the Google Cloud OAuth consent screen, or Google won't grant them.
 task-specific — the names were changed from `upsertTaskCalendarEvent`/`deleteTaskCalendarEvent`
 when holidays started using them too.** Nothing about the low-level Google API call ever
 referenced a task; only the two callers built on top of it did (`task-calendar-sync.ts`,
-`holiday-calendar-sync.ts`). The exact `task_calendar_events(task_id, profile_id, event_id)`
-join table sketched two paragraphs up as a hypothetical for per-owner task copies is precisely
-the shape `holiday_calendar_events` (`0028`) actually took — same reasoning, a different entity
-that got there first: a holiday has no owner column at all to begin with, so the join table
-wasn't optional the way it would be for tasks. See the Holidays section below for how the two
-differ (holidays have no first-claim-wins conflict, since every syncing user gets their own
-independent copy).
+`holiday-calendar-sync.ts`). Holidays got their per-user join table first
+(`holiday_calendar_events`, `0028`); tasks followed with the same shape in `0034`
+(`task_calendar_events`), so both now give every syncing user their own independent copy.
 
 ---
 
@@ -945,8 +945,8 @@ same `[from, to]` window to the calling user's own calendar. See that section's 
 `holiday_calendar_events` for why holidays needed their own join table instead of reusing a
 task's owner-column trick.
 
-**Every eligible user who syncs gets every holiday — there is no first-claim-wins here, unlike
-tasks.** A holiday has no owner to contest, so there's nothing to skip: 10 users syncing the same
+**Every eligible user who syncs gets every holiday (tasks work the same way since `0034`).**
+A holiday has no owner to contest, so there's nothing to skip: 10 users syncing the same
 holiday get 10 independent events, one per calendar, each tracked by its own
 `holiday_calendar_events` row. Narrowed by the Calendar's country filter when one is set (see
 "Sync follows the Calendar's filters" in the Google Calendar sync section).
@@ -1035,11 +1035,9 @@ and `restoreTask` are that other side, not a new deletion mechanism.
   narrower filter set (task name, season, brand) than the grid: no search-across-relations, no
   owner/participant scoping, no personal scope. A trash is browsed rarely and doesn't need the
   two-pass machinery the ~800-row active grid carries.
-- **Restoring never touches `google_event_id`/`google_calendar_owner_id`.** A task's Google
-  Calendar event is best-effort deleted alongside it, but `upsertTaskCalendarEvent`'s own
-  fallback (`lib/google/calendar.ts`) already recreates the event if the stored id 404s on
-  Google's side — so a restored task's stale event id self-heals on its next push/edit rather
-  than needing to be cleared here.
+- **Restoring never touches Google Calendar.** `deleteTask` already removed every user's copy
+  and its `task_calendar_events` row, so a restored task goes out again on each user's next
+  Sync.
 - **No permanent-delete action.** Trash only restores. Emptying it, if ever needed, is a
   database operation, not a UI one — deliberate, to keep the one irreversible action in this
   module out of the app entirely.

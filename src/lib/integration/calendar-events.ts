@@ -2,6 +2,7 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { encodeCursor, type IntegrationCursor } from "@/lib/integration/cursor";
 import { resolveOwnerNames } from "@/lib/integration/task-owners";
+import { NO_CALENDAR_SYNC, resolveCalendarSyncSummaries, type TaskCalendarSyncSummary } from "@/lib/integration/task-calendar-links";
 
 export interface ListCalendarEventsForIntegrationParams {
   pageSize: number;
@@ -11,21 +12,19 @@ export interface ListCalendarEventsForIntegrationParams {
 }
 
 const TASK_SELECT =
-  "id, task_name, due_date, google_event_id, google_synced_at, updated_at, deleted_at, season:seasons(season_code), brand:brands(brand_name)";
+  "id, task_name, due_date, updated_at, deleted_at, season:seasons(season_code), brand:brands(brand_name)";
 
 interface TaskRow {
   id: string;
   task_name: string;
   due_date: string | null;
-  google_event_id: string | null;
-  google_synced_at: string | null;
   updated_at: string;
   deleted_at: string | null;
   season: { season_code: string } | null;
   brand: { brand_name: string } | null;
 }
 
-export interface IntegrationCalendarEventRow extends TaskRow {
+export interface IntegrationCalendarEventRow extends TaskRow, TaskCalendarSyncSummary {
   owner_name: string | null;
 }
 
@@ -68,7 +67,18 @@ export async function listCalendarEventsForIntegration({
   const last = page[page.length - 1];
   const nextCursor = hasMore && last ? encodeCursor({ updatedAt: last.updated_at, id: last.id }) : null;
 
-  const ownerNames = await resolveOwnerNames(supabase, page.map((row) => row.id));
+  const taskIds = page.map((row) => row.id);
+  const [ownerNames, calendarSync] = await Promise.all([
+    resolveOwnerNames(supabase, taskIds),
+    resolveCalendarSyncSummaries(supabase, taskIds),
+  ]);
 
-  return { rows: page.map((row) => ({ ...row, owner_name: ownerNames.get(row.id) ?? null })), nextCursor };
+  return {
+    rows: page.map((row) => ({
+      ...row,
+      ...(calendarSync.get(row.id) ?? NO_CALENDAR_SYNC),
+      owner_name: ownerNames.get(row.id) ?? null,
+    })),
+    nextCursor,
+  };
 }

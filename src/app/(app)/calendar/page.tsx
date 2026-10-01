@@ -14,6 +14,10 @@ import { taskStatusValues, taskGenderValues } from "@/app/(app)/tasks/schema";
 import { TASK_STATUS_CONFIG } from "@/constants/task-status";
 import { TASK_GENDER_CONFIG } from "@/constants/task-gender";
 
+// Applies to this page's Server Actions too. Sync's batches are short, but its planning step
+// reads every task on the platform and clears out deleted ones first.
+export const maxDuration = 300;
+
 const STATUS_OPTIONS = taskStatusValues.map((status) => ({
   value: status,
   label: TASK_STATUS_CONFIG[status]?.label ?? status,
@@ -49,7 +53,6 @@ export default async function CalendarPage({
       from: toQueryDate(range.start),
       to: toQueryDate(range.end),
       filters: toTaskRangeFilters(taskFilterState),
-      involvesProfileId: profile?.id,
     }),
     listSeasonOptions(),
     listBrandOptions(),
@@ -69,7 +72,7 @@ export default async function CalendarPage({
 
   return (
     <div className="flex flex-col">
-      <PageHeader title="Calendar" description="View and manage your tasks by due date on a calendar." />
+      <PageHeader title="Calendar" description="View and manage all tasks by due date on a calendar." />
       <div className="flex flex-col gap-4 px-6 pb-6">
         <CalendarWorkspace
           view={view}

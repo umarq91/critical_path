@@ -31,9 +31,9 @@ function sortOwners(owners: Owner[]) {
 // `/reports/overdue-tasks` was previously safe by accident (never called with more than one
 // page's worth of ids), `/reports/task-summary` calling this over an unfiltered ~800-task result
 // set is what surfaced the bug.
-const OWNER_LOOKUP_BATCH_SIZE = 250;
+export const OWNER_LOOKUP_BATCH_SIZE = 250;
 
-function chunk<T>(items: T[], size: number): T[][] {
+export function chunk<T>(items: T[], size: number): T[][] {
   const batches: T[][] = [];
   for (let i = 0; i < items.length; i += size) batches.push(items.slice(i, i + size));
   return batches;

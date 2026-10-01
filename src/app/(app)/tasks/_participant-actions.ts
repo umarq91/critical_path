@@ -1,5 +1,6 @@
 "use server";
 
+import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 import { requirePermission } from "@/lib/require-permission";
 import { INDIVIDUAL_PARTY_ERROR, taskParticipantsSchema } from "@/app/(app)/tasks/schema";
@@ -7,6 +8,7 @@ import { searchParties, type SearchPartiesParams } from "@/data/parties";
 import { participantRows, parsePartyKey, partyKey, type ParticipantRole } from "@/lib/party";
 import { logParticipantsChanged, partyLabels } from "@/app/(app)/tasks/_audit";
 import type { createClient } from "@/lib/supabase/server";
+import { resyncTaskCalendarEvents } from "@/lib/google/task-calendar-sync";
 import type { AuditPartyChange } from "@/types/audit";
 
 // Split out of _actions.ts: same feature, but Owners / People Involved are rows in
@@ -67,6 +69,9 @@ export async function setTaskParticipants(taskId: string, input: unknown) {
     await diffRole(auth.supabase, "involved", previous, parsed.data.people_involved),
   ];
   await logParticipantsChanged(auth.supabase, { userId: auth.userId, email: auth.email }, taskId, parties);
+
+  // Owners and People Involved are in every synced copy's description.
+  after(() => resyncTaskCalendarEvents(auth.supabase, taskId).catch(() => undefined));
 
   revalidatePath("/tasks");
   return { ok: true as const };

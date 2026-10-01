@@ -1,12 +1,12 @@
 "use server";
 
+import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 import { requirePermission } from "@/lib/require-permission";
 import { taskCreateSchema, taskUpdateSchema } from "@/app/(app)/tasks/schema";
 import { insertTask, normaliseDate, normaliseDpspCategory, normaliseOptionalId } from "@/app/(app)/tasks/_insert-task";
 import { listTasks, type ListTasksParams } from "@/data/tasks";
-import { deleteCalendarEvent } from "@/lib/google/calendar";
-import { resyncTaskCalendarEvent } from "@/lib/google/task-calendar-sync";
+import { deleteTaskCalendarEvents, resyncTaskCalendarEvents } from "@/lib/google/task-calendar-sync";
 import { logTaskUpdated, logTaskDeleted, logTaskRestored } from "@/app/(app)/tasks/_audit";
 
 // Powers the isolated "Refresh" icon on the tasks table (see useRefreshableData). A plain
@@ -77,12 +77,12 @@ export async function updateTask(id: string, patch: unknown) {
 
   if (before) await logTaskUpdated(auth.supabase, { userId: auth.userId, email: auth.email }, before, updateData);
 
-  // Keeps an already-pushed Google Calendar event in step with the task it came from — on
-  // whichever account holds it, which needn't be the editor's. Sync is one-way, so this is
-  // the only way an event ever changes: the platform writes, Google never writes back.
-  // Best-effort by design; a Google failure must not fail an otherwise valid task edit.
-  if ("task_name" in parsed.data || "due_date" in parsed.data) {
-    await resyncTaskCalendarEvent(auth.supabase, id).catch(() => undefined);
+  // Keeps every already-pushed copy of this task in step, on every user's calendar that holds
+  // one. Sync is one-way, so this is the only way an event ever changes besides the next Sync.
+  // Runs after the response (one Google call per copy, and there can be one per user), and is
+  // best-effort: a Google failure must not fail an otherwise valid task edit.
+  if ("task_name" in parsed.data || "due_date" in parsed.data || "season_id" in parsed.data) {
+    after(() => resyncTaskCalendarEvents(auth.supabase, id).catch(() => undefined));
   }
 
   revalidatePath("/tasks");
@@ -94,14 +94,7 @@ export async function deleteTask(id: string) {
   const auth = await requirePermission("task.delete");
   if (!auth.ok) return auth;
 
-  // Fetched before the delete so the linked Google Calendar event (if any) can be cleaned
-  // up on whichever profile's calendar it actually lives on — not necessarily the person
-  // deleting the task (see tasks.google_calendar_owner_id).
-  const { data: task } = await auth.supabase
-    .from("tasks")
-    .select("task_name, google_event_id, google_calendar_owner_id")
-    .eq("id", id)
-    .single();
+  const { data: task } = await auth.supabase.from("tasks").select("task_name").eq("id", id).single();
 
   const { error } = await auth.supabase
     .from("tasks")
@@ -111,11 +104,9 @@ export async function deleteTask(id: string) {
 
   await logTaskDeleted(auth.supabase, { userId: auth.userId, email: auth.email }, { id, task_name: task?.task_name ?? null });
 
-  if (task?.google_event_id && task.google_calendar_owner_id) {
-    // Best-effort — a failed calendar cleanup shouldn't undo an already-successful task
-    // delete, so this is deliberately not awaited into the error path above.
-    await deleteCalendarEvent(task.google_calendar_owner_id, task.google_event_id).catch(() => undefined);
-  }
+  // Removes the task from every user's calendar that holds it. After the response and
+  // best-effort: a failed calendar cleanup shouldn't undo an already-successful delete.
+  after(() => deleteTaskCalendarEvents(auth.supabase, id).catch(() => undefined));
 
   revalidatePath("/tasks");
   revalidatePath("/calendar");
@@ -127,10 +118,9 @@ export async function deleteTask(id: string) {
 // deleted_by too, not just deleted_at: a restored task with a stale deleted_by would read as
 // "deleted by so-and-so" everywhere that column is joined, for a task that's no longer deleted.
 //
-// Deliberately does NOT touch google_event_id/google_calendar_owner_id — a Google event
-// deleted alongside the task is already self-healed by upsertCalendarEvent's fallback (see
-// lib/google/calendar.ts) the next time this task is pushed, so there's nothing to clean up
-// here.
+// Deliberately does NOT touch Google Calendar: deleteTask already removed every copy and its
+// task_calendar_events link, so the restored task simply goes out again on each user's next
+// Sync.
 export async function restoreTask(id: string) {
   const auth = await requirePermission("task.delete");
   if (!auth.ok) return auth;

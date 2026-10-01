@@ -166,17 +166,13 @@ async function upsertEvent(
   eventId: string | null,
   requestBody: calendar_v3.Schema$Event
 ) {
-  if (!eventId) {
-    const { data } = await calendar.events.insert({ calendarId, requestBody });
-    return data;
-  }
+  const insert = async () => (await withRateLimitRetry(() => calendar.events.insert({ calendarId, requestBody }))).data;
+  if (!eventId) return insert();
   try {
-    const { data } = await calendar.events.update({ calendarId, eventId, requestBody });
-    return data;
+    return (await withRateLimitRetry(() => calendar.events.update({ calendarId, eventId, requestBody }))).data;
   } catch (error) {
     if (!isGoneOrNotFound(error)) throw error;
-    const { data } = await calendar.events.insert({ calendarId, requestBody });
-    return data;
+    return insert();
   }
 }
 
@@ -185,7 +181,7 @@ export async function deleteCalendarEvent(profileId: string, eventId: string): P
   if (!client) return;
   try {
     const calendarId = await resolveCalendarId(profileId, client);
-    await client.calendar.events.delete({ calendarId, eventId });
+    await withRateLimitRetry(() => client.calendar.events.delete({ calendarId, eventId }));
   } catch (error) {
     // Best-effort cleanup — already gone / unreachable shouldn't block the source row's own delete.
     if (!isGoneOrNotFound(error)) throw error;
@@ -195,6 +191,31 @@ export async function deleteCalendarEvent(profileId: string, eventId: string): P
 function errorCode(error: unknown): number | undefined {
   if (typeof error !== "object" || error === null || !("code" in error)) return undefined;
   return Number((error as { code?: unknown }).code);
+}
+
+// A first sync pushes every task on the platform (hundreds of events) to one calendar, which can
+// trip Google's per-user rate limit. Google answers 429, or 403 with a rateLimitExceeded /
+// userRateLimitExceeded reason, and asks for exponential backoff.
+const RATE_LIMIT_RETRY_DELAYS_MS = [1000, 2000, 4000, 8000];
+
+async function withRateLimitRetry<T>(request: () => Promise<T>): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await request();
+    } catch (error) {
+      const delay = RATE_LIMIT_RETRY_DELAYS_MS[attempt];
+      if (delay === undefined || !isRateLimited(error)) throw error;
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+}
+
+function isRateLimited(error: unknown): boolean {
+  const code = errorCode(error);
+  if (code === 429) return true;
+  if (code !== 403 || typeof error !== "object" || error === null) return false;
+  const reasons = ((error as { errors?: { reason?: string }[] }).errors ?? []).map((entry) => entry.reason);
+  return reasons.includes("rateLimitExceeded") || reasons.includes("userRateLimitExceeded");
 }
 
 function isGoneOrNotFound(error: unknown): boolean {

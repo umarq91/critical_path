@@ -422,30 +422,20 @@ export interface ListTasksByDueDateRangeParams {
   /** Inclusive, `yyyy-MM-dd`. */
   to: string;
   filters?: Record<string, string>;
-  /** Scopes results to tasks the profile is assignee/creator/people-involved on. */
-  involvesProfileId?: string;
 }
 
-// Powers the Calendar view — bounded by the visible date range (a week or a month at most),
-// so it deliberately skips listTasks()'s page/pageSize/count shape and returns every matching
-// row for that range at once, the same way listUpcomingSeasons is a separate bounded query
-// rather than a page of the main list.
-export async function listTasksByDueDateRange({
-  from,
-  to,
-  filters = {},
-  involvesProfileId,
-}: ListTasksByDueDateRangeParams) {
+// PostgREST answers at most this many rows per request, silently dropping the rest.
+const RANGE_FETCH_PAGE_SIZE = 1000;
+
+// Powers the Calendar view and Google Calendar Sync. Every task on the platform the caller can
+// see (RLS narrows external users to their own), not just their My Tasks: client request, so
+// the page shows what Sync sends. Skips listTasks()'s page/pageSize/count shape and returns
+// every matching row at once. The view asks for a month, but Sync asks for a five-year window
+// that can pass PostgREST's per-request cap, so rows are fetched in pages until one comes back
+// short.
+export async function listTasksByDueDateRange({ from, to, filters = {} }: ListTasksByDueDateRangeParams) {
   const supabase = await createClient();
 
-  // Participation is resolved as its own lookup first (PostgREST can't express the subquery
-  // inline) via the task_participant_profiles view, so a task owned by this person's
-  // department counts as involving them. Unlike listTasks' scope, the calendar's broader
-  // "involves" concept also includes tasks they merely created — that leg stays an .or().
-  let involvedTaskIds: string[] = [];
-  if (involvesProfileId) {
-    involvedTaskIds = await taskIdsForProfile(supabase, involvesProfileId);
-  }
   // Owner / People Involved toolbar filters, same matching as the Tasks grid's taskScope().
   const participantIds = await participantTaskIds(supabase, filters);
 
@@ -466,17 +456,16 @@ export async function listTasksByDueDateRange({
     query = participantIds.length > 0 ? query.in("id", participantIds) : query.eq("id", EMPTY_RESULT_ID);
   }
 
-  if (involvesProfileId) {
-    const orConditions = [`created_by.eq.${involvesProfileId}`];
-    if (involvedTaskIds.length > 0) orConditions.push(`id.in.(${involvedTaskIds.join(",")})`);
-    query = query.or(orConditions.join(","));
+  // id as a tiebreaker, so a page boundary can't split rows that share a due date unstably.
+  query = query.order("due_date", { ascending: true }).order("id", { ascending: true });
+
+  const tasks: Task[] = [];
+  for (let start = 0; ; start += RANGE_FETCH_PAGE_SIZE) {
+    const { data, error } = await query.range(start, start + RANGE_FETCH_PAGE_SIZE - 1);
+    if (error) throw error;
+    tasks.push(...((data ?? []) as Task[]));
+    if (!data || data.length < RANGE_FETCH_PAGE_SIZE) return tasks;
   }
-
-  query = query.order("due_date", { ascending: true });
-
-  const { data, error } = await query;
-  if (error) throw error;
-  return (data ?? []) as Task[];
 }
 
 export interface ListTasksForTimelineParams {

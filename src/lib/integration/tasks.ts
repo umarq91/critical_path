@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { encodeCursor, type IntegrationCursor } from "@/lib/integration/cursor";
 import { resolveSeasonIdByCode, resolveBrandIdByCode } from "@/lib/integration/lookup-codes";
 import { resolveTaskIdsForOwnerName, resolveOwnerNames, resolvePeopleInvolvedNames } from "@/lib/integration/task-owners";
+import { NO_CALENDAR_SYNC, resolveCalendarSyncSummaries, type TaskCalendarSyncSummary } from "@/lib/integration/task-calendar-links";
 import type { TaskGroupStatus } from "@/lib/integration/task-group-facts";
 import { taskPriorityValues } from "@/app/(app)/tasks/schema";
 import { parseDateOnly } from "@/lib/dates";
@@ -34,7 +35,7 @@ export interface ListTasksForIntegrationParams {
 
 const TASK_SELECT =
   "id, task_name, status, priority, gender, due_date, start_date, end_date, notes, season_id, brand_id, " +
-  "google_event_id, google_synced_at, created_at, updated_at, deleted_at, " +
+  "created_at, updated_at, deleted_at, " +
   "season:seasons(season_code, season_name), brand:brands(brand_code, brand_name), key_stage:key_stages(name)";
 
 interface TaskRow {
@@ -49,8 +50,6 @@ interface TaskRow {
   notes: string | null;
   season_id: string;
   brand_id: string | null;
-  google_event_id: string | null;
-  google_synced_at: string | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -59,7 +58,7 @@ interface TaskRow {
   key_stage: { name: string } | null;
 }
 
-export interface IntegrationTaskRow extends TaskRow {
+export interface IntegrationTaskRow extends TaskRow, TaskCalendarSyncSummary {
   owner_name: string | null;
   people_involved: string[];
 }
@@ -74,11 +73,17 @@ export function computeDurationDays(startDate: string | null, endDate: string | 
 
 async function attachParticipants(supabase: SupabaseClient, rows: TaskRow[]): Promise<IntegrationTaskRow[]> {
   const taskIds = rows.map((row) => row.id);
-  const [ownerNames, peopleInvolved] = await Promise.all([
+  const [ownerNames, peopleInvolved, calendarSync] = await Promise.all([
     resolveOwnerNames(supabase, taskIds),
     resolvePeopleInvolvedNames(supabase, taskIds),
+    resolveCalendarSyncSummaries(supabase, taskIds),
   ]);
-  return rows.map((row) => ({ ...row, owner_name: ownerNames.get(row.id) ?? null, people_involved: peopleInvolved.get(row.id) ?? [] }));
+  return rows.map((row) => ({
+    ...row,
+    ...(calendarSync.get(row.id) ?? NO_CALENDAR_SYNC),
+    owner_name: ownerNames.get(row.id) ?? null,
+    people_involved: peopleInvolved.get(row.id) ?? [],
+  }));
 }
 
 // Backs GET /integration/v1/tasks — the big one. About a third of the spec's field list has no

@@ -14,8 +14,8 @@ export interface SyncableHoliday {
 
 // The holiday equivalent of pushTaskToGoogleCalendar (task-calendar-sync.ts) — but a holiday
 // has no single owner column to stamp, since it can be pushed to MANY users' calendars
-// independently. holiday_calendar_events (0028) is the per-(holiday, profile) slot a task
-// gets for free from its own google_event_id/google_calendar_owner_id columns.
+// independently. holiday_calendar_events (0028) is the per-(holiday, profile) slot; tasks have
+// had the same shape since 0034 (task_calendar_events).
 export async function pushHolidayToGoogleCalendar(
   supabase: SupabaseClient,
   holiday: SyncableHoliday,
@@ -37,7 +37,7 @@ export async function pushHolidayToGoogleCalendar(
 }
 
 // Called after an admin edits a holiday, so every calendar that already has it reflects the new
-// name/date — mirrors resyncTaskCalendarEvent, just fanned out over every profile that had
+// name/date — mirrors resyncTaskCalendarEvents, fanned out over every profile that had
 // synced this one holiday instead of a single owner. Best-effort per profile: one account's
 // stale token must not stop the others from updating.
 export async function resyncHolidayCalendarEvents(supabase: SupabaseClient, holiday: SyncableHoliday): Promise<void> {

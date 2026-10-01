@@ -334,6 +334,48 @@ export type Database = {
           },
         ]
       }
+      task_calendar_events: {
+        Row: {
+          content_hash: string | null
+          google_event_id: string
+          id: string
+          profile_id: string
+          synced_at: string
+          task_id: string
+        }
+        Insert: {
+          content_hash?: string | null
+          google_event_id: string
+          id?: string
+          profile_id: string
+          synced_at?: string
+          task_id: string
+        }
+        Update: {
+          content_hash?: string | null
+          google_event_id?: string
+          id?: string
+          profile_id?: string
+          synced_at?: string
+          task_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_calendar_events_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_calendar_events_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       key_stages: {
         Row: {
           created_at: string
