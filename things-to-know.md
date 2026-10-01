@@ -325,7 +325,16 @@ in the export both hold *department* names, not people (832 of 833 owner rows). 
 `0015_task_participants.sql` a department attaches directly to a task via
 `task_participants.department_id` — this is the **normal path**, not the fallback. Attaching an
 individual profile is the exception, kept because the sheet does contain two person-valued
-entries. The old `0009_departments.sql` note that "a task's department is read via its assignee's
+entries.
+
+**New individuals can't be added any more, only departments (client decision).** A department
+already puts the task on every member's My Tasks page. `searchParties` returns departments only;
+`taskCreateSchema` rejects a `user:` key (covers the create form and CSV import, whose person
+names still resolve so the row gets a clear "only departments" error rather than "not found");
+`setTaskParticipants` rejects a person who wasn't already on the task. Existing individual rows
+are kept, shown, and removable. This applies to external users too: to give one a task, put them
+in a department. The Owner / People Involved *filters* (`listPartyOptions`) still list people,
+since existing tasks can still name one. The old `0009_departments.sql` note that "a task's department is read via its assignee's
 profile" is obsolete.
 
 **A department participant with zero members is valid.** `Vendor` (254 owner rows) and `Supplier`

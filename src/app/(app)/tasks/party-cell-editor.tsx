@@ -60,7 +60,7 @@ export const PartyCellEditor = ({ parties, onAdd, onRemove, noun, minCount = 0, 
           <PartySearchDropdown
             excludeKeys={parties.map((party) => party.key)}
             onAdd={onAdd}
-            placeholder={`Add ${noun}: search departments and people...`}
+            placeholder={`Add ${noun}: search departments...`}
           />
         </PopoverContent>
       </Popover>

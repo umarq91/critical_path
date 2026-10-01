@@ -14,6 +14,16 @@ export const dpspCategoryValues = ["demand", "product", "sales", "profit"] as co
 // that encoding exists rather than two parallel id arrays per role.
 const partyKeySchema = z.string().refine((value) => parsePartyKey(value) !== null, "Invalid selection");
 
+export const INDIVIDUAL_PARTY_ERROR = "Only departments can be added, not individual people";
+
+// A new task (form, CSV import) may only name departments. Existing tasks can still carry a
+// person added before this rule, which is why taskParticipantsSchema stays loose and
+// setTaskParticipants checks "no NEW person" itself.
+const departmentKeySchema = partyKeySchema.refine(
+  (value) => parsePartyKey(value)?.kind !== "user",
+  INDIVIDUAL_PARTY_ERROR
+);
+
 // Owners and People Involved are not columns on `tasks` — they're rows in task_participants,
 // written by createTask/setTaskParticipants after the task row itself. They live in this
 // schema anyway so one parse validates the whole form submission.
@@ -57,6 +67,7 @@ export const taskSchema = z.object({
 // minimum-fields-to-create-a-task list requires all of them up front, so creation overrides
 // them here to be mandatory instead of loosening the shared base schema for everyone.
 export const taskCreateSchema = taskSchema.merge(taskParticipantsSchema).extend({
+  owners: z.array(departmentKeySchema).min(1, "At least one owner is required"),
   brand_id: z.string().uuid("Brand is required"),
   key_stage_id: z.string().uuid("Key Stage is required"),
   dpsp_category: z
@@ -71,7 +82,7 @@ export const taskCreateSchema = taskSchema.merge(taskParticipantsSchema).extend(
     .string()
     .min(1, "Gender is required")
     .refine((value) => (taskGenderValues as readonly string[]).includes(value), "Gender is required"),
-  people_involved: z.array(partyKeySchema).min(1, "At least one person involved is required"),
+  people_involved: z.array(departmentKeySchema).min(1, "At least one person involved is required"),
 });
 
 // Inline-edit/patch schema — the task columns only, made partial for single-field patches.

@@ -155,7 +155,7 @@ export const TaskForm = ({ onSuccess, seasonOptions, brandOptions, keyStageOptio
                   updateParties("owners", setOwners, owners.filter((existing) => existing.key !== party.key))
                 }
                 emptyLabel="No owners yet — add a department or a person"
-                placeholder="Search departments and people..."
+                placeholder="Search departments..."
               />
               {form.formState.errors.owners ? (
                 <p className="text-sm text-destructive">{form.formState.errors.owners.message}</p>
@@ -174,7 +174,7 @@ export const TaskForm = ({ onSuccess, seasonOptions, brandOptions, keyStageOptio
                   )
                 }
                 emptyLabel="No one involved yet"
-                placeholder="Search departments and people..."
+                placeholder="Search departments..."
               />
               {form.formState.errors.people_involved ? (
                 <p className="text-sm text-destructive">{form.formState.errors.people_involved.message}</p>

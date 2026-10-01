@@ -51,8 +51,7 @@ async function taskIdsForAnyParty(supabase: SupabaseClient, partyKeyValues: stri
 }
 
 // Past this many matching people a search term isn't identifying anyone — it's the whole
-// directory — and the id list stops being something to put in a URL. Same reasoning as
-// searchParties' SEARCH_RESULT_LIMIT.
+// directory — and the id list stops being something to put in a URL.
 const NAME_MATCH_LIMIT = 100;
 
 /**

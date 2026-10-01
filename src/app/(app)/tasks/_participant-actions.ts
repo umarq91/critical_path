@@ -2,9 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { requirePermission } from "@/lib/require-permission";
-import { taskParticipantsSchema } from "@/app/(app)/tasks/schema";
+import { INDIVIDUAL_PARTY_ERROR, taskParticipantsSchema } from "@/app/(app)/tasks/schema";
 import { searchParties, type SearchPartiesParams } from "@/data/parties";
-import { participantRows, partyKey, type ParticipantRole } from "@/lib/party";
+import { participantRows, parsePartyKey, partyKey, type ParticipantRole } from "@/lib/party";
 import { logParticipantsChanged, partyLabels } from "@/app/(app)/tasks/_audit";
 import type { createClient } from "@/lib/supabase/server";
 import type { AuditPartyChange } from "@/types/audit";
@@ -20,8 +20,7 @@ export async function searchAssignableParties(params: SearchPartiesParams) {
   const auth = await requirePermission("task.assign");
   if (!auth.ok) return auth;
 
-  const result = await searchParties(params);
-  return { ok: true as const, data: result.data, truncated: result.truncated };
+  return { ok: true as const, data: await searchParties(params) };
 }
 
 // The ONLY write path for task participants, and it takes the whole set for both roles at
@@ -43,6 +42,15 @@ export async function setTaskParticipants(taskId: string, input: unknown) {
     .from("task_participants")
     .select("role, profile_id, department_id")
     .eq("task_id", taskId);
+
+  // Only departments can be added now, but a person already on the task may stay (in either
+  // role), so the check is "no person who wasn't here before", not "no person at all".
+  const previousProfileIds = new Set((previous ?? []).flatMap((row) => (row.profile_id ? [row.profile_id] : [])));
+  const addsIndividual = [...parsed.data.owners, ...parsed.data.people_involved].some((key) => {
+    const party = parsePartyKey(key);
+    return party?.kind === "user" && !previousProfileIds.has(party.id);
+  });
+  if (addsIndividual) return { ok: false as const, error: INDIVIDUAL_PARTY_ERROR };
 
   const { error: deleteError } = await auth.supabase.from("task_participants").delete().eq("task_id", taskId);
   if (deleteError) return { ok: false as const, error: deleteError.message };

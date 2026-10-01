@@ -26,7 +26,7 @@ interface PartySearchDropdownProps {
 type SearchState =
   | { status: "pending" }
   | { status: "error"; forQuery: string; message: string }
-  | { status: "ready"; forQuery: string; results: PartySummary[]; truncated: boolean };
+  | { status: "ready"; forQuery: string; results: PartySummary[] };
 
 function ResultSkeleton() {
   return (
@@ -57,7 +57,7 @@ export const PartySearchDropdown = ({ excludeKeys, onAdd, disabled, placeholder 
         if (cancelled) return;
         setState(
           result.ok
-            ? { status: "ready", forQuery: debouncedQuery, results: result.data, truncated: result.truncated }
+            ? { status: "ready", forQuery: debouncedQuery, results: result.data }
             : { status: "error", forQuery: debouncedQuery, message: result.error }
         );
       })
@@ -147,7 +147,7 @@ export const PartySearchDropdown = ({ excludeKeys, onAdd, disabled, placeholder 
             }
             if (event.key === "Escape") setOpen(false);
           }}
-          placeholder={placeholder ?? "Search departments and people..."}
+          placeholder={placeholder ?? "Search departments..."}
           disabled={disabled}
           className={cn("pl-8", showClear && "pr-9")}
         />
@@ -211,11 +211,6 @@ export const PartySearchDropdown = ({ excludeKeys, onAdd, disabled, placeholder 
                   />
                 </button>
               ))}
-              {state.status === "ready" && state.truncated ? (
-                <p className="px-3 py-2 text-center text-xs text-muted-foreground">
-                  Showing the first 50 — keep typing to narrow it down.
-                </p>
-              ) : null}
             </>
           )}
         </div>
