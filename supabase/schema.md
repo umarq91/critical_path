@@ -357,7 +357,7 @@ Exists so "tasks relevant to me" stays one query rather than the three hops (me 
 | `refresh_token` | text, nullable | Google only returns one on first consent (or a forced re-consent); preserved across routine access-token refreshes, see `saveGoogleTokens()` |
 | `expires_at` | timestamptz, not null | when `access_token` expires — `lib/google/calendar.ts` lets `googleapis` auto-refresh once this passes |
 | `scope` | text, nullable | the scope string granted, for reference |
-| `calendar_id` | text, nullable | cached Google id of this user's "Critical Path Calendar" secondary calendar, where every event is pushed (`0031`). null until the first push, and reset to null when the calendar turns out to have been deleted on Google's side |
+| `calendar_id` | text, nullable | cached Google id of this user's "Critical Path Calendar" secondary calendar, where every event is pushed (`0031`). null until the first push, and reset to null when the calendar turns out to have been deleted on Google's side (and once for everyone by `0033`) |
 | `created_at` / `updated_at` | timestamptz | |
 
 **RLS: zero policies.** RLS is enabled but nothing grants access — not even a `profile_id = auth.uid()` self-read, since these are live API credentials, not display data. The only access path is `lib/google/oauth-tokens.ts`, which always goes through the service-role client (`lib/supabase/admin.ts`) and scopes every query to a specific `profile_id` in application code.
@@ -443,6 +443,7 @@ Exists so "tasks relevant to me" stays one query rather than the three hops (me 
 | `0030_saved_views.sql` | `saved_views` table (profile-owned name + filters/sort_by/sort_dir jsonb/text snapshot, unique per `(profile_id, name)`), owner-only RLS. Backs the Tasks grid's "Save current filters" feature. |
 | `0031_google_calendar_id.sql` | Adds nullable `google_oauth_tokens.calendar_id`, the cached id of each user's "Critical Path" secondary calendar that Calendar sync now pushes to instead of `primary`. |
 | `0032_external_sign_in_code.sql` | `session_verifications` (service-role-only), `is_active_user()` now also requires a verified session for `external` profiles, and the lookup (`seasons`, `brands`, `brand_seasons`, `key_stages`, `departments`, `public_holidays`) and own-row (`saved_views`, `reminder_rules`, `reminder_rule_tasks`, `holiday_calendar_events`, `profiles` update) policies now pass through `is_active_user()` too. Backs the emailed sign-in code for external accounts. |
+| `0033_reset_google_calendar_id.sql` | Data only: sets every `google_oauth_tokens.calendar_id` to null, because the synced calendar was renamed to "Critical Path Calendar" and the cached ids pointed at the old "Critical Path" one. No schema change. |
 
 ## Not built yet
 

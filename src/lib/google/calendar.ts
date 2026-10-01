@@ -3,7 +3,7 @@ import { google, type calendar_v3 } from "googleapis";
 import { addDays, format } from "date-fns";
 import { getGoogleOAuthEnv } from "@/lib/env.server";
 import { getStoredGoogleTokens, saveGoogleCalendarId, saveGoogleTokens } from "@/lib/google/oauth-tokens";
-import { GOOGLE_CALENDAR_NAME, LEGACY_GOOGLE_CALENDAR_NAME } from "@/constants/google-calendar";
+import { GOOGLE_CALENDAR_NAME } from "@/constants/google-calendar";
 
 // ONE-WAY: platform task → Google Calendar. This module writes events and deletes them; it
 // deliberately has no read path. Nothing here may return calendar data into the app, because
@@ -85,9 +85,9 @@ async function findOrCreateCriticalPathCalendar(calendar: calendar_v3.Calendar):
     // minAccessRole "writer" leaves out a same-named calendar that was only shared read-only with
     // this user. We can't push to it, so it doesn't count as "already exists".
     const { data } = await calendar.calendarList.list({ minAccessRole: "writer", showDeleted: false, pageToken });
-    const match =
-      data.items?.find((entry) => entry.id && calendarName(entry) === GOOGLE_CALENDAR_NAME) ??
-      data.items?.find((entry) => entry.id && calendarName(entry) === LEGACY_GOOGLE_CALENDAR_NAME);
+    const match = data.items?.find(
+      (entry) => entry.id && (entry.summaryOverride ?? entry.summary) === GOOGLE_CALENDAR_NAME
+    );
     if (match?.id) return match.id;
     pageToken = data.nextPageToken ?? undefined;
   } while (pageToken);
@@ -104,33 +104,12 @@ async function findOrCreateCriticalPathCalendar(calendar: calendar_v3.Calendar):
 export async function ensureCriticalPathCalendar(profileId: string): Promise<"ok" | "not_connected" | "missing_scope"> {
   const client = await getCalendarClientForProfile(profileId);
   if (!client) return "not_connected";
-  let calendarId: string;
   try {
-    calendarId = await resolveCalendarId(profileId, client);
+    await resolveCalendarId(profileId, client);
+    return "ok";
   } catch (error) {
     if (errorCode(error) === 403) return "missing_scope";
     throw error;
-  }
-  await renameLegacyCalendar(client.calendar, calendarId);
-  return "ok";
-}
-
-function calendarName(entry: calendar_v3.Schema$CalendarListEntry): string | null | undefined {
-  return entry.summaryOverride ?? entry.summary;
-}
-
-// The cached calendar id outlives the rename of GOOGLE_CALENDAR_NAME, so a user who synced before
-// it keeps pushing to their old calendar. Renaming it in place keeps every existing event in one
-// calendar. Only the exact legacy name is touched, so a name the user chose themselves is kept.
-// Best-effort: a calendar the user made by hand isn't covered by calendar.app.created, so the
-// patch 403s and the calendar keeps working under its old name.
-async function renameLegacyCalendar(calendar: calendar_v3.Calendar, calendarId: string): Promise<void> {
-  try {
-    const { data: entry } = await calendar.calendarList.get({ calendarId });
-    if (calendarName(entry) !== LEGACY_GOOGLE_CALENDAR_NAME) return;
-    await calendar.calendars.patch({ calendarId, requestBody: { summary: GOOGLE_CALENDAR_NAME } });
-  } catch {
-    return;
   }
 }
 

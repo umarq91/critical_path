@@ -241,13 +241,13 @@ deletes the calendar in Google, the next insert 404s. The cache is then cleared 
 is found or created again. Listing calendars reads metadata only (name, id, access role), not
 events, so it doesn't break the one-way rule above.
 
-**The calendar used to be called "Critical Path", and the cached id means changing the name
-constant alone does nothing for existing users** — they'd keep pushing to the old calendar
-forever. So `ensureCriticalPathCalendar` renames a calendar still named exactly
-`LEGACY_GOOGLE_CALENDAR_NAME` on every sync (one `calendarList.get` per sync), and the
-find-by-name falls back to the legacy name before creating a new one. A user-made calendar with
-the legacy name isn't covered by `calendar.app.created`, so its rename 403s, is swallowed, and it
-keeps working under the old name. Any future rename needs the same treatment.
+**The calendar used to be called "Critical Path", and that name is now off-limits.** People use a
+calendar by that name for their own things, so the app never matches, renames or writes to it.
+Lookup is by `GOOGLE_CALENDAR_NAME` only: found → reuse, missing → create. `0033` cleared every
+cached `calendar_id` because they all pointed at the old calendar. Events pushed there before the
+switch are left alone; a task's stored `google_event_id` for one of them 404s against the new
+calendar, so the next push inserts a fresh copy and relinks it (same as the primary → secondary
+move below). Any future rename needs the same cache reset.
 
 **Pushed events carry no reminders.** Client request. `upsertCalendarEvent` sends
 `reminders: { useDefault: false, overrides: [] }` on every insert and update, which overrides the

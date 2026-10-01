@@ -1,10 +1,7 @@
 // Every in-app event lands on this secondary calendar, never on the user's primary one. Matched
-// by name, so an existing calendar the user already made with this name is reused.
+// by name, so an existing calendar the user already made with this name is reused. Never fall back
+// to the old name, "Critical Path": people use a calendar by that name for their own things.
 export const GOOGLE_CALENDAR_NAME = "Critical Path Calendar";
-
-// The calendar's original name. A calendar created under it is renamed to GOOGLE_CALENDAR_NAME on
-// the next sync rather than replaced, so its events don't end up split across two calendars.
-export const LEGACY_GOOGLE_CALENDAR_NAME = "Critical Path";
 
 // calendar.events writes the events themselves. calendar.calendarlist.readonly is needed to find
 // an existing "Critical Path Calendar" calendar by name. calendar.app.created lets us create that calendar
