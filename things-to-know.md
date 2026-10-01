@@ -1108,6 +1108,9 @@ checklist, because Task Management has exactly one table to export.
   that page's list too.** Unticked columns are left out and the rest keep their relative order.
   Export-only fields go next to their table counterpart, or after the table's columns if they
   have none. A key missing from the list isn't dropped; it goes last.
+- **The "Season" column exports `season_code`, not `season_name`** (client request). There is no
+  separate season-name column, and the dialog shows no per-column or per-format descriptions.
+  Both changes reach the Dashboard export too, because it uses the same column groups.
 - **Same permission as the Dashboard export** (`dashboard.export_reports`, checked via
   `requirePermission()` in the route and hidden client-side via `can()` in `page.tsx`) — one
   capability governs "can this user pull data out of the platform as a file" everywhere, rather

@@ -55,7 +55,6 @@ export const TASK_RECORD_COLUMN_GROUPS: ExportColumnGroup<Task>[] = [
       {
         key: "gender",
         label: "Gender",
-        description: "The range this task's work belongs to — guys or girls (legacy tasks may still say unisex).",
         category: "basic",
         defaultSelected: true,
         dataType: "string",
@@ -65,7 +64,6 @@ export const TASK_RECORD_COLUMN_GROUPS: ExportColumnGroup<Task>[] = [
       {
         key: "notes",
         label: "Comments",
-        description: "The task's free-text notes — the grid's Comments column.",
         category: "basic",
         defaultSelected: true,
         dataType: "string",
@@ -75,7 +73,6 @@ export const TASK_RECORD_COLUMN_GROUPS: ExportColumnGroup<Task>[] = [
       {
         key: "is_locked",
         label: "Locked",
-        description: "Whether the due date is locked against further edits.",
         category: "basic",
         defaultSelected: false,
         dataType: "boolean",
@@ -85,7 +82,6 @@ export const TASK_RECORD_COLUMN_GROUPS: ExportColumnGroup<Task>[] = [
       {
         key: "id",
         label: "Task ID",
-        description: "The internal record identifier — useful for cross-referencing with other exports.",
         category: "basic",
         defaultSelected: false,
         dataType: "string",
@@ -98,17 +94,7 @@ export const TASK_RECORD_COLUMN_GROUPS: ExportColumnGroup<Task>[] = [
     key: "classification",
     label: "Classification",
     columns: [
-      { key: "season", label: "Season", category: "classification", defaultSelected: true, dataType: "string", width: 20, getValue: (t) => t.season?.season_name ?? null },
-      {
-        key: "season_code",
-        label: "Season Code",
-        description: "The season's short code, distinct from its display name.",
-        category: "classification",
-        defaultSelected: false,
-        dataType: "string",
-        width: 14,
-        getValue: (t) => t.season?.season_code ?? null,
-      },
+      { key: "season", label: "Season", category: "classification", defaultSelected: true, dataType: "string", width: 14, getValue: (t) => t.season?.season_code ?? null },
       { key: "brand", label: "Brand", category: "classification", defaultSelected: true, dataType: "string", width: 20, getValue: (t) => t.brand?.brand_name ?? null },
       { key: "key_stage", label: "Key Stage", category: "classification", defaultSelected: true, dataType: "string", width: 24, getValue: (t) => t.key_stage?.name ?? null },
       {
@@ -129,7 +115,6 @@ export const TASK_RECORD_COLUMN_GROUPS: ExportColumnGroup<Task>[] = [
       {
         key: "due_date",
         label: "Due Date",
-        description: "Blank for tasks imported without a known due date — they never count as overdue.",
         category: "dates",
         defaultSelected: true,
         dataType: "date",
@@ -139,7 +124,6 @@ export const TASK_RECORD_COLUMN_GROUPS: ExportColumnGroup<Task>[] = [
       {
         key: "start_date",
         label: "Start Date",
-        description: "Working-timeline start. Frequently blank — most tasks aren't scheduled to this level of detail.",
         category: "dates",
         defaultSelected: false,
         dataType: "date",
@@ -149,7 +133,6 @@ export const TASK_RECORD_COLUMN_GROUPS: ExportColumnGroup<Task>[] = [
       {
         key: "end_date",
         label: "Expected Finish",
-        description: "Working-timeline end. Frequently blank, same as Start Date.",
         category: "dates",
         defaultSelected: false,
         dataType: "date",
@@ -183,7 +166,6 @@ export const TASK_RECORD_COLUMN_GROUPS: ExportColumnGroup<Task>[] = [
       {
         key: "owners",
         label: "Owners",
-        description: "Every owner on the task — a person, a department, or several of either.",
         category: "people",
         defaultSelected: true,
         dataType: "string",
@@ -224,13 +206,12 @@ export const TASK_RECORD_COLUMN_GROUPS: ExportColumnGroup<Task>[] = [
 // The order columns land in the file: the Task Management grid's left-to-right order
 // (tasks/columns.tsx — kept as a plain list because that module is "use client" and can't be
 // imported into a Route Handler; update both together). The groups above only shape the export
-// dialog's checklist. Export-only fields sit beside their grid counterpart (Season Code after
-// Season, Start/Expected Finish where Working Timeline is); the rest trail after the grid's
+// dialog's checklist. Export-only fields sit beside their grid counterpart (Start/Expected
+// Finish where Working Timeline is); the rest trail after the grid's
 // own columns.
 export const TASK_GRID_COLUMN_ORDER = [
   "status",
   "season",
-  "season_code",
   "key_stage",
   "task_name",
   "owners",

@@ -15,9 +15,9 @@ import { TASKS_QUERY_STATE } from "@/app/(app)/tasks/query-state";
 
 type ExportFormat = "xlsx" | "csv";
 
-const FORMAT_OPTIONS: { value: ExportFormat; label: string; description: string }[] = [
-  { value: "xlsx", label: "Excel (.xlsx)", description: "One sheet, formatted columns" },
-  { value: "csv", label: "CSV (.csv)", description: "Plain text, opens anywhere" },
+const FORMAT_OPTIONS: { value: ExportFormat; label: string }[] = [
+  { value: "xlsx", label: "Excel (.xlsx)" },
+  { value: "csv", label: "CSV (.csv)" },
 ];
 
 const DEFAULT_COLUMN_KEYS = defaultColumnKeys(TASK_RECORD_COLUMN_GROUPS);
@@ -116,12 +116,11 @@ export const TasksExportButton = ({ rowCount }: TasksExportButtonProps) => {
                 type="button"
                 onClick={() => setFormat(option.value)}
                 className={cn(
-                  "flex flex-col items-start gap-0.5 rounded-md border px-3 py-2 text-left transition-colors",
+                  "flex items-start rounded-md border px-3 py-2 text-left transition-colors",
                   format === option.value ? "border-primary bg-primary-tint" : "border-border hover:bg-muted"
                 )}
               >
                 <span className="text-sm font-medium text-foreground">{option.label}</span>
-                <span className="text-xs text-muted-foreground">{option.description}</span>
               </button>
             ))}
           </div>
@@ -140,16 +139,9 @@ export const TasksExportButton = ({ rowCount }: TasksExportButtonProps) => {
               <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{group.label}</span>
               <div className="grid grid-cols-2 gap-x-4 gap-y-2">
                 {group.columns.map((column) => (
-                  <label key={column.key} className="flex items-start gap-2">
-                    <Checkbox
-                      checked={columns.has(column.key)}
-                      onCheckedChange={() => toggleColumn(column.key)}
-                      className="mt-0.5"
-                    />
-                    <span className="flex flex-col">
-                      <span className="text-sm text-foreground">{column.label}</span>
-                      {column.description ? <span className="text-xs text-muted-foreground">{column.description}</span> : null}
-                    </span>
+                  <label key={column.key} className="flex items-center gap-2">
+                    <Checkbox checked={columns.has(column.key)} onCheckedChange={() => toggleColumn(column.key)} />
+                    <span className="text-sm text-foreground">{column.label}</span>
                   </label>
                 ))}
               </div>
