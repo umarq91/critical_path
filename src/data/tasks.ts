@@ -648,3 +648,28 @@ export async function listOverdueTasks({ filters = {}, limit = 50 }: { filters?:
   if (error) throw error;
   return (data ?? []) as Task[];
 }
+
+// PostgREST's per-request row ceiling — a bigger season set is fetched in pages of this size.
+const TASK_IDENTITY_PAGE_SIZE = 1000;
+
+// Name + season + brand of every live task in the given seasons: what a task import checks a row
+// against to skip one that already exists. Narrow columns only, paged, because a season's whole
+// critical path can run to hundreds of rows and an import can span several seasons.
+export async function listTaskIdentities(seasonIds: string[]) {
+  if (seasonIds.length === 0) return [];
+  const supabase = await createClient();
+  const rows: { task_name: string; season_id: string; brand_id: string | null }[] = [];
+
+  for (let from = 0; ; from += TASK_IDENTITY_PAGE_SIZE) {
+    const { data, error } = await supabase
+      .from("tasks")
+      .select("task_name, season_id, brand_id")
+      .is("deleted_at", null)
+      .in("season_id", seasonIds)
+      .order("id", { ascending: true })
+      .range(from, from + TASK_IDENTITY_PAGE_SIZE - 1);
+    if (error) throw error;
+    rows.push(...(data ?? []));
+    if (!data || data.length < TASK_IDENTITY_PAGE_SIZE) return rows;
+  }
+}

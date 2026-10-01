@@ -1,5 +1,5 @@
 import "server-only";
-import { recordAuditEvent, diffFields } from "@/lib/audit";
+import { recordAuditEvent, recordAuditEvents, diffFields } from "@/lib/audit";
 import { AUDIT_ACTION, AUDIT_ENTITY_TYPE } from "@/constants/audit";
 import { TASK_STATUS_CONFIG } from "@/constants/task-status";
 import { TASK_PRIORITY_CONFIG } from "@/constants/task-priority";
@@ -104,6 +104,27 @@ export async function logTaskCreated(
     action: AUDIT_ACTION.TASK_CREATE,
     changes: { owners: await partyLabels(supabase, ownerKeys) },
   });
+}
+
+// logTaskCreated for a batch (task import). Every owner across the batch is resolved to a name
+// in one lookup, then each task gets the same TASK_CREATE event a hand-made one does.
+export async function logTasksCreated(
+  supabase: SupabaseClient,
+  actor: AuditActor,
+  tasks: { id: string; task_name: string; ownerKeys: string[] }[]
+) {
+  const allKeys = [...new Set(tasks.flatMap((task) => task.ownerKeys))];
+  const labels = await partyLabels(supabase, allKeys);
+  const labelByKey = new Map(allKeys.map((key, index) => [key, labels[index]]));
+
+  await recordAuditEvents(
+    supabase,
+    tasks.map((task) => ({
+      ...taskEvent(actor, task.id, task.task_name),
+      action: AUDIT_ACTION.TASK_CREATE,
+      changes: { owners: task.ownerKeys.map((key) => labelByKey.get(key) ?? "Unknown") },
+    }))
+  );
 }
 
 export async function logTaskUpdated(

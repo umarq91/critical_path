@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import Papa from "papaparse";
 import { requirePermission } from "@/lib/require-permission";
-import { csvDateToIso, holidaySchema, HOLIDAY_CSV_DATE_FORMAT_ERROR, MAX_BULK_HOLIDAY_ROWS } from "@/app/(app)/holidays/schema";
+import { holidaySchema, HOLIDAY_CSV_DATE_FORMAT_ERROR, MAX_BULK_HOLIDAY_ROWS } from "@/app/(app)/holidays/schema";
+import { dayFirstDateToIso } from "@/lib/dates";
 import { listHolidays, type ListHolidaysParams } from "@/data/holidays";
 import { resyncHolidayCalendarEvents, deleteHolidayCalendarEvents } from "@/lib/google/holiday-calendar-sync";
 
@@ -140,7 +141,7 @@ export async function bulkImportHolidays(formData: FormData): Promise<
     const rowNumber = index + 2; // +1 for the header row, +1 for 1-based counting
     // Results echo the date as typed (day-first), not the ISO form it's stored as.
     const typedDate = (rawRow.holiday_date ?? "").trim();
-    const isoDate = csvDateToIso(typedDate);
+    const isoDate = dayFirstDateToIso(typedDate);
     const candidate = {
       country: rawRow.country ?? "",
       holiday_date: isoDate ?? "",

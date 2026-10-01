@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { toCsv, downloadCsv } from "@/lib/csv";
 import { HOLIDAY_CSV_HEADERS } from "@/app/(app)/holidays/schema";
 import { bulkImportHolidays, type BulkImportRowResult } from "@/app/(app)/holidays/_actions";
-import { HOLIDAY_IMPORT_STATUS_CONFIG } from "@/constants/holiday-import-status";
+import { BULK_IMPORT_STATUS_CONFIG } from "@/constants/bulk-import-status";
 
 function downloadTemplate() {
   downloadCsv("holiday-import-template.csv", toCsv([...HOLIDAY_CSV_HEADERS], []));
@@ -82,7 +82,7 @@ export const CsvBulkImport = () => {
                 <TableCell>{row.name}</TableCell>
                 <TableCell>{row.country}</TableCell>
                 <TableCell>
-                  <StatusBadge value={row.status} config={HOLIDAY_IMPORT_STATUS_CONFIG} />
+                  <StatusBadge value={row.status} config={BULK_IMPORT_STATUS_CONFIG} />
                 </TableCell>
                 <TableCell className="text-muted-foreground">{row.error ?? "—"}</TableCell>
               </TableRow>

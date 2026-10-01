@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { FormDialog } from "@/components/shared/form-dialog";
 import { TaskForm } from "@/app/(app)/tasks/task-form";
 import { TasksExportButton } from "@/app/(app)/tasks/tasks-export-button";
+import { TaskImportButton } from "@/app/(app)/tasks/import/task-import-button";
 import type { DataTableFilterOption } from "@/components/data-table/table-features";
 
 interface TaskPageActionsProps {
@@ -42,6 +43,7 @@ export const TaskPageActions = ({
           Trash
         </Button>
       ) : null}
+      {canCreateTask ? <TaskImportButton /> : null}
       {canCreateTask ? (
         <FormDialog
           title="Add New Task"

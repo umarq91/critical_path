@@ -50,3 +50,16 @@ export function formatTimestampDate(value: string) {
     year: "numeric",
   });
 }
+
+// An imported file's date is day-first (client's format); schemas and the database want ISO.
+// Shared by the Holidays and Tasks bulk imports.
+// Slashes are accepted because a spreadsheet re-saving the file often swaps them in, and ISO
+// still passes so files made from the older template keep importing. Null = unrecognised.
+export function dayFirstDateToIso(value: string): string | null {
+  const trimmed = value.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+  const match = /^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/.exec(trimmed);
+  if (!match) return null;
+  const [, day, month, year] = match;
+  return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+}

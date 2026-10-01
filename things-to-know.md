@@ -856,7 +856,7 @@ table does no normalisation between a code and a full name.
 the single "Add Holiday" form uses, and keeps going after a bad row — a typo in row 3 of a
 500-row file never blocks rows 1, 2, and 4. Every row's outcome (`created` / `duplicate` /
 `invalid`) comes back in one array and renders in a results table (`csv-bulk-import.tsx`), styled
-through `HOLIDAY_IMPORT_STATUS_CONFIG` — the same generic `<StatusBadge>` every other per-row or
+through `BULK_IMPORT_STATUS_CONFIG` — the same generic `<StatusBadge>` every other per-row or
 per-entity status already uses, a new config map, not a new component.
 
 **Duplicate detection is two-layered.** A real DB row with the same `(country, holiday_date,
@@ -875,7 +875,7 @@ preserve exact header casing.
 **CSV import dates are day-first (`DD-MM-YYYY`), by client request; the stored value stays ISO.** The
 template's date header reads `Date (DD-MM-YYYY)` — the template has no sample row, so the header
 is the only place to state the format, and `normaliseHeader` strips the bracketed hint before
-matching (a plain `Date` header still works). `csvDateToIso()` (`holidays/schema.ts`) converts
+matching (a plain `Date` header still works). `dayFirstDateToIso()` (`lib/dates.ts`) converts
 each row before `holidaySchema` sees it, so the schema and the Add Holiday form are unchanged.
 It also accepts `DD/MM/YYYY` (spreadsheets swap separators on re-save) and ISO (files built from
 the older template). A two-number-first date is always read as day-month, never month-day. The
@@ -1125,6 +1125,51 @@ checklist, because Task Management has exactly one table to export.
   `requirePermission()` in the route and hidden client-side via `can()` in `page.tsx`) — one
   capability governs "can this user pull data out of the platform as a file" everywhere, rather
   than a second grant per page that happens to add an Export button.
+
+### Import (`tasks/import/`, Import button on `/tasks`)
+
+- **Two steps; the upload alone writes nothing.** `previewTaskImport` runs `analyseTaskImport`
+  (parse → resolve names → `taskCreateSchema` → duplicate check) and returns every row as
+  `ready` / `duplicate` / `invalid`. Tasks are only created by `importTasks`, which **re-sends and
+  re-analyses the same file** rather than accepting the preview's rows back from the browser, so
+  ids and permissions are always resolved server-side. Resolved ids never reach the client
+  (`toClientRow`). If data changed between preview and import, the import's own result is what
+  counts.
+- **Cells hold names, not ids.** Season = `season_code` (what the export's Season column
+  writes), Brand = `brand_name`, Key Stage = `key_stages.name`, Owners / People Involved = a
+  department name, a person's full name, or their email, joined by `, `. Matching is exact after
+  trimming, because season codes deliberately differ only by case (see § Seasons & Key Stages).
+  Status / Gender / Priority / DPSP take the app's label or the stored value, case-insensitively.
+- **A name matching more than one record fails the row; the import never guesses.** Brand,
+  key-stage, department and person names aren't unique columns, and a person can share a
+  department's name.
+- **Names containing a comma still resolve.** The party cell is split on commas, then adjacent
+  pieces are rejoined, longest first, until they form a known name (`Sales, AU` stays one
+  department).
+- **Headers are the export's own labels**, looked up from `TASK_RECORD_COLUMN_GROUPS` rather
+  than retyped, so an exported sheet re-imports as-is. Export columns the import doesn't read
+  (Locked, Task ID, timestamps, Created By) are ignored. Renaming an export label renames the
+  import header too.
+- **Same rules as Add Task.** Every row goes through `taskCreateSchema`. A blank Status becomes
+  Not Started and a blank Priority becomes Medium, matching the form. Every other required field
+  missing fails the row. The resolver reports which fields are at fault (`problemFields`), and the
+  preview highlights those cells.
+- **Duplicates are skipped, not created.** A row is a duplicate when it has the same trimmed
+  name + season + brand as a live task (`listTaskIdentities`) or as an earlier row in the file.
+  Staff RLS reads every task, so the check sees the whole table.
+- **Saved in batches of 100 (`insertTaskBatch`), three requests per batch.** The task ids are
+  generated in the action, so participant rows can name their task without relying on the order
+  Postgres returns inserted rows in. The audit events go in as one insert (`logTasksCreated` →
+  `recordAuditEvents`). A batch is all-or-nothing. If one fails, it's rolled back (soft delete)
+  and its rows are retried one by one through `insertTask` (`createTask`'s own path, 5 at a
+  time), so one bad row can't sink the other 99. Row-by-row alone would be about 4 requests per
+  row, roughly minutes for 1000.
+- **Limits:** `MAX_TASK_IMPORT_ROWS = 1000`. The client rejects files over 1 MB, Next.js's
+  default Server Action body limit. A 1000-row `.xlsx` is about 100 KB.
+- **The preview list pages in memory, not through `DataTable`'s server pagination.** The rows
+  come from one uploaded file, not a table, so there's no query to push filters to. It reuses
+  `PaginationControls` and `BULK_IMPORT_STATUS_CONFIG` (shared with the Holidays import, plus a
+  `ready` entry).
 
 ---
 

@@ -2,12 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { requirePermission } from "@/lib/require-permission";
-import { taskCreateSchema, taskUpdateSchema, dpspCategoryValues, taskGenderValues } from "@/app/(app)/tasks/schema";
+import { taskCreateSchema, taskUpdateSchema } from "@/app/(app)/tasks/schema";
+import { insertTask, normaliseDate, normaliseDpspCategory, normaliseOptionalId } from "@/app/(app)/tasks/_insert-task";
 import { listTasks, type ListTasksParams } from "@/data/tasks";
-import { parsePartyKey, participantRows } from "@/lib/party";
 import { deleteCalendarEvent } from "@/lib/google/calendar";
 import { resyncTaskCalendarEvent } from "@/lib/google/task-calendar-sync";
-import { logTaskCreated, logTaskUpdated, logTaskDeleted, logTaskRestored } from "@/app/(app)/tasks/_audit";
+import { logTaskUpdated, logTaskDeleted, logTaskRestored } from "@/app/(app)/tasks/_audit";
 
 // Powers the isolated "Refresh" icon on the tasks table (see useRefreshableData). A plain
 // read, not a mutation — router.refresh() can't scope a reload to just this table (it
@@ -17,40 +17,6 @@ export async function refreshTasks(params: ListTasksParams) {
   return listTasks(params);
 }
 
-// The form/inline-edit selects submit "none" as their "not set" sentinel for the optional FKs
-// (see task-form.tsx / tasks/columns.tsx), never "" — normalise that (and any other falsy
-// value) to null before it hits the column. Shared by brand_id, key_stage_id and dpsp_category.
-function normaliseOptionalId(value: string | undefined): string | null {
-  return value && value !== "none" ? value : null;
-}
-
-// dpsp_category is a Postgres enum, not a uuid FK — normaliseOptionalId's generic "none" -> null
-// step still applies, but the surviving value has to be narrowed to the enum's own literal
-// union (taskSchema only validates it as a loose string, same "none"-sentinel reasoning as
-// brand_id/key_stage_id) before it can reach a typed insert/update.
-function normaliseDpspCategory(value: string | undefined): (typeof dpspCategoryValues)[number] | null {
-  const id = normaliseOptionalId(value);
-  return id && (dpspCategoryValues as readonly string[]).includes(id)
-    ? (id as (typeof dpspCategoryValues)[number])
-    : null;
-}
-
-// gender has no "none" sentinel — it's a required, not-null column — so unlike
-// normaliseDpspCategory this only narrows the type. taskCreateSchema's own refine already
-// guarantees `value` is a real taskGenderValues member before this ever runs; the loose string
-// type on that field exists purely so the create form can start unselected (see schema.ts).
-function narrowGender(value: string): (typeof taskGenderValues)[number] {
-  return value as (typeof taskGenderValues)[number];
-}
-
-// due_date/start_date/end_date are all optional `date` columns, but DateField submits an unset
-// date as "" rather than omitting the key — "" fails Postgres's date parsing outright ("invalid
-// input syntax for type date: \"\""), so it's normalised to null before the DB write, same
-// reasoning as normaliseOptionalId above.
-function normaliseDate(value: string | undefined): string | null {
-  return value ? value : null;
-}
-
 export async function createTask(input: unknown) {
   const auth = await requirePermission("task.create");
   if (!auth.ok) return auth;
@@ -58,55 +24,11 @@ export async function createTask(input: unknown) {
   const parsed = taskCreateSchema.safeParse(input);
   if (!parsed.success) return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid input" };
 
-  const { owners, people_involved, ...taskColumns } = parsed.data;
-
-  const { data, error } = await auth.supabase
-    .from("tasks")
-    .insert({
-      ...taskColumns,
-      brand_id: normaliseOptionalId(taskColumns.brand_id),
-      key_stage_id: normaliseOptionalId(taskColumns.key_stage_id),
-      dpsp_category: normaliseDpspCategory(taskColumns.dpsp_category),
-      gender: narrowGender(taskColumns.gender),
-      due_date: normaliseDate(taskColumns.due_date),
-      start_date: normaliseDate(taskColumns.start_date),
-      end_date: normaliseDate(taskColumns.end_date),
-      // Compatibility shim while tasks.assignee_id still exists (0015 is the expand phase; the
-      // column is dropped in a follow-up). Calendar sync and the Upcoming scope still read it,
-      // so it's set to the first *individual* owner — null when every owner is a department,
-      // which is the common case and is exactly why the column is going away.
-      assignee_id: firstIndividualOwnerId(owners),
-      created_by: auth.userId,
-      last_edited_by: auth.userId,
-    })
-    .select()
-    .single();
-  if (error) return { ok: false as const, error: error.message };
-
-  const participants = [
-    ...participantRows(data.id, owners, "owner"),
-    ...participantRows(data.id, people_involved, "involved"),
-  ];
-  const { error: participantsError } = await auth.supabase.from("task_participants").insert(participants);
-  if (participantsError) {
-    // The task row is already committed and a task with no owner is not a valid state, so roll
-    // it back rather than leave a half-written task behind. Soft delete, matching deleteTask.
-    await auth.supabase.from("tasks").update({ deleted_at: new Date().toISOString(), deleted_by: auth.userId }).eq("id", data.id);
-    return { ok: false as const, error: participantsError.message };
-  }
-
-  await logTaskCreated(auth.supabase, { userId: auth.userId, email: auth.email }, data, owners);
+  const result = await insertTask(auth.supabase, { userId: auth.userId, email: auth.email }, parsed.data);
+  if (!result.ok) return result;
 
   revalidatePath("/tasks");
-  return { ok: true as const, data };
-}
-
-function firstIndividualOwnerId(owners: string[]) {
-  for (const key of owners) {
-    const party = parsePartyKey(key);
-    if (party?.kind === "user") return party.id;
-  }
-  return null;
+  return result;
 }
 
 // The columns a task edit is audited on — every user-editable column, and nothing else (the

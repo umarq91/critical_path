@@ -43,6 +43,27 @@ export async function recordAuditEvent(
   }
 }
 
+// recordAuditEvent for many events in one insert — a bulk action logs one row per entity it
+// touched without one request per row. Same best-effort contract.
+export async function recordAuditEvents(supabase: SupabaseClient, events: AuditEventInput[]) {
+  if (events.length === 0) return;
+  try {
+    await supabase.from("audit_log").insert(
+      events.map(({ actorId, actorEmail, action, entityType, entityId, entityLabel, changes = {} }) => ({
+        actor_id: actorId,
+        actor_email: actorEmail,
+        action,
+        entity_type: entityType,
+        entity_id: entityId,
+        entity_label: entityLabel,
+        changes,
+      }))
+    );
+  } catch {
+    // Swallowed deliberately — see recordAuditEvent.
+  }
+}
+
 // Field-level diff for an update. Driven by the keys of `patch` (what the caller actually
 // submitted), not by every column on `before` — an inline edit of one cell should log one
 // field, not eleven unchanged ones.
