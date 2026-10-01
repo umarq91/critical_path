@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { addDays, format, subDays } from "date-fns";
+import { addYears, format, subYears } from "date-fns";
 import { z } from "zod";
 import { requirePermission } from "@/lib/require-permission";
 import { getGoogleOAuthEnv } from "@/lib/env.server";
@@ -27,8 +27,8 @@ import { toTaskRangeFilters } from "@/app/(app)/calendar/calendar-utils";
 // filters go through the same toTaskRangeFilters/listTasksByDueDateRange pair the page renders
 // from, and the country filter through listHolidaysByDateRange. Filters only narrow what gets
 // pushed; they never remove an event already on Google (see the removal pass below).
-const SYNC_WINDOW_DAYS_PAST = 90;
-const SYNC_WINDOW_DAYS_FUTURE = 180;
+const SYNC_WINDOW_YEARS_PAST = 2;
+const SYNC_WINDOW_YEARS_FUTURE = 3;
 
 // Bounds, not business rules: a filter value is an id, an enum value or a country name, and no
 // real selection comes close to 500 of them. Anything past that is a malformed request.
@@ -87,8 +87,8 @@ export async function syncGoogleCalendar(input: unknown) {
   }
 
   const today = new Date();
-  const from = format(subDays(today, SYNC_WINDOW_DAYS_PAST), "yyyy-MM-dd");
-  const to = format(addDays(today, SYNC_WINDOW_DAYS_FUTURE), "yyyy-MM-dd");
+  const from = format(subYears(today, SYNC_WINDOW_YEARS_PAST), "yyyy-MM-dd");
+  const to = format(addYears(today, SYNC_WINDOW_YEARS_FUTURE), "yyyy-MM-dd");
 
   // Same scope as the My Tasks page (resolvePersonalScope in data/tasks.ts): created by them,
   // OR a participant in ANY role — owner or involved — named directly or through their

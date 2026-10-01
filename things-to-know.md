@@ -177,8 +177,10 @@ or the two drift apart. Three rules are easy to break:
 - **Filters narrow the push, never the removal pass.** A task filtered out of this sync keeps
   its Google event. Only leaving the user's scope (deleted, or removed from the task) removes
   one. Sync Season A and then Season B, and both stay on Google.
-- **The date window stays fixed** (90 days back to 180 days ahead), whatever month is on screen.
-  Filters narrow that window's tasks; the visible range does not.
+- **The date window stays fixed** (2 years back to 3 years ahead), whatever month is on screen.
+  Filters narrow that window's tasks; the visible range does not. It was 90 days back to 180 days ahead until a
+  task due ~14 months out silently didn't sync (client request). Each in-window task is one
+  Google API call per click, so a wider window means a longer request.
 - **Every sync asks first.** `calendar-sync-button.tsx` opens a confirm listing the active
   filters, or, with none, one saying ALL tasks and holidays will be synced (client request; it
   used to sync straight away when unfiltered).
