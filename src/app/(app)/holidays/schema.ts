@@ -11,7 +11,7 @@ export const holidaySchema = z.object({
   holiday_date: z
     .string()
     .trim()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format")
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Enter a valid date")
     .refine((value) => isValid(parseDateOnly(value)), "Not a real date"),
   name: z.string().trim().min(1, "Event name is required").max(200),
   description: z.string().trim().max(2000).optional(),

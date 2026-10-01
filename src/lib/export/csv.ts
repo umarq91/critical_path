@@ -5,16 +5,21 @@ import type { ExportColumn, ExportSheet } from "@/lib/export/types";
 // CSV has no native types — every cell is text — so a column's `dataType` only decides how its
 // value is STRINGIFIED here, once, rather than every column definition re-implementing
 // "how do I print a date" or "how do I print a boolean" for itself.
+function toDayFirstDate(value: Date): string {
+  const [year, month, day] = value.toISOString().slice(0, 10).split("-");
+  return `${day}-${month}-${year}`;
+}
+
 function formatCell(column: ExportColumn<unknown>, row: unknown): string | number {
   const value = column.getValue(row);
   if (value === null || value === undefined) return "";
 
   switch (column.dataType) {
     case "date":
-      // ISO date, not a locale string: the point of a CSV date column is that Excel/Sheets
-      // recognise it as a date on import, and "2026-01-15" round-trips through every regional
-      // date setting unambiguously — "15/01/2026" does not.
-      return value instanceof Date ? value.toISOString().slice(0, 10) : String(value);
+      // Day-first, by client request, read from the UTC fields because both export date helpers
+      // (lib/export/dates.ts) encode the intended calendar day on the UTC clock. A spreadsheet
+      // set to a month-first locale may misread "05-01-2026"; that trade-off was accepted.
+      return value instanceof Date ? toDayFirstDate(value) : String(value);
     case "boolean":
       return value ? "TRUE" : "FALSE";
     case "number":

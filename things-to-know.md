@@ -872,7 +872,7 @@ spacing-insensitively (`"Event Name"`, `"event_name"`, `"EVENT NAME"` all resolv
 column), since a CSV re-opened and re-saved in different spreadsheet software doesn't reliably
 preserve exact header casing.
 
-**CSV dates are day-first (`DD-MM-YYYY`), by client request; everything else stays ISO.** The
+**CSV import dates are day-first (`DD-MM-YYYY`), by client request; the stored value stays ISO.** The
 template's date header reads `Date (DD-MM-YYYY)` — the template has no sample row, so the header
 is the only place to state the format, and `normaliseHeader` strips the bracketed hint before
 matching (a plain `Date` header still works). `csvDateToIso()` (`holidays/schema.ts`) converts
@@ -1296,7 +1296,12 @@ Vercel) and a Client Component on the browser's, so one instant could show two d
 - **Exports use Melbourne time too.** `toExportTimestamp()` (`lib/export/dates.ts`) hands the
   writers a Date shifted so its UTC fields read as the Melbourne wall clock, because both
   writers print on the UTC clock. Headers read "Created At (Melbourne time)". The files show
-  the date only (`yyyy-mm-dd`), as before.
+  the date only.
+- **Export dates are day-first (`dd-mm-yyyy`) in both CSV and Excel, for every module.** Client
+  request. Excel cells stay real dates (only `numFmt` changed), so they still sort and filter.
+  CSV cells are plain text, so a spreadsheet set to a month-first locale may misread
+  `05-01-2026` as 1 May; that was accepted. The holiday CSV import reads this format, so a
+  holidays export re-imports cleanly.
 - A person outside Victoria sees Melbourne time, not their own — the client is one office.
 
 ---

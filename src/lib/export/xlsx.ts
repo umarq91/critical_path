@@ -4,7 +4,7 @@ import type { ExportColumn, ExportSheet } from "@/lib/export/types";
 
 // exceljs's own numFmt strings — kept in one place so every date/percent cell in the workbook
 // is formatted identically rather than each sheet builder inventing its own.
-const DATE_FORMAT = "yyyy-mm-dd";
+const DATE_FORMAT = "dd-mm-yyyy";
 const HEADER_FILL: ExcelJS.Fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE2E8F0" } };
 const HEADER_FONT: Partial<ExcelJS.Font> = { bold: true };
 
