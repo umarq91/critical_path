@@ -29,7 +29,7 @@ function toPartySummary(participant: TaskParticipant): PartySummary | null {
       id,
       key: partyKey({ kind: "user", id }),
       name: full_name ?? email,
-      subtitle: department ? `${email} · ${department.name}` : email,
+      subtitle: department?.name ?? null,
       avatarUrl: avatar_url,
       isExternal: false,
     };

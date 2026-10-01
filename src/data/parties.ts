@@ -60,7 +60,7 @@ export async function searchParties({ query }: SearchPartiesParams = {}) {
     id: row.id,
     key: partyKey({ kind: "user", id: row.id }),
     name: row.full_name ?? row.email,
-    subtitle: row.department ? `${row.email} \u00b7 ${row.department.name}` : row.email,
+    subtitle: row.department?.name ?? null,
     avatarUrl: row.avatar_url,
     isExternal: false,
   }));

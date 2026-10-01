@@ -56,8 +56,9 @@ export function participantRows(taskId: string, keys: string[], role: Participan
 export interface PartySummary extends PartyRef {
   key: PartyKey;
   name: string;
-  /** People: their email (and department). Departments: an external note, or nothing — a
-   *  department's description is create/edit-form-only, never surfaced in a picker or list. */
+  /** People: their department, never their email — pickers hide emails (client request), though
+   *  search still matches on them. Departments: an external note, or nothing — a department's
+   *  description is create/edit-form-only, never surfaced in a picker or list. */
   subtitle: string | null;
   avatarUrl: string | null;
   isExternal: boolean;
