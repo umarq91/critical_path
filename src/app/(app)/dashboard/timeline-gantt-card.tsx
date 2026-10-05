@@ -28,7 +28,8 @@ const TIMELINE_HREF = "/timeline";
 
 // The card answers season and brand in the browser; the key-stage/owner/people filters and the
 // search box are /timeline's, and it renders neither (TimelineToolbar drops a filter it has no
-// options for, and search is opt-in). They still sit in the shared control shape, empty here.
+// options for, and search is opt-in). Nor does it mark holidays. They still sit in the shared
+// control shape, empty here.
 const INITIAL_CONTROLS: TimelineControls = {
   view: "month",
   date: "",
@@ -38,6 +39,7 @@ const INITIAL_CONTROLS: TimelineControls = {
   owner: "",
   involved: "",
   search: "",
+  countries: "",
 };
 
 // Quarter and Year would draw a window several times wider than the fetched band — an empty

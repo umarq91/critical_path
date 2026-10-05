@@ -5,7 +5,8 @@ import { Loader2, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { FilterSelect, type FilterSelectOption } from "@/components/shared/filter-select";
+import { MultiFilterSelect } from "@/components/shared/multi-filter-select";
+import type { FilterSelectOption } from "@/components/shared/filter-select";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { listMyReminderCandidateTasks } from "@/app/(app)/settings/notifications/_reminder-actions";
 import { formatDate } from "@/lib/dates";
@@ -19,13 +20,15 @@ const CANDIDATE_PAGE_SIZE = 100;
 
 interface NotifyTaskPickerDialogProps {
   seasonOptions: FilterSelectOption[];
+  /** Departments and people as `kind:uuid` party keys — serves both Owner and People Involved,
+   *  since either role can be held by either kind. */
   ownerOptions: FilterSelectOption[];
   brandOptions: FilterSelectOption[];
   genderOptions: FilterSelectOption[];
   selectedIds: ReadonlySet<string>;
   onToggle: (task: ReminderRuleTask) => void;
   /** Selects every currently-loaded/filtered candidate at once — not the user's whole task
-   *  list, just what's on screen, so it composes with the search/season/owner filters above. */
+   *  list, just what's on screen, so it composes with the search and filters above. */
   onSelectAll: (tasks: ReminderRuleTask[]) => void;
   /** Clears the entire selection, not just what's currently visible — mirrors what "Save"
    *  would otherwise persist, so it's an honest "start over," not a scoped removal. */
@@ -36,7 +39,9 @@ interface NotifyTaskPickerDialogProps {
 // is involved in, same set and same due-date-agnostic scope as the My Tasks table above it (see
 // listMyReminderCandidateTasks). A task with no due date, or one already overdue, can still be
 // picked; it just never actually fires a reminder (listDueReminders skips anything without a
-// due_date). Season/owner/brand/gender filters narrow the candidate list down further. Checking a row
+// due_date). Season/owner/people involved/brand/gender filters narrow the candidate list down
+// further. Each is multi-select (any of the ticked values), comma-joined like every other
+// MultiFilterSelect, which listTasks() already decodes. Checking a row
 // reports it straight to the parent card's selection state; there's no separate "confirm" step,
 // since nothing is written to the server until that card's own Save button is pressed.
 // `forKey` is the filter combination the results actually answer — "still loading" is derived
@@ -57,15 +62,16 @@ export function NotifyTaskPickerDialog({
   onSelectAll,
   onClearAll,
 }: NotifyTaskPickerDialogProps) {
-  const [seasonId, setSeasonId] = useState<string | null>(null);
-  const [owner, setOwner] = useState<string | null>(null);
-  const [brandId, setBrandId] = useState<string | null>(null);
-  const [gender, setGender] = useState<string | null>(null);
+  const [seasonId, setSeasonId] = useState<string | undefined>();
+  const [owner, setOwner] = useState<string | undefined>();
+  const [involved, setInvolved] = useState<string | undefined>();
+  const [brandId, setBrandId] = useState<string | undefined>();
+  const [gender, setGender] = useState<string | undefined>();
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedValue(search, SEARCH_DEBOUNCE_MS);
   const [state, setState] = useState<CandidateState>({ status: "pending" });
 
-  const filterKey = JSON.stringify({ seasonId, owner, brandId, gender, debouncedSearch });
+  const filterKey = JSON.stringify({ seasonId, owner, involved, brandId, gender, debouncedSearch });
 
   useEffect(() => {
     let cancelled = false;
@@ -73,6 +79,7 @@ export function NotifyTaskPickerDialog({
     const filters: Record<string, string> = {};
     if (seasonId) filters.season_id = seasonId;
     if (owner) filters.owner = owner;
+    if (involved) filters.involved = involved;
     if (brandId) filters.brand_id = brandId;
     if (gender) filters.gender = gender;
     if (debouncedSearch) filters.search = debouncedSearch;
@@ -112,10 +119,63 @@ export function NotifyTaskPickerDialog({
             className="h-8 w-56 pl-8"
           />
         </div>
-        <FilterSelect value={seasonId} onValueChange={setSeasonId} options={seasonOptions} allLabel="All seasons" />
-        <FilterSelect value={owner} onValueChange={setOwner} options={ownerOptions} allLabel="All owners" />
-        <FilterSelect value={brandId} onValueChange={setBrandId} options={brandOptions} allLabel="All brands" />
-        <FilterSelect value={gender} onValueChange={setGender} options={genderOptions} allLabel="All genders" />
+        <MultiFilterSelect
+          value={seasonId}
+          onValueChange={setSeasonId}
+          options={seasonOptions}
+          title="Season"
+          allLabel="All Seasons"
+          className="h-8"
+        />
+        <MultiFilterSelect
+          value={owner}
+          onValueChange={setOwner}
+          options={ownerOptions}
+          title="Owner"
+          allLabel="All Owners"
+          className="h-8"
+        />
+        <MultiFilterSelect
+          value={involved}
+          onValueChange={setInvolved}
+          options={ownerOptions}
+          title="People Involved"
+          allLabel="All People Involved"
+          className="h-8"
+        />
+        <MultiFilterSelect
+          value={brandId}
+          onValueChange={setBrandId}
+          options={brandOptions}
+          title="Brand"
+          allLabel="All Brands"
+          className="h-8"
+        />
+        <MultiFilterSelect
+          value={gender}
+          onValueChange={setGender}
+          options={genderOptions}
+          title="Gender"
+          allLabel="All Genders"
+          className="h-8"
+        />
+        {seasonId || owner || involved || brandId || gender || search ? (
+          <Button
+            type="button"
+            variant="link"
+            className="px-1 text-primary"
+            onClick={() => {
+              setSeasonId(undefined);
+              setOwner(undefined);
+              setInvolved(undefined);
+              setBrandId(undefined);
+              setGender(undefined);
+              setSearch("");
+            }}
+          >
+            Clear
+          </Button>
+        ) : null}
       </div>
 
       <div className="flex items-center justify-between">
@@ -151,7 +211,7 @@ export function NotifyTaskPickerDialog({
           </div>
         ) : candidates.length === 0 ? (
           <p className="px-2 py-6 text-center text-sm text-muted-foreground">
-            No tasks match — try a different season, owner, brand, gender, or search term.
+            No tasks match — try different filters or a different search term.
           </p>
         ) : (
           candidates.map((task) => (

@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, PartyPopper, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MultiFilterSelect } from "@/components/shared/multi-filter-select";
@@ -40,6 +40,8 @@ export interface TimelineControls {
   involved: string;
   /** Free-text term, matched against task name, key stage, owners and people involved. */
   search: string;
+  /** Which countries' public holidays are marked — not a task filter, so Clear leaves it. */
+  countries: string;
 }
 
 /** `null` resets a value to its default — what the Today and Clear buttons send. */
@@ -59,6 +61,8 @@ interface TimelineToolbarProps {
   keyStageOptions?: FilterSelectOption[];
   ownerOptions?: FilterSelectOption[];
   involvedOptions?: FilterSelectOption[];
+  /** Countries with at least one public holiday; omitted where no holidays are drawn. */
+  holidayCountryOptions?: FilterSelectOption[];
   /** Renders the search box. Off by default — it narrows a list the consumer is expected to
    *  page through, which a fixed-size preview isn't. */
   enableSearch?: boolean;
@@ -85,6 +89,7 @@ export const TimelineToolbar = ({
   keyStageOptions,
   ownerOptions,
   involvedOptions,
+  holidayCountryOptions,
   enableSearch = false,
   taskCount,
   views = timelineViewValues,
@@ -223,6 +228,19 @@ export const TimelineToolbar = ({
             allLabel="All People Involved"
             className="h-8"
           />
+        ) : null}
+        {holidayCountryOptions ? (
+          <div className="flex items-center gap-1.5">
+            <PartyPopper className="size-4 text-accent-teal" aria-hidden />
+            <MultiFilterSelect
+              value={state.countries}
+              onValueChange={(value) => setState({ countries: value ?? null })}
+              options={holidayCountryOptions}
+              title="Holiday Country"
+              allLabel="All Holidays"
+              className="h-8"
+            />
+          </div>
         ) : null}
         {hasFilters ? (
           <Button

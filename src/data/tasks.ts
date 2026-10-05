@@ -427,6 +427,18 @@ export async function getTaskById(taskId: string): Promise<Task | null> {
   return data as Task | null;
 }
 
+// Full rows for ids another query already chose and ordered (the Notifications page's reminder
+// schedule pages through reminder_rule_tasks, then reads the rows here so it can render the
+// Tasks grid's own columns). Returned in the order the ids were given.
+export async function listTasksByIds(ids: string[]): Promise<Task[]> {
+  if (ids.length === 0) return [];
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("tasks").select(TASK_SELECT).in("id", ids).is("deleted_at", null);
+  if (error) throw error;
+  const byId = new Map((data ?? []).map((task) => [task.id, task as Task]));
+  return ids.map((id) => byId.get(id)).filter((task): task is Task => !!task);
+}
+
 export interface ListTasksByDueDateRangeParams {
   /** Inclusive, `yyyy-MM-dd`. */
   from: string;

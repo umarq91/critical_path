@@ -49,6 +49,7 @@ export function useTimelineQueryState() {
     owner: state.owner,
     involved: state.involved,
     search: state.q,
+    countries: state.countries,
   };
 
   return {

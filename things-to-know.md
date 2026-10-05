@@ -729,10 +729,11 @@ card — **still 0 requests on interaction**.
 
 ## Timeline / Gantt (`/timeline`)
 
-**Cost: 7 Supabase calls, 9 with a search term** — timeline tasks (2: a narrow matching pass
+**Cost: 9 Supabase calls, 11 with a search term** — timeline tasks (2: a narrow matching pass
 and a wide page fetch, see below), overdue tasks, season options, brand options, key stage
-options, party options (departments + people); a typed term adds a key-stage lookup and a
-party-name lookup. The six independent ones are issued together via `Promise.all`. Every
+options, party options (departments + people), the window's public holidays and the distinct
+holiday countries; a typed term adds a key-stage lookup and a party-name lookup. The eight
+independent ones are issued together via `Promise.all`. Every
 control on the page re-runs the Server Component (`shallow: false`), so every one of them
 re-queries; scrolling and opening the drawer do not.
 
@@ -750,10 +751,21 @@ colour alone doesn't identify one: `TimelineSeasonLegend` names the seasons amon
 and each bar's tooltip carries its season and status. White bar text stays readable because season
 colours can only be picked from that palette (`ColorField`).
 
-**The pinned left columns (Task Name / Start / End) are resizable and wrap** (client request,
-matching the Tasks grid). It's not a DataTable, so it has its own small store,
+**Public holidays are drawn on the chart** (same `public_holidays` rows and accent-teal treatment as
+the Calendar): a "Public Holidays" row above the tasks plus a faint full-height band per holiday
+day. Holidays are grouped **per date** (`groupHolidaysByDay`), so New Year's Day across four
+countries is one marker with every name in its tooltip. The Holiday Country filter (`countries`
+URL param, same name as the Calendar's) narrows which holidays are drawn and never touches the
+task query, so Clear leaves it alone. It's encoded like the other Timeline filters (comma-joined),
+so a free-text country containing a comma would split in two. The Dashboard's Gantt card passes no
+`holidays`, so it draws neither the row nor the bands.
+
+**The pinned left columns (Task Name / Season / Start / End) are resizable and wrap** (client
+request, matching the Tasks grid). Season is a `ColorTag` in the same `taskSeasonColor` as the bar,
+so a row names its season without hovering. It's not a DataTable, so it has its own small store,
 `use-timeline-column-widths.ts`: widths saved per browser under `timeline-column-widths`, clamped
-to a per-column minimum and 640px, defaults summing to the old fixed 420px. It uses
+to a per-column minimum and 640px, defaults summing to 560px. Widths saved before a column
+existed fall back to that column's default (`parse` fills missing keys). It uses
 `useSyncExternalStore` with a "nothing saved" server snapshot, so the server renders the defaults
 and the client swaps in the saved widths after hydrating; reading localStorage in the first render
 would mismatch the server markup. Task names wrap, so rows are `minHeight: ROW_HEIGHT`, not fixed,
@@ -1698,8 +1710,8 @@ unlike the rest of the Settings group (which is `admin.manage_lookups`-gated) �
 visible to every role, including `external`.
 
 **Scope is specific tasks only — v1 deliberately dropped "by season"/"by owner" as separate
-scope types.** `reminder_rule_tasks` is a plain join (`rule_id`, `task_id`); season and owner
-are filters *inside* the "Select tasks…" picker (`notify-task-picker-dialog.tsx`), narrowing
+scope types.** `reminder_rule_tasks` is a plain join (`rule_id`, `task_id`); season, owner,
+people involved, brand and gender are multi-select filters *inside* the "Select tasks…" picker (`notify-task-picker-dialog.tsx`), narrowing
 which of the user's own tasks they pick from — not a second matching mechanism a task could
 qualify under independently of being explicitly chosen. The picker's candidate set is
 `listMyReminderCandidateTasks()`, which is just `listTasksForProfile()` — the exact same
@@ -1717,9 +1729,18 @@ through a migration; don't reach for the admin client from a page. The table que
 inner-joined to `reminder_rule_tasks`, so search, sort and pagination run in PostgREST, and it
 shows SAVED settings only (both steps' Save actions `revalidatePath` the page).
 
+**Its columns ARE the Tasks grid's** (client request): `createTaskColumns()` with
+`canManage`/`canDelete` false and the Actions column dropped, then one extra "Reminder Emails"
+column. That pass selects ids only, and `listTasksByIds()` (`data/tasks.ts`) reads the page's
+full `TASK_SELECT` rows, so a new Tasks column shows up here without any extra work. The Reminder
+Emails column is typed on `Task`, not `ScheduledReminderRow`: TanStack column defs are invariant in
+their row type, so a column typed on the wider row can't sit in the same array. It finds each
+row's sends by task id instead. Sorting follows Tasks: only `task_name`/`due_date`/`status`/
+`created_at` sort server-side, and any other header falls back to due date.
+
 **"Select all" / "Deselect all" in the picker act on different scopes, on purpose.** Select all
-only selects what's currently loaded into `candidates` — i.e. whatever the picker's own search/
-season/owner filters and the `CANDIDATE_PAGE_SIZE` (100) cap currently show — so it composes
+only selects what's currently loaded into `candidates` — i.e. whatever the picker's own search and
+filters and the `CANDIDATE_PAGE_SIZE` (100) cap currently show — so it composes
 with those filters instead of silently grabbing the user's entire task list. Deselect all clears
 the whole selection regardless of what's currently filtered into view, mirroring what Save would
 otherwise persist — an honest "start over," not a scoped removal.

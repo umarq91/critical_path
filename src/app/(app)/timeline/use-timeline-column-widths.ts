@@ -2,17 +2,18 @@
 
 import { useMemo, useSyncExternalStore } from "react";
 
-export type TimelineColumn = "name" | "start" | "end";
+export type TimelineColumn = "name" | "season" | "start" | "end";
 export type TimelineColumnWidths = Record<TimelineColumn, number>;
 
-// Defaults add up to the old fixed 420px panel, so an untouched Timeline looks as it always did.
 export const TIMELINE_COLUMN_DEFAULTS: TimelineColumnWidths = {
   name: 196,
+  season: 140,
   start: 112,
   end: 112,
 };
 export const TIMELINE_COLUMN_MIN: TimelineColumnWidths = {
   name: 140,
+  season: 100,
   start: 90,
   end: 90,
 };
@@ -63,7 +64,7 @@ export function clampWidth(column: TimelineColumn, width: number) {
   );
 }
 
-// The Timeline's pinned left columns (Task Name / Start / End), resizable like the Tasks grid and
+// The Timeline's pinned left columns (Task Name / Season / Start / End), resizable like the Tasks grid and
 // saved per browser. Shared by /timeline and the Dashboard's Gantt card, which render the same grid.
 //
 // useSyncExternalStore with a server snapshot of "nothing saved": the server can't see
@@ -91,6 +92,6 @@ export function useTimelineColumnWidths() {
   return {
     widths,
     setWidth,
-    totalWidth: widths.name + widths.start + widths.end,
+    totalWidth: widths.name + widths.season + widths.start + widths.end,
   };
 }

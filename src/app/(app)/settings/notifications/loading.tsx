@@ -26,7 +26,7 @@ export default function SettingsNotificationsLoading() {
         <StepCardSkeleton />
         <StepCardSkeleton />
         <div className="lg:col-span-2">
-          <DataTableSkeleton filterCount={0} columnCount={3} rowCount={5} showSelectionColumn={false} />
+          <DataTableSkeleton filterCount={0} columnCount={13} rowCount={5} showSelectionColumn={false} />
         </div>
       </div>
     </div>

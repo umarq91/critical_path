@@ -26,7 +26,7 @@ export default function TimelineLoading() {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Skeleton className="h-8 w-80" />
-            {Array.from({ length: 5 }).map((_, index) => (
+            {Array.from({ length: 6 }).map((_, index) => (
               <Skeleton key={index} className="h-8 w-32" />
             ))}
           </div>
@@ -40,6 +40,7 @@ export default function TimelineLoading() {
               {Array.from({ length: ROW_COUNT }).map((_, index) => (
                 <div key={index} className="flex items-center gap-4 border-t border-border/60 px-3" style={{ height: 44 }}>
                   <Skeleton className="h-4 w-48" />
+                  <Skeleton className="h-5 w-24 rounded-full" />
                   <Skeleton className="h-4 w-20" />
                   <Skeleton className="h-4 w-20" />
                   <Skeleton className="ml-auto h-6 w-1/3 rounded-sm" />

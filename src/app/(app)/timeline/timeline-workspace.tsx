@@ -15,6 +15,7 @@ import { PaginationControls } from "@/components/shared/pagination-controls";
 import type { FilterSelectOption } from "@/components/shared/filter-select";
 import { cn } from "@/lib/utils";
 import type { Task } from "@/data/tasks";
+import type { Holiday } from "@/data/holidays";
 
 interface TimelineWorkspaceProps {
   /** One page of the window's matching tasks, already searched, sorted and sliced server-side. */
@@ -31,6 +32,9 @@ interface TimelineWorkspaceProps {
   /** Departments and people, as `kind:uuid` party keys — the same list serves the Owner and
    *  People Involved filters, since either role can be held by either kind. */
   partyOptions: FilterSelectOption[];
+  /** The window's public holidays, already narrowed to the selected countries. */
+  holidays: Holiday[];
+  holidayCountryOptions: FilterSelectOption[];
 }
 
 export const TimelineWorkspace = ({
@@ -43,6 +47,8 @@ export const TimelineWorkspace = ({
   brandOptions,
   keyStageOptions,
   partyOptions,
+  holidays,
+  holidayCountryOptions,
 }: TimelineWorkspaceProps) => {
   // The timeline has no isolated refresh action of its own (unlike the grid's refresh button),
   // so a saved reassignment re-runs the page's Server Components to pick up the new owners.
@@ -74,6 +80,7 @@ export const TimelineWorkspace = ({
         keyStageOptions={keyStageOptions}
         ownerOptions={partyOptions}
         involvedOptions={partyOptions}
+        holidayCountryOptions={holidayCountryOptions}
         enableSearch
         taskCount={rowCount}
       />
@@ -90,6 +97,7 @@ export const TimelineWorkspace = ({
             range={range}
             view={queryState.state.view}
             onSelectTask={setSelectedTask}
+            holidays={holidays}
             emptyDescription={
               queryState.state.search
                 ? "No task, key stage, owner or person matches that search in this period."

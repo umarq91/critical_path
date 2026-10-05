@@ -25,8 +25,8 @@ interface NotifyTasksCardProps {
 }
 
 // "Which tasks?" — v1's one and only scope mechanism: specific tasks the user picks, from the
-// same set My Tasks shows them (see listMyReminderCandidateTasks). Season/owner/brand/gender are
-// filters *inside* the picker dialog, not a second scope type to keep in step with this one (see
+// same set My Tasks shows them (see listMyReminderCandidateTasks). Season/owner/people
+// involved/brand/gender are multi-select filters *inside* the picker dialog, not a second scope type to keep in step with this one (see
 // reminder_rule_tasks in schema.md).
 export const NotifyTasksCard = ({
   initialTasks,
@@ -108,7 +108,7 @@ export const NotifyTasksCard = ({
         <FormDialog
           title="Select tasks"
           description="Only your own tasks — created by, owned by, or involving you — are shown."
-          size="lg"
+          size="xl"
           open={isDialogOpen}
           onOpenChange={setIsDialogOpen}
           trigger={

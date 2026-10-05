@@ -17,7 +17,7 @@ type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
 // granted to every role including external. There is no admin override: a rule always belongs
 // to exactly the profile that owns it, enforced again by RLS (reminder_rules_own_row).
 
-// Powers the task picker dialog's season/owner filters and search — a read, but triggered by
+// Powers the task picker dialog's filters and search — a read, but triggered by
 // client interaction (opening the dialog, changing a filter) rather than page load, same
 // reasoning as refreshTasks(). Same "created/owned/involved" scope as the My Tasks page itself
 // (listTasksForProfile), with no due-date floor — a task with no due date, or one already

@@ -64,6 +64,8 @@ export default async function SettingsNotificationsPage({
           rowCount={schedule.rowCount}
           notifyHour={schedule.notifyHour}
           timezoneLabel={TIMEZONE_LABEL}
+          seasonOptions={seasonOptions}
+          brandOptions={brandOptions}
         />
       </div>
     </div>

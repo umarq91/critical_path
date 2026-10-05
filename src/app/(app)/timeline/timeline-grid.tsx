@@ -3,21 +3,36 @@
 import { useMemo } from "react";
 import { CalendarRange } from "lucide-react";
 import { EmptyState } from "@/components/shared/empty-state";
+import { ColorTag } from "@/components/shared/color-tag";
+import { taskSeasonColor } from "@/app/(app)/tasks/task-season-color";
 import { TimelineTaskBar } from "@/app/(app)/timeline/timeline-task-bar";
+import { TimelineHolidayRow } from "@/app/(app)/timeline/timeline-holiday-row";
 import { TimelineColumnResizeHandle } from "@/app/(app)/timeline/timeline-column-resize-handle";
-import { useTimelineColumnWidths } from "@/app/(app)/timeline/use-timeline-column-widths";
+import {
+  useTimelineColumnWidths,
+  type TimelineColumn,
+} from "@/app/(app)/timeline/use-timeline-column-widths";
 import { getTimelineHeader } from "@/app/(app)/timeline/timeline-header";
 import {
   DAY_WIDTH,
   ROW_HEIGHT,
   getBarGeometry,
   getTodayOffset,
+  groupHolidaysByDay,
   type TimelineRange,
 } from "@/app/(app)/timeline/timeline-utils";
 import type { TimelineView } from "@/app/(app)/timeline/timeline-search-params";
 import { formatDate } from "@/lib/dates";
 import { cn } from "@/lib/utils";
 import type { Task } from "@/data/tasks";
+import type { Holiday } from "@/data/holidays";
+
+const PINNED_COLUMNS: { id: TimelineColumn; label: string }[] = [
+  { id: "name", label: "Task Name" },
+  { id: "season", label: "Season" },
+  { id: "start", label: "Start Date" },
+  { id: "end", label: "End Date" },
+];
 
 interface TimelineGridProps {
   /** Exactly the rows to draw. Searching and paging happen in the caller (TimelineWorkspace);
@@ -27,6 +42,8 @@ interface TimelineGridProps {
   view: TimelineView;
   onSelectTask: (task: Task) => void;
   emptyDescription?: string;
+  /** Public holidays to mark in the window. Omitted by the Dashboard preview, which draws none. */
+  holidays?: Holiday[];
 }
 
 // One scroll container holds both halves, and the left column is `sticky left-0` inside it.
@@ -38,6 +55,7 @@ export const TimelineGrid = ({
   view,
   onSelectTask,
   emptyDescription = "Try a different period, or clear the filters above.",
+  holidays,
 }: TimelineGridProps) => {
   const dayWidth = DAY_WIDTH[view];
   const {
@@ -67,6 +85,11 @@ export const TimelineGrid = ({
     [tasks, range, dayWidth],
   );
 
+  const holidayDays = useMemo(
+    () => (holidays ? groupHolidaysByDay(holidays, range, dayWidth) : []),
+    [holidays, range, dayWidth],
+  );
+
   if (tasks.length === 0) {
     return (
       <div className="rounded-lg border border-border">
@@ -88,39 +111,23 @@ export const TimelineGrid = ({
             style={{ width: panelWidth, height: ROW_HEIGHT * 2 }}
           >
             {/* Each header cell carries a drag handle on its right edge, like the Tasks grid. */}
-            <span
-              className="relative flex h-full shrink-0 items-center px-3 text-xs font-semibold text-muted-foreground"
-              style={{ width: widths.name }}
-            >
-              Task Name
-              <TimelineColumnResizeHandle
-                width={widths.name}
-                onResize={(next) => setWidth("name", next)}
-                label="Task Name"
-              />
-            </span>
-            <span
-              className="relative flex h-full shrink-0 items-center px-2 text-xs font-semibold text-muted-foreground"
-              style={{ width: widths.start }}
-            >
-              Start Date
-              <TimelineColumnResizeHandle
-                width={widths.start}
-                onResize={(next) => setWidth("start", next)}
-                label="Start Date"
-              />
-            </span>
-            <span
-              className="relative flex h-full shrink-0 items-center px-2 text-xs font-semibold text-muted-foreground"
-              style={{ width: widths.end }}
-            >
-              End Date
-              <TimelineColumnResizeHandle
-                width={widths.end}
-                onResize={(next) => setWidth("end", next)}
-                label="End Date"
-              />
-            </span>
+            {PINNED_COLUMNS.map(({ id, label }) => (
+              <span
+                key={id}
+                className={cn(
+                  "relative flex h-full shrink-0 items-center text-xs font-semibold text-muted-foreground",
+                  id === "name" ? "px-3" : "px-2",
+                )}
+                style={{ width: widths[id] }}
+              >
+                {label}
+                <TimelineColumnResizeHandle
+                  width={widths[id]}
+                  onResize={(next) => setWidth(id, next)}
+                  label={label}
+                />
+              </span>
+            ))}
           </div>
 
           <div style={{ width: timelineWidth }}>
@@ -183,6 +190,23 @@ export const TimelineGrid = ({
         </div>
 
         <div className="relative">
+          {/* Painted before the rows so bars sit on top; the pinned left cells (z-10) cover it. */}
+          {holidayDays.map((day) => (
+            <div
+              key={day.date}
+              className="pointer-events-none absolute top-0 bottom-0 bg-accent-teal/10"
+              style={{ left: panelWidth + day.offset, width: Math.max(dayWidth, 2) }}
+              aria-hidden
+            />
+          ))}
+          {holidayDays.length > 0 ? (
+            <TimelineHolidayRow
+              days={holidayDays}
+              dayWidth={dayWidth}
+              panelWidth={panelWidth}
+              timelineWidth={timelineWidth}
+            />
+          ) : null}
           {todayOffset !== null ? (
             <div
               className="pointer-events-none absolute top-0 bottom-0 z-10 w-px bg-primary"
@@ -209,6 +233,19 @@ export const TimelineGrid = ({
                   style={{ width: widths.name }}
                 >
                   {task.task_name}
+                </span>
+                <span
+                  className="flex shrink-0 px-2"
+                  style={{ width: widths.season }}
+                >
+                  {task.season ? (
+                    <ColorTag
+                      label={task.season.season}
+                      color={taskSeasonColor(task)}
+                    />
+                  ) : (
+                    <span className="text-xs text-muted-foreground">—</span>
+                  )}
                 </span>
                 <span
                   className="shrink-0 px-2 text-xs break-words text-muted-foreground"

@@ -3,6 +3,7 @@ import { subDays, format } from "date-fns";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { parseDateOnly } from "@/lib/dates";
+import { listTasksByIds, type Task } from "@/data/tasks";
 
 // Single fixed org timezone for "notify at hour N" — the client operates out of one region
 // (NEXT_PUBLIC_GOOGLE_WORKSPACE_DOMAIN is threebyone.com.au), so there's no per-user timezone
@@ -180,14 +181,10 @@ export interface ScheduledReminderSend {
   status: ReminderSendStatus;
 }
 
-// A `type`, not an interface: DataTable rows must be assignable to Record<string, unknown>.
-export type ScheduledReminderRow = {
-  id: string;
-  task_name: string;
-  due_date: string | null;
-  season: string | null;
-  sends: ScheduledReminderSend[];
-};
+// The full Task row, so the schedule table can render the Tasks grid's own columns, plus when
+// each reminder goes out. A `type`, not an interface: DataTable rows must be assignable to
+// Record<string, unknown>.
+export type ScheduledReminderRow = Task & { sends: ScheduledReminderSend[] };
 
 export interface ListMyScheduledRemindersParams {
   page?: number;
@@ -197,7 +194,10 @@ export interface ListMyScheduledRemindersParams {
   filters?: Record<string, string>;
 }
 
-const SCHEDULE_SORTABLE_COLUMNS = new Set(["task_name", "due_date"]);
+// The Tasks grid's server-sortable columns that exist on this query (data/tasks.ts's
+// SORTABLE_COLUMNS, minus the hidden priority). Any other header falls back to due_date, as it
+// does on Tasks.
+const SCHEDULE_SORTABLE_COLUMNS = new Set(["task_name", "due_date", "status", "created_at"]);
 
 // "Passed" is judged only by the clock, never by notifications_log, which has no RLS policies
 // and is readable only by the service-role cron client — so this can't say a reminder WAS
@@ -213,7 +213,8 @@ function sendStatus(sendDate: string, notifyHour: number, now: Date, taskComplet
 
 // The Notifications page's schedule table: one row per task on this person's rule, with every
 // date a reminder goes out for it. Queried from `tasks` (inner-joined to reminder_rule_tasks)
-// rather than from the rule, so search, sort and pagination are real PostgREST clauses.
+// rather than from the rule, so search, sort and pagination are real PostgREST clauses. That
+// pass reads ids only; the page's full rows then come from listTasksByIds.
 export async function listMyScheduledReminders(
   profileId: string,
   { page = 1, pageSize = 10, sortBy, sortDir, filters = {} }: ListMyScheduledRemindersParams = {}
@@ -229,9 +230,7 @@ export async function listMyScheduledReminders(
 
   let query = supabase
     .from("tasks")
-    .select("id, task_name, due_date, status, season:seasons(season:season_code), reminder_rule_tasks!inner(rule_id)", {
-      count: "exact",
-    })
+    .select("id, reminder_rule_tasks!inner(rule_id)", { count: "exact" })
     .eq("reminder_rule_tasks.rule_id", rule.id)
     // A soft-deleted task stays linked to the rule but can never be reminded about.
     .is("deleted_at", null);
@@ -245,9 +244,10 @@ export async function listMyScheduledReminders(
     .range(from, from + pageSize - 1);
   if (error) throw error;
 
+  const tasks = await listTasksByIds((data ?? []).map((row) => row.id));
   const now = new Date();
   const offsets = [...rule.offset_days].sort((a, b) => b - a);
-  const rows: ScheduledReminderRow[] = (data ?? []).map((task) => {
+  const rows: ScheduledReminderRow[] = tasks.map((task) => {
     const dueDate = task.due_date;
     const sends = dueDate
       ? offsets.map((offsetDays) => {
@@ -256,7 +256,7 @@ export async function listMyScheduledReminders(
           return { offsetDays, sendDate, status };
         })
       : [];
-    return { id: task.id, task_name: task.task_name, due_date: dueDate, season: task.season?.season ?? null, sends };
+    return { ...task, sends };
   });
 
   return { data: rows, rowCount: count ?? 0, notifyHour: rule.notify_hour };

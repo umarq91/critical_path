@@ -22,6 +22,7 @@ import {
 } from "date-fns";
 import { parseDateOnly } from "@/lib/dates";
 import type { TimelineView } from "@/app/(app)/timeline/timeline-search-params";
+import type { Holiday } from "@/data/holidays";
 
 // Monday-start weeks, matching how the rest of the app reads a working week.
 export const WEEK_OPTIONS = { weekStartsOn: 1 } as const;
@@ -174,6 +175,28 @@ export function getTodayOffset(range: TimelineRange, dayWidth: number, today = n
   const offset = differenceInCalendarDays(today, range.start);
   if (offset < 0 || offset > differenceInCalendarDays(range.end, range.start)) return null;
   return offset * dayWidth;
+}
+
+export interface TimelineHolidayDay {
+  date: string;
+  /** px from the window's first day, same coordinate system as getBarGeometry's `left`. */
+  offset: number;
+  holidays: Holiday[];
+}
+
+// One entry per date, not per holiday: several countries share a date (New Year's Day), and they
+// should read as one marker and one band rather than stacking on top of each other.
+export function groupHolidaysByDay(holidays: Holiday[], range: TimelineRange, dayWidth: number): TimelineHolidayDay[] {
+  const lastDay = differenceInCalendarDays(range.end, range.start);
+  const byDate = new Map<string, TimelineHolidayDay>();
+  for (const holiday of holidays) {
+    const day = differenceInCalendarDays(parseDateOnly(holiday.holiday_date), range.start);
+    if (day < 0 || day > lastDay) continue;
+    const entry = byDate.get(holiday.holiday_date);
+    if (entry) entry.holidays.push(holiday);
+    else byDate.set(holiday.holiday_date, { date: holiday.holiday_date, offset: day * dayWidth, holidays: [holiday] });
+  }
+  return [...byDate.values()].sort((a, b) => a.offset - b.offset);
 }
 
 export function periodLabel(view: TimelineView, range: TimelineRange, anchorDate: Date) {
