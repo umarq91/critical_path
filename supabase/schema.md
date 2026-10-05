@@ -84,8 +84,8 @@ policy — see `0006_tasks.sql`.
 | Column | Type | Notes |
 |---|---|---|
 | `id` | uuid, PK | |
-| `season_code` | text, unique | stable short code, e.g. `RES H2'26` |
-| `season_name` | text | display name, e.g. `Winter 2026` |
+| `season_code` | text, unique | the season, e.g. `RES H2'26`. The app's only season value, shown everywhere as "Season" (queried as `season:season_code`) |
+| `season_name` | text | **Integration API only.** The app never reads it; `createSeason` sets it equal to `season_code`. Kept because `/integration/v1/*` still returns `season_name` |
 | `status` | `season_status`, default `planning` | |
 | `start_date` | date | |
 | `end_date` | date | must be ≥ `start_date` |
@@ -302,7 +302,7 @@ Exists so "tasks relevant to me" stays one query rather than the three hops (me 
 
 **Why this exists when `tasks` already has `created_by`/`last_edited_by`/`deleted_by`:** those hold the *latest* actor only. "Who moved the due date on 12 Aug, and what was it before" isn't answerable from them, and an owner change leaves no trace on `tasks` at all (it writes `task_participants`). Those columns stay as they are; this is the history.
 
-**Values in `changes` are resolved to display labels at write time** — a season FK is stored as `Winter 2026`, not a uuid. Reading the log never needs a second round trip, and a label captured then still tells the truth after the thing it named is renamed or deleted.
+**Values in `changes` are resolved to display labels at write time** — a season FK is stored as `RES H2'26`, not a uuid. Reading the log never needs a second round trip, and a label captured then still tells the truth after the thing it named is renamed or deleted.
 
 **Backfilled on install** from `tasks`' own tracking columns, so the page opens with the history that already existed. Those rows carry `{ backfilled: true }` and no field detail (`tasks` records *that* a row was edited, not what changed) — the UI says so rather than rendering an empty diff. Each backfill block is guarded by a not-exists on `(entity_id, action)`, so re-running the file adds nothing.
 

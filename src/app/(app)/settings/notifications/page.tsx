@@ -37,7 +37,7 @@ export default async function SettingsNotificationsPage({
     listPartyOptions(),
   ]);
 
-  const seasonOptions = seasons.map((season) => ({ value: season.id, label: season.season_name }));
+  const seasonOptions = seasons.map((season) => ({ value: season.id, label: season.season }));
   const brandOptions = brands.map((brand) => ({ value: brand.id, label: brand.brand_name }));
   const genderOptions = taskGenderValues.map((value) => ({ value, label: TASK_GENDER_CONFIG[value].label }));
 

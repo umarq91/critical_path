@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 export async function loadTaskImportLookups() {
   const supabase = await createClient();
   const [seasons, brands, keyStages, departments, profiles] = await Promise.all([
-    supabase.from("seasons").select("id, season_code").is("deleted_at", null),
+    supabase.from("seasons").select("id, season:season_code").is("deleted_at", null),
     supabase.from("brands").select("id, brand_name").is("deleted_at", null).eq("status", "active"),
     supabase.from("key_stages").select("id, name").is("deleted_at", null),
     supabase.from("departments").select("id, name").is("deleted_at", null),

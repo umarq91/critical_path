@@ -21,7 +21,7 @@ export async function listBrands({ page = 1, pageSize = 15, sortBy, sortDir, fil
   const supabase = await createClient();
   let query = supabase
     .from("brands")
-    .select("*, brand_seasons(season:seasons(id, season_name, color))", { count: "exact" })
+    .select("*, brand_seasons(season:seasons(id, season:season_code, color))", { count: "exact" })
     .is("deleted_at", null);
 
   if (filters.brand_name) query = query.ilike("brand_name", `%${filters.brand_name}%`);

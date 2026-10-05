@@ -47,7 +47,7 @@ async function handleTaskReminders(request: NextRequest) {
           taskId: reminder.taskId,
           taskName: reminder.taskName,
           dueDate: reminder.dueDate,
-          seasonName: reminder.seasonName,
+          season: reminder.season,
           offsetDays: reminder.offsetDays,
         })
       );

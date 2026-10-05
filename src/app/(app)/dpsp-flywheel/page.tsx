@@ -34,7 +34,7 @@ export default async function DpspFlywheelPage({
         <DpspFlywheelWorkspace
           tasks={tasks}
           canAssignPeople={!!profile && can(profile.role, "task.assign")}
-          seasonOptions={seasons.map((season) => ({ value: season.id, label: season.season_name }))}
+          seasonOptions={seasons.map((season) => ({ value: season.id, label: season.season }))}
           departmentOptions={departments.map((dept) => ({
             value: partyKey({ kind: "department", id: dept.id }),
             label: dept.name,

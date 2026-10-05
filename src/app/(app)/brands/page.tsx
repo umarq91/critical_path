@@ -27,7 +27,7 @@ export default async function BrandsPage({
   const canManage = !!profile && can(profile.role, "brand.manage");
   const canDelete = !!profile && can(profile.role, "brand.delete");
   const canExport = !!profile && can(profile.role, "dashboard.export_reports");
-  const seasonOptions = seasons.map((season) => ({ value: season.id, label: season.season_name }));
+  const seasonOptions = seasons.map((season) => ({ value: season.id, label: season.season }));
 
   return (
     <div className="flex flex-col">

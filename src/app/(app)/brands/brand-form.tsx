@@ -73,7 +73,7 @@ export const BrandForm = ({ onSuccess, seasonOptions }: BrandFormProps) => {
           control={form.control}
           name="season_ids"
           label="Seasons"
-          options={seasonOptions.map((season) => ({ value: season.id, label: season.season_name }))}
+          options={seasonOptions.map((season) => ({ value: season.id, label: season.season }))}
         />
         <Button type="submit" disabled={isSubmitting} className="mt-2">
           {isSubmitting ? "Creating…" : "Create Brand"}

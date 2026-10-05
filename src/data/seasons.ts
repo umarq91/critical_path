@@ -1,6 +1,5 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
-import { sanitiseOrSearchTerm } from "@/lib/utils";
 import { MAX_LOOKUP_EXPORT_ROWS } from "@/lib/export/types";
 import { seasonStatusValues, type SeasonInput } from "@/app/(app)/seasons/schema";
 
@@ -12,7 +11,11 @@ export interface ListSeasonsParams {
   filters?: Record<string, string>;
 }
 
-const SORTABLE_COLUMNS = new Set(["season_code", "season_name", "status", "start_date"]);
+// `season` is the app's name for the `season_code` column; `season_name` is never read here
+// (it only exists for the integration API).
+const SEASON_SELECT =
+  "id, season:season_code, status, start_date, end_date, color, owner_id, created_at, updated_at, deleted_at, owner:profiles(id, full_name, email, avatar_url)";
+const SORT_COLUMNS: Record<string, string> = { season: "season_code", status: "status", start_date: "start_date" };
 
 function isSeasonStatus(value: string | undefined): value is SeasonInput["status"] {
   return !!value && (seasonStatusValues as readonly string[]).includes(value);
@@ -22,10 +25,10 @@ export async function listSeasons({ page = 1, pageSize = 10, sortBy, sortDir, fi
   const supabase = await createClient();
   let query = supabase
     .from("seasons")
-    .select("*, owner:profiles(id, full_name, email, avatar_url)", { count: "exact" })
+    .select(SEASON_SELECT, { count: "exact" })
     .is("deleted_at", null);
 
-  if (filters.season_code) query = query.ilike("season_code", `%${filters.season_code}%`);
+  if (filters.season) query = query.ilike("season_code", `%${filters.season}%`);
   // Validated against the real enum, not just cast — an arbitrary string from the URL would
   // otherwise error the query outright (Postgres enum comparison, not a loose text match).
   if (isSeasonStatus(filters.status)) query = query.eq("status", filters.status);
@@ -39,7 +42,7 @@ export async function listSeasons({ page = 1, pageSize = 10, sortBy, sortDir, fi
     }
   }
 
-  const orderColumn = sortBy && SORTABLE_COLUMNS.has(sortBy) ? sortBy : "start_date";
+  const orderColumn = (sortBy && SORT_COLUMNS[sortBy]) ?? "start_date";
   query = query.order(orderColumn, { ascending: sortDir !== "desc" });
 
   const from = (page - 1) * pageSize;
@@ -102,7 +105,7 @@ export async function listUpcomingSeasons(limit = 4) {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("seasons")
-    .select("id, season_name, start_date")
+    .select("id, season:season_code, start_date")
     .is("deleted_at", null)
     .eq("status", "upcoming")
     .order("start_date", { ascending: true })
@@ -148,31 +151,28 @@ export async function listSeasonTaskStats(seasonIds: string[]): Promise<Record<s
   return stats;
 }
 
-// The season leg of the task grid's search box: ids whose name OR code matches a free-text
-// term, so searching "SS26" reaches every task in that season and not only the ones naming it.
-// Both columns, because the client's data uses the code far more than the name.
+// The season leg of the task grid's search box: ids whose season matches a free-text term, so
+// searching "SS26" reaches every task in that season and not only the ones naming it.
 export async function listSeasonIdsMatching(term: string) {
   const supabase = await createClient();
-  const safe = sanitiseOrSearchTerm(term);
   const { data, error } = await supabase
     .from("seasons")
     .select("id")
     .is("deleted_at", null)
-    // Sanitised because this goes into an .or() string, where commas and parens are syntax.
-    .or(`season_name.ilike.%${safe}%,season_code.ilike.%${safe}%`);
+    .ilike("season_code", `%${term}%`);
   if (error) throw error;
   return new Set((data ?? []).map((row) => row.id));
 }
 
 // Options for pickers that link another entity to a season (e.g. the brand form's Season
-// select) — id/name/color only, every non-deleted season regardless of status.
+// select) — id/season/color only, every non-deleted season regardless of status.
 export async function listSeasonOptions() {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("seasons")
-    .select("id, season_name, color")
+    .select("id, season:season_code, color")
     .is("deleted_at", null)
-    .order("season_name", { ascending: true });
+    .order("season_code", { ascending: true });
   if (error) throw error;
   return data ?? [];
 }

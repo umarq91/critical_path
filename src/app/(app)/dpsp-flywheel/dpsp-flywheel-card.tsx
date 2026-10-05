@@ -8,7 +8,7 @@ import type { Task } from "@/data/tasks";
 export function DpspFlywheelCard({ task, onClick }: { task: Task; onClick: () => void }) {
   const owners = taskOwners(task);
   const metaParts = [
-    task.season?.season_code ?? task.season?.season_name,
+    task.season?.season,
     owners.length > 0 ? owners.map((owner) => owner.name).join(", ") : null,
   ].filter(Boolean);
 

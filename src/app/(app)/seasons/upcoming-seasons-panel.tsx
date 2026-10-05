@@ -28,7 +28,7 @@ export const UpcomingSeasonsPanel = ({ seasons }: UpcomingSeasonsPanelProps) => 
             <li key={season.id} className="flex items-start gap-2.5 py-2.5">
               <Calendar className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
               <div>
-                <p className="text-sm font-medium text-foreground">{season.season_name}</p>
+                <p className="text-sm font-medium text-foreground">{season.season}</p>
                 <p className="text-xs text-muted-foreground">Starts in {daysUntil(season.start_date)} days</p>
               </div>
             </li>

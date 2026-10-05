@@ -139,7 +139,7 @@ export const NotifyTasksCard = ({
               >
                 <span className="min-w-0 flex-1 truncate text-foreground">{task.task_name}</span>
                 <span className="shrink-0 text-xs text-muted-foreground">
-                  {task.season_name ? `${task.season_name} · ` : ""}
+                  {task.season ? `${task.season} · ` : ""}
                   {task.due_date ? formatDate(task.due_date) : "No due date"}
                 </span>
                 <button

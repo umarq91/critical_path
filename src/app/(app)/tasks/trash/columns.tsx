@@ -33,7 +33,7 @@ export function createTrashColumns({ canRestore }: CreateTrashColumnsOptions) {
       filterFn: "weakEquals",
       cell: ({ row }) => {
         const season = row.original.season;
-        return season ? <ColorTag label={season.season_name} color={season.color} /> : "—";
+        return season ? <ColorTag label={season.season} color={season.color} /> : "—";
       },
     }),
     columnHelper.accessor("brand_id", {

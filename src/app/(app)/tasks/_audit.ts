@@ -20,7 +20,7 @@ export interface AuditActor {
 // lookup's own display column at write time, so the log row stays readable forever — including
 // after that season is renamed, or the brand it named is deleted.
 const LOOKUP_COLUMNS = {
-  season_id: { table: "seasons", column: "season_name" },
+  season_id: { table: "seasons", column: "season_code" },
   brand_id: { table: "brands", column: "brand_name" },
   key_stage_id: { table: "key_stages", column: "name" },
 } as const;

@@ -20,7 +20,7 @@ export interface SyncableTask {
   // before calling this for a task whose due_date is null) — an all-day Google Calendar event
   // has nowhere to go without one.
   due_date: string;
-  season: { season_name: string } | null;
+  season: { season: string } | null;
   participants: SyncableTaskParticipant[];
 }
 
@@ -39,7 +39,7 @@ function participantNames(participants: SyncableTaskParticipant[], role: Partici
 // other teams' events, not just by opening it. Falls back to the bare task name only in the
 // structurally-impossible case of an unresolved season join (tasks.season_id is NOT NULL).
 function formatEventTitle(task: Pick<SyncableTask, "task_name" | "season">): string {
-  return task.season ? `${task.season.season_name} - ${task.task_name}` : task.task_name;
+  return task.season ? `${task.season.season} - ${task.task_name}` : task.task_name;
 }
 
 // Client-requested format: two labelled lines, comma-joined within each. Always both lines,
@@ -54,7 +54,7 @@ function formatEventDescription(task: Pick<SyncableTask, "participants">): strin
 
 // The columns pushTaskToGoogleCalendar needs, for callers that load a task themselves.
 export const SYNCABLE_TASK_SELECT =
-  "id, task_name, due_date, deleted_at, season:seasons(season_name), participants:task_participants(role, profile:profiles(full_name, email), department:departments(name))";
+  "id, task_name, due_date, deleted_at, season:seasons(season:season_code), participants:task_participants(role, profile:profiles(full_name, email), department:departments(name))";
 
 // One user's copy of one task on Google (task_calendar_events, 0034). Every syncing user gets
 // their own copy of every task, so a task can be on many calendars at once.

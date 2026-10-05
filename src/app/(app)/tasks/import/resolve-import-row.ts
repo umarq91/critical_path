@@ -45,13 +45,13 @@ export interface TaskImportIndexes {
 }
 
 // Lookup names are matched exactly (after trimming): the sheet is filled from the app's own
-// names, and season codes deliberately differ only by case (`RJ'S H1'27` vs `RJ's H2'27`, see
+// names, and seasons deliberately differ only by case (`RJ'S H1'27` vs `RJ's H2'27`, see
 // things-to-know.md § Seasons). A person matches on full name or email (the export writes the
 // email when there's no name), a department on its name. Names are not unique in the database,
 // so each maps to every id carrying it and the resolver refuses to guess between them.
 export function buildTaskImportIndexes(lookups: TaskImportLookups): TaskImportIndexes {
   const indexes: TaskImportIndexes = { seasons: new Map(), brands: new Map(), keyStages: new Map(), parties: new Map() };
-  for (const season of lookups.seasons) addToIndex(indexes.seasons, season.season_code, season.id);
+  for (const season of lookups.seasons) addToIndex(indexes.seasons, season.season, season.id);
   for (const brand of lookups.brands) addToIndex(indexes.brands, brand.brand_name, brand.id);
   for (const stage of lookups.keyStages) addToIndex(indexes.keyStages, stage.name, stage.id);
   for (const department of lookups.departments) {

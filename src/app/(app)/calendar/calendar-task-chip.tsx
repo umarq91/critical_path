@@ -74,7 +74,7 @@ export const CalendarTaskChip = ({ task, onSelect, variant = "compact" }: Calend
         </span>
       </div>
       <div className="flex min-w-0 flex-wrap items-center gap-2">
-        {task.season ? <ColorTag label={task.season.season_name} color={task.season.color} /> : null}
+        {task.season ? <ColorTag label={task.season.season} color={task.season.color} /> : null}
         {task.brand ? <ColorTag label={task.brand.brand_name} color={task.brand.color} /> : null}
         {owners.length > 0 ? (
           <span className="flex min-w-0 max-w-full items-center gap-2 text-sm text-muted-foreground">

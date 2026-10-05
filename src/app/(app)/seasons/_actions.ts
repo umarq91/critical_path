@@ -11,9 +11,12 @@ export async function createSeason(input: unknown) {
   const parsed = seasonSchema.safeParse(input);
   if (!parsed.success) return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid input" };
 
+  // The app keeps one value per season, stored in `season_code`. `season_name` is still a
+  // NOT NULL column only because the integration API returns it, so it mirrors the same value.
+  const { season, ...rest } = parsed.data;
   const { data, error } = await auth.supabase
     .from("seasons")
-    .insert({ ...parsed.data, owner_id: auth.userId })
+    .insert({ ...rest, season_code: season, season_name: season, owner_id: auth.userId })
     .select()
     .single();
   if (error) return { ok: false as const, error: error.message };
@@ -29,7 +32,11 @@ export async function updateSeason(id: string, patch: unknown) {
   const parsed = seasonUpdateSchema.safeParse(patch);
   if (!parsed.success) return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid input" };
 
-  const { error } = await auth.supabase.from("seasons").update(parsed.data).eq("id", id);
+  const { season, ...rest } = parsed.data;
+  const { error } = await auth.supabase
+    .from("seasons")
+    .update(season === undefined ? rest : { ...rest, season_code: season })
+    .eq("id", id);
   if (error) return { ok: false as const, error: error.message };
 
   revalidatePath("/seasons");

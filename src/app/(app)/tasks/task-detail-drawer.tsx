@@ -126,7 +126,7 @@ export const TaskDetailDrawer = ({ task, open, onOpenChange, canAssignPeople, on
                   {task.brand?.brand_name ?? "—"}
                 </OverviewField>
                 <OverviewField icon={CalendarRange} label="Season">
-                  {task.season ? <ColorTag label={task.season.season_name} color={task.season.color} /> : "—"}
+                  {task.season ? <ColorTag label={task.season.season} color={task.season.color} /> : "—"}
                 </OverviewField>
                 <OverviewField icon={Milestone} label="Key Stage">
                   {task.key_stage?.name ?? <span className="text-muted-foreground">Not set</span>}

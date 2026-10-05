@@ -127,7 +127,7 @@ export function createTaskColumns({
         return (
           <EditableCell
             value={row.original.season_id}
-            display={season ? <ColorTag label={season.season_name} color={season.color} /> : "—"}
+            display={season ? <ColorTag label={season.season} color={season.color} /> : "—"}
             variant="select"
             options={seasonOptions}
             isEditing={rowEditing.isEditing(row.original.id)}

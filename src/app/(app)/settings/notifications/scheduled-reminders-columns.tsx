@@ -28,8 +28,8 @@ export function createScheduledReminderColumns({ sendTimeLabel }: { sendTimeLabe
       cell: ({ row, getValue }) => (
         <div className="flex min-w-0 flex-col">
           <span className="truncate text-sm font-medium text-foreground">{getValue()}</span>
-          {row.original.season_name ? (
-            <span className="truncate text-xs text-muted-foreground">{row.original.season_name}</span>
+          {row.original.season ? (
+            <span className="truncate text-xs text-muted-foreground">{row.original.season}</span>
           ) : null}
         </div>
       ),

@@ -14,7 +14,7 @@ export interface ReminderRuleTask {
   id: string;
   task_name: string;
   due_date: string;
-  season_name: string | null;
+  season: string | null;
 }
 
 export interface ReminderRule {
@@ -33,7 +33,7 @@ export async function getMyReminderRule(profileId: string): Promise<ReminderRule
   const { data, error } = await supabase
     .from("reminder_rules")
     .select(
-      "id, offset_days, notify_hour, is_enabled, reminder_rule_tasks(task:tasks(id, task_name, due_date, season:seasons(season_name)))"
+      "id, offset_days, notify_hour, is_enabled, reminder_rule_tasks(task:tasks(id, task_name, due_date, season:seasons(season:season_code)))"
     )
     .eq("profile_id", profileId)
     .maybeSingle();
@@ -52,7 +52,7 @@ export async function getMyReminderRule(profileId: string): Promise<ReminderRule
         id: task.id,
         task_name: task.task_name,
         due_date: task.due_date ?? "",
-        season_name: task.season?.season_name ?? null,
+        season: task.season?.season ?? null,
       }))
       // due_date is nullable on tasks in general, but every candidate offered by the picker
       // already requires one (see listMyReminderCandidateTasks) — sorted here for a stable,
@@ -90,7 +90,7 @@ export interface DueReminder {
   profileEmail: string;
   taskName: string;
   dueDate: string;
-  seasonName: string | null;
+  season: string | null;
 }
 
 /** Hard ceiling per cron run — a safety valve, not a target; see things-to-know.md's Reminders
@@ -109,7 +109,7 @@ export async function listDueReminders(now: Date = new Date()): Promise<DueRemin
   const { data: rules, error } = await supabase
     .from("reminder_rules")
     .select(
-      "id, offset_days, notify_hour, profile:profiles(email), reminder_rule_tasks(task:tasks(id, task_name, due_date, status, deleted_at, season:seasons(season_name)))"
+      "id, offset_days, notify_hour, profile:profiles(email), reminder_rule_tasks(task:tasks(id, task_name, due_date, status, deleted_at, season:seasons(season:season_code)))"
     )
     .eq("is_enabled", true)
     .eq("notify_hour", currentHour);
@@ -134,7 +134,7 @@ export async function listDueReminders(now: Date = new Date()): Promise<DueRemin
           profileEmail: rule.profile.email,
           taskName: task.task_name,
           dueDate: task.due_date,
-          seasonName: task.season?.season_name ?? null,
+          season: task.season?.season ?? null,
         });
         if (candidates.length >= MAX_DUE_REMINDERS_PER_RUN) return dedupeAgainstLog(supabase, candidates);
       }
@@ -185,7 +185,7 @@ export type ScheduledReminderRow = {
   id: string;
   task_name: string;
   due_date: string | null;
-  season_name: string | null;
+  season: string | null;
   sends: ScheduledReminderSend[];
 };
 
@@ -229,7 +229,7 @@ export async function listMyScheduledReminders(
 
   let query = supabase
     .from("tasks")
-    .select("id, task_name, due_date, status, season:seasons(season_name), reminder_rule_tasks!inner(rule_id)", {
+    .select("id, task_name, due_date, status, season:seasons(season:season_code), reminder_rule_tasks!inner(rule_id)", {
       count: "exact",
     })
     .eq("reminder_rule_tasks.rule_id", rule.id)
@@ -256,7 +256,7 @@ export async function listMyScheduledReminders(
           return { offsetDays, sendDate, status };
         })
       : [];
-    return { id: task.id, task_name: task.task_name, due_date: dueDate, season_name: task.season?.season_name ?? null, sends };
+    return { id: task.id, task_name: task.task_name, due_date: dueDate, season: task.season?.season ?? null, sends };
   });
 
   return { data: rows, rowCount: count ?? 0, notifyHour: rule.notify_hour };

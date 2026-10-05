@@ -190,7 +190,7 @@ better across many events than one that silently drops a line. Formatting lives 
 `formatEventTitle`/`formatEventDescription` (`lib/google/task-calendar-sync.ts`), which is what
 `pushTaskToGoogleCalendar` calls — the one shared push both the Sync button and the edit
 fan-out go through, so both paths format identically. Both load the task with
-`SYNCABLE_TASK_SELECT`-shaped joins `season:seasons(season_name)` and `participants:task_participants(role,
+`SYNCABLE_TASK_SELECT`-shaped joins `season:seasons(season:season_code)` and `participants:task_participants(role,
 profile:profiles(full_name, email), department:departments(name))` to have the data to format
 with.
 
@@ -515,6 +515,16 @@ historical data has no known due date; forcing one would mean fabricating data. 
 `Critical Path - Data exported 24th August 2026.xlsx`. `season_code` and `key_stages.name` are
 verbatim, including the client's own inconsistency (`RJ'S H1'27` upper vs `RJ's H2'27` lower) —
 a CSV import of that export matches on exact string, so normalising the casing breaks it.
+
+**A season has one value in the app: "Season", stored in `season_code`.** Client decision: no
+separate Season Code / Season Name anywhere in the UI, forms, exports, import, emails, calendar
+titles or audit labels. App queries alias the column (`season:season_code`) so app code only ever
+sees `season`; `data/seasons.ts` maps the `season` sort/filter id back to `season_code`.
+`season_name` still exists in the DB **only for the integration API**, whose contract (and
+`/integration/v1/*` code) is deliberately unchanged and still returns both `season_code` and
+`season_name`. `createSeason` writes the same value into both columns, so new seasons return
+identical code/name from the API; seeded seasons keep their old expanded `season_name` there.
+Never read `season_name` from app code. Dropping it means changing the API first.
 
 **Seasons have no date range in the source.** `start_date`/`end_date` are derived as the tightest
 interval containing that season's tasks (min/max of Working Timeline start/end and DUE DATE).
@@ -1125,8 +1135,8 @@ checklist, because Task Management has exactly one table to export.
   that page's list too.** Unticked columns are left out and the rest keep their relative order.
   Export-only fields go next to their table counterpart, or after the table's columns if they
   have none. A key missing from the list isn't dropped; it goes last.
-- **The "Season" column exports `season_code`, not `season_name`** (client request). There is no
-  separate season-name column, and the dialog shows no per-column or per-format descriptions.
+- **The "Season" column exports `season_code`** (the app's single season value, see § Seasons &
+  Key Stages). The dialog shows no per-column or per-format descriptions.
   Both changes reach the Dashboard export too, because it uses the same column groups.
 - **Same permission as the Dashboard export** (`dashboard.export_reports`, checked via
   `requirePermission()` in the route and hidden client-side via `can()` in `page.tsx`) — one

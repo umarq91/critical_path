@@ -11,8 +11,7 @@ export const SEASON_RECORD_COLUMN_GROUPS: ExportColumnGroup<Season>[] = [
     key: "details",
     label: "Season Details",
     columns: [
-      { key: "season_code", label: "Season Code", category: "details", defaultSelected: true, dataType: "string", width: 16, getValue: (s) => s.season_code },
-      { key: "season_name", label: "Season Name", category: "details", defaultSelected: true, dataType: "string", width: 28, getValue: (s) => s.season_name },
+      { key: "season", label: "Season", category: "details", defaultSelected: true, dataType: "string", width: 16, getValue: (s) => s.season },
       {
         key: "status",
         label: "Status",
@@ -42,11 +41,8 @@ export const SEASON_RECORD_COLUMN_GROUPS: ExportColumnGroup<Season>[] = [
 // The file's column order: this page's table, left to right (seasons/columns.tsx is "use client",
 // so the export route can't import it — update both together). Export-only fields sit beside
 // their table counterpart or trail after.
-// The table's "Season Name" column shows season_code, so the real
-// name sits right after it.
 export const SEASON_GRID_COLUMN_ORDER = [
-  "season_code",
-  "season_name",
+  "season",
   "color",
   "status",
   "start_date",

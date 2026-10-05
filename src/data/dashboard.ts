@@ -45,7 +45,7 @@ export interface DashboardMetrics {
 // narrow columns rather than reusing listTasks() — that returns one page of fully-embedded
 // rows, which is the wrong shape (and the wrong volume) for aggregates.
 const TASK_FACT_SELECT =
-  "status, gender, due_date, season:seasons(id, season_name, color), brand:brands(id, brand_name, color)";
+  "status, gender, due_date, season:seasons(id, season:season_code, color), brand:brands(id, brand_name, color)";
 
 // PostgREST caps a single response at 1000 rows, so aggregates have to page through rather
 // than assume one request sees everything. The cap is a runaway guard, not a real limit:
@@ -64,7 +64,7 @@ interface TaskFact {
   status: TaskStatus;
   gender: TaskGender;
   due_date: string | null;
-  season: { id: string; season_name: string; color: string | null } | null;
+  season: { id: string; season: string; color: string | null } | null;
   brand: { id: string; brand_name: string; color: string | null } | null;
 }
 
@@ -240,7 +240,7 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
     total: facts.length,
     statusCounts,
     bySeason: groupTaskFacts(facts, (fact) =>
-      fact.season ? { id: fact.season.id, label: fact.season.season_name, color: fact.season.color } : null
+      fact.season ? { id: fact.season.id, label: fact.season.season, color: fact.season.color } : null
     ),
     byBrand: groupTaskFacts(facts, (fact) =>
       fact.brand ? { id: fact.brand.id, label: fact.brand.brand_name, color: fact.brand.color } : null

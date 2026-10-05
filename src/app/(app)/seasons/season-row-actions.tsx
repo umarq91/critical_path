@@ -8,7 +8,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { deleteSeason } from "@/app/(app)/seasons/_actions";
 
-export const SeasonRowActions = ({ seasonId, seasonName }: { seasonId: string; seasonName: string }) => {
+export const SeasonRowActions = ({ seasonId, season }: { seasonId: string; season: string }) => {
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   async function handleDelete() {
@@ -17,7 +17,7 @@ export const SeasonRowActions = ({ seasonId, seasonName }: { seasonId: string; s
       toast.error(result.error);
       return;
     }
-    toast.success(`${seasonName} deleted`);
+    toast.success(`${season} deleted`);
   }
 
   return (
@@ -34,7 +34,7 @@ export const SeasonRowActions = ({ seasonId, seasonName }: { seasonId: string; s
       </DropdownMenu>
       <ConfirmDialog
         title="Delete season"
-        description={`This removes "${seasonName}" from the list. It can be recovered from the database if needed.`}
+        description={`This removes "${season}" from the list. It can be recovered from the database if needed.`}
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
         onConfirm={handleDelete}

@@ -38,7 +38,7 @@ export default async function TasksPage({
   const canAssignPeople = !!profile && can(profile.role, "task.assign");
   const canExport = !!profile && can(profile.role, "dashboard.export_reports");
 
-  const seasonOptions = seasons.map((season) => ({ value: season.id, label: season.season_name }));
+  const seasonOptions = seasons.map((season) => ({ value: season.id, label: season.season }));
   const brandOptions = brands.map((brand) => ({ value: brand.id, label: brand.brand_name }));
   const keyStageOptions = keyStages.map((keyStage) => ({ value: keyStage.id, label: keyStage.name }));
 

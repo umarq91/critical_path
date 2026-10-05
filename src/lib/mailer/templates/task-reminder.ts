@@ -9,7 +9,7 @@ export interface TaskReminderEmailInput {
   taskId: string;
   taskName: string;
   dueDate: string;
-  seasonName: string | null;
+  season: string | null;
   /** How many days before due_date this particular send corresponds to — a rule can fire more
    *  than once for the same task (e.g. both a 7-day and a 1-day reminder). */
   offsetDays: number;
@@ -17,11 +17,11 @@ export interface TaskReminderEmailInput {
 
 // The one email this feature sends. Links to My Tasks with the task's drawer already open — every
 // remindable task is in the recipient's own My Tasks scope (see listMyReminderCandidateTasks).
-export function taskReminderEmail({ to, taskId, taskName, dueDate, seasonName, offsetDays }: TaskReminderEmailInput): EmailMessage {
+export function taskReminderEmail({ to, taskId, taskName, dueDate, season, offsetDays }: TaskReminderEmailInput): EmailMessage {
   const whenLabel = offsetDays === 0 ? "today" : offsetDays === 1 ? "in 1 day" : `in ${offsetDays} days`;
   const subject = `Reminder: "${taskName}" is due ${whenLabel}`;
   const dueDateLabel = formatDate(dueDate);
-  const seasonLine = seasonName ? ` (${seasonName})` : "";
+  const seasonLine = season ? ` (${season})` : "";
   const link = `${publicEnv.NEXT_PUBLIC_APP_URL}${ROUTES.myTasks}?${TASK_LINK_PARAM}=${encodeURIComponent(taskId)}`;
 
   const text = `Reminder: "${taskName}"${seasonLine} is due ${dueDateLabel} — ${whenLabel}.\n\nView it: ${link}`;
@@ -33,7 +33,7 @@ export function taskReminderEmail({ to, taskId, taskName, dueDate, seasonName, o
   return { to, subject, html, text };
 }
 
-// The only user-supplied strings landing in the HTML body are task/season names — escaped here
+// The only user-supplied strings landing in the HTML body are task names and seasons — escaped here
 // rather than trusted, since either can contain characters an email client would render as markup.
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]!);

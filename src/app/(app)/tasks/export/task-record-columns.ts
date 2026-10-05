@@ -94,7 +94,7 @@ export const TASK_RECORD_COLUMN_GROUPS: ExportColumnGroup<Task>[] = [
     key: "classification",
     label: "Classification",
     columns: [
-      { key: "season", label: "Season", category: "classification", defaultSelected: true, dataType: "string", width: 14, getValue: (t) => t.season?.season_code ?? null },
+      { key: "season", label: "Season", category: "classification", defaultSelected: true, dataType: "string", width: 14, getValue: (t) => t.season?.season ?? null },
       { key: "brand", label: "Brand", category: "classification", defaultSelected: true, dataType: "string", width: 20, getValue: (t) => t.brand?.brand_name ?? null },
       { key: "key_stage", label: "Key Stage", category: "classification", defaultSelected: true, dataType: "string", width: 24, getValue: (t) => t.key_stage?.name ?? null },
       {

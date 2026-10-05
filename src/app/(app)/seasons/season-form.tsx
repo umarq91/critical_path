@@ -24,8 +24,7 @@ export const SeasonForm = ({ onSuccess }: SeasonFormProps) => {
   const form = useForm<SeasonInput>({
     resolver: zodResolver(seasonSchema),
     defaultValues: {
-      season_code: "",
-      season_name: "",
+      season: "",
       status: "planning",
       start_date: "",
       end_date: "",
@@ -43,7 +42,7 @@ export const SeasonForm = ({ onSuccess }: SeasonFormProps) => {
       return;
     }
 
-    toast.success(`${input.season_name} created`);
+    toast.success(`${input.season} created`);
     form.reset();
     onSuccess();
   }
@@ -51,8 +50,7 @@ export const SeasonForm = ({ onSuccess }: SeasonFormProps) => {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4">
-        <TextField control={form.control} name="season_code" label="Season Code" placeholder="RES H2'26" />
-        <TextField control={form.control} name="season_name" label="Season Name" placeholder="Winter 2026" />
+        <TextField control={form.control} name="season" label="Season" placeholder="RES H2'26" />
         <div className="grid grid-cols-2 gap-3">
           <DateField control={form.control} name="start_date" label="Start Date" />
           <DateField control={form.control} name="end_date" label="End Date" />

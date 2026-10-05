@@ -32,10 +32,7 @@ export const SelectedSeasonPanel = ({ season }: { season: Season }) => {
         <p className="text-sm font-semibold text-foreground">Selected Season</p>
         <StatusBadge value={season.status} config={SEASON_STATUS_CONFIG} />
       </div>
-      <div>
-        <p className="text-lg font-semibold text-foreground">{season.season_code}</p>
-        <p className="text-sm text-muted-foreground">{season.season_name}</p>
-      </div>
+      <p className="text-lg font-semibold text-foreground">{season.season}</p>
       <div className="divide-y divide-border">
         <DetailRow label="Start Date" value={formatDate(season.start_date)} icon={Calendar} />
         <DetailRow label="End Date" value={formatDate(season.end_date)} icon={Calendar} />

@@ -84,7 +84,7 @@ export function NotifyTaskPickerDialog({
             id: task.id,
             task_name: task.task_name,
             due_date: task.due_date ?? "",
-            season_name: task.season?.season_name ?? null,
+            season: task.season?.season ?? null,
           }))
         : [];
       setState({ status: "ready", forKey: filterKey, tasks });
@@ -162,7 +162,7 @@ export function NotifyTaskPickerDialog({
               <Checkbox checked={selectedIds.has(task.id)} onCheckedChange={() => onToggle(task)} />
               <span className="min-w-0 flex-1 truncate text-foreground">{task.task_name}</span>
               <span className="shrink-0 text-xs text-muted-foreground">
-                {task.season_name ? `${task.season_name} · ` : ""}
+                {task.season ? `${task.season} · ` : ""}
                 {task.due_date ? formatDate(task.due_date) : "No due date"}
               </span>
             </label>

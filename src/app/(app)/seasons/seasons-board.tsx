@@ -47,7 +47,7 @@ export const SeasonsBoard = ({
       toast.error(result.error);
       return;
     }
-    toast.success(`${season.season_name} updated`);
+    toast.success(`${season.season} updated`);
     rowEditing.stopEditing();
   }
 
@@ -89,12 +89,12 @@ export const SeasonsBoard = ({
             },
           ],
           sortOptions: [
-            { columnId: "season_code", desc: false, label: "Season Name (A-Z)" },
-            { columnId: "season_code", desc: true, label: "Season Name (Z-A)" },
+            { columnId: "season", desc: false, label: "Season (A-Z)" },
+            { columnId: "season", desc: true, label: "Season (Z-A)" },
             { columnId: "start_date", desc: false, label: "Start Date (Earliest)" },
             { columnId: "start_date", desc: true, label: "Start Date (Latest)" },
           ],
-          searchColumnId: "season_code",
+          searchColumnId: "season",
           searchPlaceholder: "Search seasons...",
           // Brands aren't built yet — placeholder only, not wired to a real filter.
           actions: (

@@ -93,7 +93,7 @@ export function createBrandColumns({
               seasons.length > 0 ? (
                 <div className="flex flex-wrap gap-1">
                   {seasons.map((season) => (
-                    <ColorTag key={season.id} label={season.season_name} color={season.color} />
+                    <ColorTag key={season.id} label={season.season} color={season.color} />
                   ))}
                 </div>
               ) : (

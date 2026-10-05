@@ -67,7 +67,7 @@ export default async function CalendarPage({
     listDistinctHolidayCountries(),
   ]);
 
-  const seasonOptions = seasons.map((season) => ({ value: season.id, label: season.season_name }));
+  const seasonOptions = seasons.map((season) => ({ value: season.id, label: season.season }));
   const brandOptions = brands.map((brand) => ({ value: brand.id, label: brand.brand_name }));
 
   return (

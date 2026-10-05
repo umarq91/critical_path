@@ -43,13 +43,12 @@ export function createSeasonColumns({
   seasonStats,
 }: CreateSeasonColumnsOptions) {
   return [
-    // Underlying field is still season_code — displayed as "Season Name" per client request,
-    // with the real season_name column hidden from this table entirely. Not inline-editable:
-    // it's the stable code other systems key off (Databricks spec, filters), so changing it is
-    // deliberately a bit more friction than a click — left for a future dedicated edit flow.
-    columnHelper.accessor("season_code", {
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Season Name" />,
-      meta: { label: "Season Name", width: "sm" },
+    // Not inline-editable: it's the stable value other systems key off (Databricks spec,
+    // filters, CSV import), so changing it is deliberately a bit more friction than a click —
+    // left for a future dedicated edit flow.
+    columnHelper.accessor("season", {
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Season" />,
+      meta: { label: "Season", width: "sm" },
       filterFn: "includesString",
     }),
     columnHelper.accessor("color", {
@@ -187,7 +186,7 @@ export function createSeasonColumns({
               }}
               onConfirm={() => onConfirmEdit(season)}
             />
-            <SeasonRowActions seasonId={season.id} seasonName={season.season_name} />
+            <SeasonRowActions seasonId={season.id} season={season.season} />
           </div>
         );
       },

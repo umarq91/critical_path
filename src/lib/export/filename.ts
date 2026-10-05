@@ -1,7 +1,7 @@
 import { format } from "date-fns";
 
 /** Characters that are either a path separator on some OS or reserved by Windows filenames —
- *  stripped so a scope label containing one (a season name, a status) can't produce a filename
+ *  stripped so a scope label containing one (a season, a status) can't produce a filename
  *  the browser silently mangles or a Windows user can't open. */
 const UNSAFE_FILENAME_CHARS = /[\\/:*?"<>|]/g;
 
