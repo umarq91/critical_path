@@ -737,11 +737,28 @@ control on the page re-runs the Server Component (`shallow: false`), so every on
 re-queries; scrolling and opening the drawer do not.
 
 **This module has a second consumer.** The Dashboard's Gantt card renders `TimelineToolbar`,
-`TimelineGrid`, `TimelineTaskBar`, `TimelineStatusLegend` and `TimelineOverduePanel` — the same
+`TimelineGrid`, `TimelineTaskBar`, `TimelineSeasonLegend` and `TimelineOverduePanel` — the same
 components, different state source (see the Dashboard section). None of them fetch; they take
 tasks, a range and a view as props, which is what makes that possible. Keep it that way: a
 `data/*` import inside any of them would break the preview. Only `TimelineWorkspace` and
 `page.tsx` are `/timeline`-specific.
+
+**Bars are coloured by season, not status** (client request). `taskSeasonColor`
+(`tasks/task-season-color.ts`) is shared with the Calendar's task chips, so a season reads the
+same colour on both. Seasons share the 7-colour `VIZ_COLORS` palette (29 seasons, 7 colours), so
+colour alone doesn't identify one: `TimelineSeasonLegend` names the seasons among the visible bars,
+and each bar's tooltip carries its season and status. White bar text stays readable because season
+colours can only be picked from that palette (`ColorField`).
+
+**The pinned left columns (Task Name / Start / End) are resizable and wrap** (client request,
+matching the Tasks grid). It's not a DataTable, so it has its own small store,
+`use-timeline-column-widths.ts`: widths saved per browser under `timeline-column-widths`, clamped
+to a per-column minimum and 640px, defaults summing to the old fixed 420px. It uses
+`useSyncExternalStore` with a "nothing saved" server snapshot, so the server renders the defaults
+and the client swaps in the saved widths after hydrating; reading localStorage in the first render
+would mismatch the server markup. Task names wrap, so rows are `minHeight: ROW_HEIGHT`, not fixed,
+and `TimelineTaskBar` centres itself with `top: 50%` instead of a ROW_HEIGHT-based offset. Shared
+with the Dashboard's Gantt card (same grid, same saved widths).
 
 ### Zoom levels
 

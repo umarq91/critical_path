@@ -1,9 +1,9 @@
 "use client";
 
-import { TASK_STATUS_VIZ_COLORS } from "@/constants/chart-colors";
 import { TASK_STATUS_CONFIG } from "@/constants/task-status";
 import { formatDate } from "@/lib/dates";
-import { ROW_HEIGHT, type BarGeometry } from "@/app/(app)/timeline/timeline-utils";
+import { taskSeasonColor } from "@/app/(app)/tasks/task-season-color";
+import type { BarGeometry } from "@/app/(app)/timeline/timeline-utils";
 import { cn } from "@/lib/utils";
 import type { Task } from "@/data/tasks";
 
@@ -19,7 +19,9 @@ interface TimelineTaskBarProps {
 }
 
 export const TimelineTaskBar = ({ task, geometry, onSelect }: TimelineTaskBarProps) => {
-  const color = TASK_STATUS_VIZ_COLORS[task.status];
+  // Season colour, not status (client request) — status stays in the tooltip below.
+  const color = taskSeasonColor(task);
+  const seasonLabel = task.season?.season ?? "No season";
   const statusLabel = TASK_STATUS_CONFIG[task.status]?.label ?? task.status;
   // A task reaching the timeline has at least one of start_date/end_date/due_date set (see
   // timelineOverlapFilter in data/tasks.ts), so these fallbacks never all miss in practice.
@@ -32,13 +34,15 @@ export const TimelineTaskBar = ({ task, geometry, onSelect }: TimelineTaskBarPro
     <button
       type="button"
       onClick={() => onSelect(task)}
-      title={`${task.task_name} · ${statusLabel} · ${schedule}`}
-      aria-label={`${task.task_name}, ${statusLabel}, ${schedule}`}
+      title={`${task.task_name} · ${seasonLabel} · ${statusLabel} · ${schedule}`}
+      aria-label={`${task.task_name}, ${seasonLabel}, ${statusLabel}, ${schedule}`}
       style={{
         left: geometry.left,
         width: geometry.width,
         height: BAR_HEIGHT,
-        top: (ROW_HEIGHT - BAR_HEIGHT) / 2,
+        // Centred in whatever height the row has: a wrapped task name makes it taller than ROW_HEIGHT.
+        top: "50%",
+        marginTop: -BAR_HEIGHT / 2,
         backgroundColor: geometry.isMilestone ? `color-mix(in oklch, ${color}, transparent 78%)` : color,
         borderColor: color,
         // Square off whichever end runs past the window, so a clipped bar reads as continuing

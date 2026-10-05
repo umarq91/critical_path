@@ -7,7 +7,7 @@ import { ChartCard } from "@/components/charts/chart-card";
 import { TaskDetailDrawer } from "@/app/(app)/tasks/task-detail-drawer";
 import { TimelineGrid } from "@/app/(app)/timeline/timeline-grid";
 import { TimelineOverduePanel } from "@/app/(app)/timeline/timeline-overdue-panel";
-import { TimelineStatusLegend } from "@/app/(app)/timeline/timeline-status-legend";
+import { TimelineSeasonLegend } from "@/app/(app)/timeline/timeline-season-legend";
 import {
   TimelineToolbar,
   type TimelineControls,
@@ -152,7 +152,7 @@ export const TimelineGanttCard = ({
           <TimelineGrid tasks={rows} range={range} view={controls.view} onSelectTask={setSelectedTask} />
 
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <TimelineStatusLegend />
+            <TimelineSeasonLegend tasks={rows} />
             {matchCount > rows.length ? (
               <Link
                 href={timelineHref}

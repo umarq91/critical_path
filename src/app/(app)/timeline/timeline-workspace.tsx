@@ -7,7 +7,7 @@ import { TaskDetailDrawer } from "@/app/(app)/tasks/task-detail-drawer";
 import { TimelineToolbar } from "@/app/(app)/timeline/timeline-toolbar";
 import { TimelineGrid } from "@/app/(app)/timeline/timeline-grid";
 import { TimelineOverduePanel } from "@/app/(app)/timeline/timeline-overdue-panel";
-import { TimelineStatusLegend } from "@/app/(app)/timeline/timeline-status-legend";
+import { TimelineSeasonLegend } from "@/app/(app)/timeline/timeline-season-legend";
 import { useTimelineQueryState } from "@/app/(app)/timeline/timeline-query-state";
 import { getTimelineRange, resolveAnchorDate } from "@/app/(app)/timeline/timeline-utils";
 import { TIMELINE_PAGE_SIZE_OPTIONS } from "@/app/(app)/timeline/timeline-search-params";
@@ -107,7 +107,7 @@ export const TimelineWorkspace = ({
               pageSizeOptions={TIMELINE_PAGE_SIZE_OPTIONS}
             />
           ) : null}
-          <TimelineStatusLegend />
+          <TimelineSeasonLegend tasks={tasks} />
         </div>
 
         <TimelineOverduePanel tasks={overdueTasks} onSelectTask={setSelectedTask} />

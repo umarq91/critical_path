@@ -121,7 +121,6 @@ export const CalendarBoard = ({
           </div>
         ) : null}
       </div>
-      <CalendarLegend />
       {selectedTask ? (
         <TaskDetailDrawer
           key={selectedTask.id}
@@ -332,27 +331,6 @@ function DayAgenda({
           ))}
         </div>
       )}
-    </div>
-  );
-}
-
-const LEGEND_ITEMS = [
-  { status: "not_started", label: "Not Started", dotClass: "bg-status-notstarted-base" },
-  { status: "in_progress", label: "In Progress", dotClass: "bg-status-progress-base" },
-  { status: "completed", label: "Complete", dotClass: "bg-status-complete-base" },
-  { status: "overdue", label: "Overdue", dotClass: "bg-status-overdue-base" },
-] as const;
-
-function CalendarLegend() {
-  return (
-    <div className="flex flex-wrap items-center gap-4 rounded-lg border border-border bg-card px-3 py-2">
-      <span className="text-xs font-medium text-text-secondary lg:text-sm">Status Legend:</span>
-      {LEGEND_ITEMS.map((item) => (
-        <span key={item.status} className="flex items-center gap-1.5 text-xs text-foreground lg:text-sm">
-          <span className={cn("size-2.5 rounded-full", item.dotClass)} />
-          {item.label}
-        </span>
-      ))}
     </div>
   );
 }

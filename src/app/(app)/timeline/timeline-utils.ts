@@ -33,7 +33,6 @@ export const WEEK_OPTIONS = { weekStartsOn: 1 } as const;
 // at ~90px, both wide enough for their label and narrow enough to avoid a second scrollbar.
 export const DAY_WIDTH: Record<TimelineView, number> = { week: 150, month: 40, quarter: 9, year: 3 };
 export const ROW_HEIGHT = 44;
-export const TASK_COLUMN_WIDTH = 420;
 // A same-day task would otherwise be a sliver in Month view; never render narrower than this.
 const MIN_BAR_WIDTH = 18;
 
