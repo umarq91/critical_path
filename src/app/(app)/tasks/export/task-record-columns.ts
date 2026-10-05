@@ -71,6 +71,15 @@ export const TASK_RECORD_COLUMN_GROUPS: ExportColumnGroup<Task>[] = [
         getValue: (t) => t.notes ?? null,
       },
       {
+        key: "is_critical",
+        label: "Critical Task",
+        category: "basic",
+        defaultSelected: true,
+        dataType: "boolean",
+        width: 12,
+        getValue: (t) => t.is_critical,
+      },
+      {
         key: "is_locked",
         label: "Locked",
         category: "basic",
@@ -214,6 +223,7 @@ export const TASK_GRID_COLUMN_ORDER = [
   "season",
   "key_stage",
   "task_name",
+  "is_critical",
   "owners",
   "people_involved",
   "start_date",

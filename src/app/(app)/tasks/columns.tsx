@@ -6,6 +6,7 @@ import { DataTableColumnHeader } from "@/components/data-table/data-table-column
 import { StatusBadge } from "@/components/shared/status-badge";
 import { ColorTag } from "@/components/shared/color-tag";
 import { EditableCell } from "@/components/shared/editable-cell";
+import { Checkbox } from "@/components/ui/checkbox";
 import { RowEditToggle } from "@/components/shared/row-edit-toggle";
 import type { RowEditingState } from "@/components/data-table/use-row-editing";
 import { dataTableFeatures, type DataTableFilterOption } from "@/components/data-table/table-features";
@@ -18,6 +19,7 @@ import { PartyNames } from "@/app/(app)/tasks/party-names";
 import { PartyCellEditor } from "@/app/(app)/tasks/party-cell-editor";
 import { taskOwners, taskPeopleInvolved } from "@/app/(app)/tasks/task-parties";
 import type { ParticipantList, RowParticipantsState } from "@/app/(app)/tasks/use-row-participants";
+import type { CriticalToggleState } from "@/app/(app)/tasks/use-critical-toggle";
 import type { Task } from "@/data/tasks";
 import { formatDate } from "@/lib/dates";
 
@@ -52,6 +54,8 @@ interface CreateTaskColumnsOptions {
   seasonOptions: DataTableFilterOption[];
   brandOptions: DataTableFilterOption[];
   keyStageOptions: DataTableFilterOption[];
+  /** The "Critical" checkbox's save-on-click state — see use-critical-toggle.ts. */
+  critical: CriticalToggleState;
   /** Whether the grid has actually been manually resized yet (see DataTable's own
    *  `onResizedChange`) — headers only wrap/shrink once true, so the default render stays
    *  pixel-identical to a non-resizable table. Plumbed in as a plain boolean, tracked in
@@ -71,6 +75,7 @@ export function createTaskColumns({
   seasonOptions,
   brandOptions,
   keyStageOptions,
+  critical,
   isResized,
 }: CreateTaskColumnsOptions) {
   // The inline-edit select needs an explicit "not set" choice since key_stage_id is
@@ -168,6 +173,33 @@ export function createTaskColumns({
           onDraftChange={(next) => rowEditing.setDraftField("task_name", next)}
         />
       ),
+    }),
+    // Two ways to change it: outside edit mode a click saves straight away (use-critical-toggle.ts);
+    // while the row is in pencil edit mode it's part of the draft instead (as "true"/"false", since
+    // a draft holds strings) and saves with the tick. Read-only without task.update.
+    columnHelper.accessor("is_critical", {
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Critical" wrap={isResized} />,
+      meta: { label: "Critical", width: "xs" },
+      size: 90,
+      minSize: 70,
+      enableSorting: false,
+      cell: ({ row }) => {
+        const task = row.original;
+        const isEditing = rowEditing.isEditing(task.id);
+        const checked = isEditing ? rowEditing.draft.is_critical === "true" : critical.isCritical(task);
+        return (
+          <span className="flex" onClick={(event) => event.stopPropagation()}>
+            <Checkbox
+              checked={checked}
+              disabled={!canManage || (isEditing ? isSaving : critical.isPending(task))}
+              onCheckedChange={(next) =>
+                isEditing ? rowEditing.setDraftField("is_critical", String(next)) : critical.toggle(task, next)
+              }
+              aria-label={checked ? `Unmark ${task.task_name} as critical` : `Mark ${task.task_name} as critical`}
+            />
+          </span>
+        );
+      },
     }),
     // Display, not accessor: owners and people are rows in task_participants, not columns on
     // the task, so there's nothing to sort on and no single value an EditableCell could hold.
@@ -350,6 +382,7 @@ export function createTaskColumns({
                         : (task[field] ?? ""),
                     ])
                   );
+                  initialDraft.is_critical = String(critical.isCritical(task));
                   rowEditing.startEditing(task.id, initialDraft);
                   if (canAssignPeople) rowParticipants.start(task);
                   else rowParticipants.clear();

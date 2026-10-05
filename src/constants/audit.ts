@@ -74,6 +74,7 @@ export const TASK_FIELD_LABEL: Record<string, string> = {
   status: "Status",
   priority: "Priority",
   notes: "Comments",
+  is_critical: "Critical Task",
 };
 
 // The Logs page's date filter. Values are resolved to a cutoff timestamp server-side in

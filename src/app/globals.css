@@ -55,6 +55,9 @@
   --color-surface-header: color-mix(in oklab, var(--muted) 40%, var(--card));
   --color-surface-hover: color-mix(in oklab, var(--muted) 50%, var(--card));
   --color-surface-overdue: color-mix(in oklab, var(--status-overdue-soft) 40%, var(--card));
+  /* Critical tasks: the full high-priority soft red (vs overdue's 40% mix), so the two stay
+     tellable apart. Opaque for the same sticky-column reason as the rest of this block. */
+  --color-surface-critical: color-mix(in oklab, var(--prio-high-soft) 100%, var(--card));
   --color-surface-selected: color-mix(in oklab, var(--primary-tint) 40%, var(--card));
 
   /* brand green — not one of shadcn's default semantic slots */

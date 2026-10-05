@@ -1,4 +1,5 @@
-import { parseISO } from "date-fns";
+import { addWeeks, endOfWeek, format, parseISO, startOfWeek } from "date-fns";
+import type { DueWeekPreset } from "@/constants/due-week-filter";
 
 const DATE_LOCALE = "en-AU";
 
@@ -62,4 +63,25 @@ export function dayFirstDateToIso(value: string): string | null {
   if (!match) return null;
   const [, day, month, year] = match;
   return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+}
+
+const WEEK_STARTS_ON_MONDAY = { weekStartsOn: 1 } as const;
+
+// Today's calendar date in Melbourne, not the runtime's: the server is a UTC host, so its own
+// "today" is still yesterday for the first 10–11 hours of a Melbourne day.
+function orgToday() {
+  return parseDateOnly(new Intl.DateTimeFormat("en-CA", { timeZone: ORG_TIMEZONE }).format(new Date()));
+}
+
+// Inclusive yyyy-MM-dd bounds for the Tasks "Due" filter. Weeks run Monday to Sunday.
+// "Next 2 Weeks" is the two full weeks after this one (next Monday to the Sunday after next),
+// so it never overlaps "This Week".
+export function dueWeekRange(preset: DueWeekPreset): { from: string; to: string } {
+  const thisMonday = startOfWeek(orgToday(), WEEK_STARTS_ON_MONDAY);
+  const firstWeek = preset === "this_week" ? thisMonday : addWeeks(thisMonday, 1);
+  const lastWeek = preset === "next_2_weeks" ? addWeeks(firstWeek, 1) : firstWeek;
+  return {
+    from: format(firstWeek, "yyyy-MM-dd"),
+    to: format(endOfWeek(lastWeek, WEEK_STARTS_ON_MONDAY), "yyyy-MM-dd"),
+  };
 }

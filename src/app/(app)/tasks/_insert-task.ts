@@ -52,6 +52,7 @@ function taskRow(actor: AuditActor, taskColumns: TaskColumns, owners: string[]) 
     due_date: normaliseDate(taskColumns.due_date),
     start_date: normaliseDate(taskColumns.start_date),
     end_date: normaliseDate(taskColumns.end_date),
+    is_critical: taskColumns.is_critical ?? false,
     // Compatibility shim while tasks.assignee_id still exists (0015 is the expand phase; the
     // column is dropped in a follow-up). Calendar sync and the Upcoming scope still read it,
     // so it's set to the first *individual* owner — null when every owner is a department,

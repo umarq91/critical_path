@@ -2,6 +2,9 @@ import "server-only";
 import { addDays, format } from "date-fns";
 import { createClient } from "@/lib/supabase/server";
 import { decodeMultiFilterValue } from "@/constants/data-table-filters";
+import { isDueWeekPreset } from "@/constants/due-week-filter";
+import { dueWeekRange } from "@/lib/dates";
+import { isUuid } from "@/lib/utils";
 import {
   EMPTY_RESULT_ID,
   participantTaskIds,
@@ -119,9 +122,9 @@ function taskScope(
   // Season/Brand/Key Stage/Gender/Status/Priority/DPSP Category are all `multiple: true`
   // toolbar filters — see data-table-toolbar.tsx and constants/data-table-filters.ts for the
   // comma-joined encoding this decodes.
-  query = applyMultiEq(query, "season_id", decodeMultiFilterValue(filters.season_id));
-  query = applyMultiEq(query, "brand_id", decodeMultiFilterValue(filters.brand_id));
-  query = applyMultiEq(query, "key_stage_id", decodeMultiFilterValue(filters.key_stage_id));
+  query = applyMultiEq(query, "season_id", decodeMultiFilterValue(filters.season_id).filter(isUuid));
+  query = applyMultiEq(query, "brand_id", decodeMultiFilterValue(filters.brand_id).filter(isUuid));
+  query = applyMultiEq(query, "key_stage_id", decodeMultiFilterValue(filters.key_stage_id).filter(isUuid));
   query = applyMultiEq(query, "gender", decodeMultiFilterValue(filters.gender).filter((value) => isTaskGender(value)));
   query = applyMultiEq(query, "status", decodeMultiFilterValue(filters.status).filter((value) => isTaskStatus(value)));
   query = applyMultiEq(query, "priority", decodeMultiFilterValue(filters.priority).filter((value) => isTaskPriority(value)));
@@ -133,6 +136,9 @@ function taskScope(
   // "Hide done" toggle (DPSP Flywheel board) — an exclusion, not an equality match, so it's
   // its own filter key rather than overloading `status`.
   if (filters.hide_done === "true") query = query.neq("status", "completed");
+  // "Critical" toolbar filter (Tasks): "yes" / "no". Anything else is ignored, not an error.
+  if (filters.is_critical === "yes") query = query.eq("is_critical", true);
+  if (filters.is_critical === "no") query = query.eq("is_critical", false);
   // An unmatched party must yield zero rows, not every row, hence the impossible-id fallback
   // rather than skipping the clause.
   if (ids.participants) {
@@ -145,6 +151,11 @@ function taskScope(
     if (Number.isInteger(days) && days > 0) {
       query = query.lte("due_date", format(addDays(new Date(), days), "yyyy-MM-dd"));
     }
+  }
+  // "Due" toolbar filter (Tasks) — a Monday-to-Sunday week preset. Undated tasks never match.
+  if (isDueWeekPreset(filters.due_week)) {
+    const { from, to } = dueWeekRange(filters.due_week);
+    query = query.gte("due_date", from).lte("due_date", to);
   }
 
   const orderColumn = sortBy && SORTABLE_COLUMNS.has(sortBy) ? sortBy : "due_date";

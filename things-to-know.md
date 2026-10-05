@@ -355,6 +355,34 @@ rather than `union all`.
 
 ---
 
+## Tasks — Critical Task flag
+
+**`tasks.is_critical` saves on click in the grid, outside the pencil/tick edit mode.** The
+Critical column's checkbox calls `updateTask(id, { is_critical })` straight away
+(`use-critical-toggle.ts`, shared by Tasks and My Tasks), because making someone open a row to flip
+one bit was friction for nothing. The click shows at once through a per-task override, and every
+override is dropped when a new set of rows arrives, so it can't mask a later change by someone
+else. The hook reads `refresh` through a ref because `useRefreshableData`'s `refresh` is rebuilt
+every render around the current filters. A memoised copy would reload with stale ones.
+Disabled for roles without `task.update`. Also on: the create form (`CheckboxField`), a "Critical"
+badge in the drawer header, Excel/CSV export ("Critical Task", TRUE/FALSE, on by default), CSV
+import (optional column: blank, TRUE/FALSE, Yes/No, Y/N, 1/0), the audit log ("Critical Task:
+Yes/No"), and the toolbar's Critical filter (`filters.is_critical` = `yes`/`no`, saveable in views).
+Not sent to Google Calendar or the integration API.
+
+**Two ways to change it in the grid, by request.** Outside edit mode a click saves at once (above).
+While the row is in pencil edit mode, the checkbox writes the row draft instead and saves with the
+tick. A draft holds strings only, so it's `"true"`/`"false"` there, and `taskUpdateSchema` (not the
+base `taskSchema`, which the create form's boolean field types against) accepts those strings.
+
+**Critical rows are tinted, and critical beats overdue.** `task-row-class-name.ts` (both grids)
+gives a critical row `bg-surface-critical` (the full `prio-high-soft` red, vs overdue's 40% mix)
+plus a 3px `prio-high` stripe on its first cell. An overdue, non-critical row keeps
+`bg-surface-overdue`. The row reads the toggle's live value, so it recolours on click.
+
+**The app code needs `0036` applied before it's deployed.** Creating a task writes `is_critical`
+and the filter reads it, so both fail against a database without the column.
+
 ## Tasks — Owners & People Involved
 
 **One picker stack serves both fields, and both accept departments and people.**
@@ -389,7 +417,8 @@ and no single draft string to hold. `assignee_id` is gone from `EDITABLE_FIELDS`
   column sets `meta.wrap`). This replaced a measured one-line "+N more" fold — the client wanted
   names readable without hovering. The cost: a task with many people makes a tall row, which is
   why the columns default to `lg` and the chips use `PartyChip size="sm"` (11px `text-overline`
-  type, the smallest token in the design system).
+  type, the smallest token in the design system). Chips are name-only, with no avatar or department
+  icon (client request, to save width); the drawer and forms still show avatars via `PartyRow`.
 - **Edit mode** is `party-cell-editor.tsx`: removable chips, and an Add popover around the same
   `PartySearchDropdown`. It's buffered by `use-row-participants.ts`, which sits beside
   `useRowEditing` because a draft party needs a name and avatar, not just a `kind:uuid` key. On
@@ -432,8 +461,17 @@ step, since gender has no such sentinel (it's required, never cleared, at creati
 "relevant to me". An empty result set filters on an impossible uuid (`EMPTY_RESULT_ID`) rather
 than dropping the clause, which would silently widen the query to "no filter at all".
 
-**The Owner filter accepts several owners at once (`multiple: true`), matched as a union.**
-Picking Planning and Marketing means owned by either, not both — same as every other multi-select
+**The Tasks "Due" filter is a Monday-to-Sunday week preset (`filters.due_week`), not My Tasks'
+day count (`filters.due_date`).** This Week / Next Week / Next 2 Weeks (`constants/due-week-filter.ts`),
+resolved by `dueWeekRange` (`lib/dates.ts`) on Melbourne's date, never the UTC server's, which is a
+day behind for the first 10–11 hours of a Melbourne day. "Next 2 Weeks" is the two full weeks after
+this one, so it never overlaps This Week. Undated tasks never match. The Tasks sort menu no longer
+offers Task Name A–Z / Z–A (client request); `task_name` stays sortable server-side for My Tasks.
+
+**The Owner and People Involved filters each accept several parties at once (`multiple: true`),
+matched as a union within each filter.** Both use the same party list (`listPartyOptions`, the
+`partyOptions` prop) and map to `filters.owner` / `filters.involved`, which `participantTaskIds`
+already resolved for the Calendar. Picking Planning and Marketing means owned by either, not both — same as every other multi-select
 toolbar filter (see "Data tables" above). Owner and People Involved are still `.reduce`d together
 as an intersection when both are set, unchanged from before.
 
@@ -1209,6 +1247,14 @@ resulting `23505` to a friendly "You already have a view named …" rather than 
 constraint error. There's no rename action; deleting and re-saving under a new name is the only
 path, since v1 has no edit flow for an existing view's filters either (see below).
 
+**Saved filters are validated per key before they're stored.** `saved-view-schema.ts` holds the
+list of every `filters` key `listTasks` reads; an unknown key, or a malformed value for a key with
+a fixed shape (uuid lists for season/brand/key stage, `kind:uuid` party keys for owner/involved,
+a week preset for `due_week`), rejects the save. Add a new grid filter key there too, or it
+can't be saved as a view. `parsePartyKey` (`lib/party.ts`) requires a real uuid, because party ids
+are interpolated into a PostgREST `.or()` string; `listTasks` also drops non-uuid season/brand/key
+stage values, so a hand-edited link filters on what's valid instead of erroring the page.
+
 **Saving is gated on `task.view`, not a manage-level action.** A saved view is a personal
 bookmark of the grid the viewer already has open, same reasoning as `reminder_rules` being gated
 on `profile.update_own` rather than an admin action — every role that can see `/tasks` at all
@@ -1371,6 +1417,13 @@ Vercel) and a Client Component on the browser's, so one instant could show two d
 ---
 
 ## Data tables (`components/data-table/`)
+
+**A toolbar filter's `columnId` does NOT need to be a real column.** `DataTableToolbar` reads and
+writes every filter (and the search box) through the table's `columnFilters` state, which is what
+syncs to the URL's `filters` param. It used to go through `table.getColumn(id)` and silently render
+nothing when no column had that id. That hid the Tasks grid's Owner filter (key `owner`, column
+`owners`) and the Users page's Account Type filter (key `accountType`, column `account_type`) for a
+long time. A filter key only has to be something the page's `data/*.ts` list function reads.
 
 **Columns are relatively-weighted, not content-sized, and the table always fills its container.**
 Each column declares `meta.width` from the five-step scale in `column-widths.ts` (defaulting to

@@ -42,6 +42,7 @@ function isLookupField(field: string): field is keyof typeof LOOKUP_COLUMNS {
 // so a typical single-field edit still costs zero extra queries.
 async function formatTaskValue(supabase: SupabaseClient, field: string, value: unknown): Promise<string | null> {
   if (value === null || value === undefined || value === "" || value === "none") return null;
+  if (typeof value === "boolean") return value ? "Yes" : "No";
   if (typeof value !== "string") return String(value);
 
   if (isLookupField(field)) {

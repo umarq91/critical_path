@@ -23,7 +23,7 @@ export default async function TasksPage({
   // nothing extra: (app)/layout.tsx already called it once for the auth guard.
   const profile = await getCurrentProfile();
 
-  const [{ data: tasks, rowCount }, seasons, brands, keyStages, ownerOptions, savedViews] = await Promise.all([
+  const [{ data: tasks, rowCount }, seasons, brands, keyStages, partyOptions, savedViews] = await Promise.all([
     listTasks(queryState),
     listSeasonOptions(),
     listBrandOptions(),
@@ -69,7 +69,7 @@ export default async function TasksPage({
           seasonOptions={seasonOptions}
           brandOptions={brandOptions}
           keyStageOptions={keyStageOptions}
-          ownerOptions={ownerOptions}
+          partyOptions={partyOptions}
           savedViews={savedViews}
         />
       </div>

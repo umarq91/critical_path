@@ -9,6 +9,7 @@ import { Form } from "@/components/ui/form";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { TextField } from "@/components/form-fields/text-field";
+import { CheckboxField } from "@/components/form-fields/checkbox-field";
 import { TextareaField } from "@/components/form-fields/textarea-field";
 import { SelectField } from "@/components/form-fields/select-field";
 import { DateField } from "@/components/form-fields/date-field";
@@ -64,6 +65,7 @@ export const TaskForm = ({ onSuccess, seasonOptions, brandOptions, keyStageOptio
       // requires a value — "med" matches the DB column's own default.
       priority: "med",
       notes: "",
+      is_critical: false,
     },
   });
 
@@ -123,6 +125,7 @@ export const TaskForm = ({ onSuccess, seasonOptions, brandOptions, keyStageOptio
                 options={dpspCategoryValues.map((value) => ({ value, label: DPSP_CATEGORY_CONFIG[value].label }))}
               />
             </div>
+            <CheckboxField control={form.control} name="is_critical" label="Critical Task" />
           </FormSection>
 
           <Separator />

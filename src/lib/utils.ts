@@ -23,3 +23,11 @@ export function initials(name: string | null | undefined, email: string) {
 export function sanitiseOrSearchTerm(value: string) {
   return value.replace(/[,()]/g, "").trim();
 }
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// For ids that arrive from a URL or saved filter: an invalid uuid errors the whole Postgres query
+// (22P02), and an id interpolated into an `.or()` string could otherwise smuggle in a condition.
+export function isUuid(value: string) {
+  return UUID_PATTERN.test(value);
+}

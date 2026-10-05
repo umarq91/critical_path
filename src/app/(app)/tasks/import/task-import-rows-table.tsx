@@ -19,6 +19,7 @@ const CELL_FIELDS: TaskImportField[] = [
   "gender",
   "dpsp_category",
   "due_date",
+  "is_critical",
 ];
 
 type Filter = "all" | TaskImportRow["status"];

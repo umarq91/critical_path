@@ -72,6 +72,9 @@ const IMPORT_FIELD_BY_SCHEMA_KEY: Record<string, TaskImportField> = {
   key_stage_id: "key_stage",
 };
 
+const TRUE_FLAGS = new Set(["true", "yes", "y", "1"]);
+const FALSE_FLAGS = new Set(["false", "no", "n", "0"]);
+
 class RowProblems {
   readonly messages: string[] = [];
   readonly fields = new Set<TaskImportField>();
@@ -110,6 +113,17 @@ class RowProblems {
       return "";
     }
     return iso;
+  }
+
+  // Critical Task: blank means not critical. Accepts what the export writes (TRUE/FALSE, or an
+  // Excel boolean, which reads back as "true"/"false") and the obvious hand-typed forms.
+  flag(value: string, field: TaskImportField): boolean {
+    if (!value) return false;
+    const normalised = value.toLowerCase();
+    if (TRUE_FLAGS.has(normalised)) return true;
+    if (FALSE_FLAGS.has(normalised)) return false;
+    this.add(`${importFieldLabel(field)} "${value}" must be Yes or No`, field);
+    return false;
   }
 
   // Owners / People Involved hold several names joined by ", " (how the export writes them).
@@ -157,6 +171,7 @@ export function resolveImportRow({ values }: ImportSheetRow, indexes: TaskImport
     end_date: problems.date(text("end_date"), "end_date"),
     owners: problems.parties(indexes.parties, text("owners"), "owners"),
     people_involved: problems.parties(indexes.parties, text("people_involved"), "people_involved"),
+    is_critical: problems.flag(text("is_critical"), "is_critical"),
   };
 
   // Schema messages for fields that already have a lookup/format problem would only repeat it

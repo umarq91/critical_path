@@ -9,6 +9,7 @@ import {
   CircleDot,
   ClipboardList,
   FileText,
+  Flag,
   History,
   Lock,
   Milestone,
@@ -104,6 +105,15 @@ export const TaskDetailDrawer = ({ task, open, onOpenChange, canAssignPeople, on
               <SheetTitle className="truncate text-base font-semibold">{task.task_name}</SheetTitle>
               <div className="flex flex-wrap items-center gap-2">
                 <StatusBadge value={task.status} config={TASK_STATUS_CONFIG} />
+                {task.is_critical ? (
+                  <Badge
+                    variant="outline"
+                    className="gap-1 border-status-overdue-base bg-status-overdue-soft text-status-overdue-text"
+                  >
+                    <Flag className="size-3" />
+                    Critical
+                  </Badge>
+                ) : null}
                 {task.is_locked ? (
                   <Badge variant="outline" className="gap-1">
                     <Lock className="size-3" />
@@ -147,6 +157,15 @@ export const TaskDetailDrawer = ({ task, open, onOpenChange, canAssignPeople, on
                 </OverviewField>
                 <OverviewField icon={CircleDot} label="Status">
                   <StatusBadge value={task.status} config={TASK_STATUS_CONFIG} />
+                {task.is_critical ? (
+                  <Badge
+                    variant="outline"
+                    className="gap-1 border-status-overdue-base bg-status-overdue-soft text-status-overdue-text"
+                  >
+                    <Flag className="size-3" />
+                    Critical
+                  </Badge>
+                ) : null}
                 </OverviewField>
                 <OverviewField icon={CalendarClock} label="Due Date">
                   {task.due_date ? formatDate(task.due_date) : <span className="text-muted-foreground">Not set</span>}

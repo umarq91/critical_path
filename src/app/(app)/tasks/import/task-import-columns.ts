@@ -19,6 +19,7 @@ const IMPORT_FIELDS = [
   "end_date",
   "owners",
   "people_involved",
+  "is_critical",
 ] as const;
 
 export type TaskImportField = (typeof IMPORT_FIELDS)[number];
@@ -26,7 +27,8 @@ export type TaskImportField = (typeof IMPORT_FIELDS)[number];
 const DATE_FIELDS: ReadonlySet<TaskImportField> = new Set(["due_date", "start_date", "end_date"]);
 
 // A whole-file error when any of these is absent from the header row, rather than every row
-// failing with the same message. Status, Priority, Comments and the dates may be left out.
+// failing with the same message. Status, Priority, Comments, Critical Task and the dates may be
+// left out.
 export const REQUIRED_IMPORT_FIELDS: TaskImportField[] = [
   "task_name",
   "season",

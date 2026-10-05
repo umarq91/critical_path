@@ -9,6 +9,8 @@ import { useDataTableQueryState } from "@/components/data-table/use-data-table-q
 import { useRowEditing } from "@/components/data-table/use-row-editing";
 import { useRefreshableData } from "@/components/shared/use-refreshable-data";
 import { EmptyState } from "@/components/shared/empty-state";
+import { taskRowClassName } from "@/app/(app)/tasks/task-row-class-name";
+import { useCriticalToggle } from "@/app/(app)/tasks/use-critical-toggle";
 import { createTaskColumns } from "@/app/(app)/tasks/columns";
 import { useRowParticipants } from "@/app/(app)/tasks/use-row-participants";
 import { updateTask } from "@/app/(app)/tasks/_actions";
@@ -92,6 +94,7 @@ export const MyTasksBoard = ({
     refresh,
     isRefreshing,
   } = useRefreshableData(initialTasks, () => refreshMyTasks(queryState.params));
+  const critical = useCriticalToggle(taskData.data, refresh);
 
   // Participants first: they're the half with a client-side rule (at least one owner), so a
   // violation stops the save before the row's own fields are written.
@@ -128,6 +131,7 @@ export const MyTasksBoard = ({
         seasonOptions,
         brandOptions,
         keyStageOptions,
+        critical,
         isResized: isColumnsResized,
       }),
     // rowEditing's methods are stable across renders (from useState setters); only its
@@ -144,6 +148,7 @@ export const MyTasksBoard = ({
       seasonOptions,
       brandOptions,
       keyStageOptions,
+      critical,
       isColumnsResized,
     ]
   );
@@ -155,6 +160,7 @@ export const MyTasksBoard = ({
       <DataTable
         columns={taskColumns}
         data={taskData.data}
+        getRowClassName={(task) => taskRowClassName(task, critical.isCritical(task))}
         queryState={queryState}
         rowCount={taskData.rowCount}
         onRefresh={refresh}

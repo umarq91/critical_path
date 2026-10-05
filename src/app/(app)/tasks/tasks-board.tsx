@@ -6,6 +6,8 @@ import { DataTable } from "@/components/data-table/data-table";
 import { useDataTableQueryState } from "@/components/data-table/use-data-table-query-state";
 import { useRowEditing } from "@/components/data-table/use-row-editing";
 import { useRefreshableData } from "@/components/shared/use-refreshable-data";
+import { taskRowClassName } from "@/app/(app)/tasks/task-row-class-name";
+import { useCriticalToggle } from "@/app/(app)/tasks/use-critical-toggle";
 import { createTaskColumns } from "@/app/(app)/tasks/columns";
 import { useRowParticipants } from "@/app/(app)/tasks/use-row-participants";
 import { TASKS_QUERY_STATE } from "@/app/(app)/tasks/query-state";
@@ -13,6 +15,8 @@ import { updateTask, refreshTasks } from "@/app/(app)/tasks/_actions";
 import { TaskDetailDrawer } from "@/app/(app)/tasks/task-detail-drawer";
 import { SavedViewsMenu } from "@/app/(app)/tasks/saved-views-menu";
 import { TASK_STATUS_CONFIG } from "@/constants/task-status";
+import { CRITICAL_FILTER_OPTIONS } from "@/constants/critical-filter";
+import { DUE_WEEK_OPTIONS } from "@/constants/due-week-filter";
 import { TASK_GENDER_CONFIG } from "@/constants/task-gender";
 import { DPSP_CATEGORY_CONFIG } from "@/constants/dpsp-category";
 import type { Task } from "@/data/tasks";
@@ -28,7 +32,7 @@ interface TasksBoardProps {
   seasonOptions: DataTableFilterOption[];
   brandOptions: DataTableFilterOption[];
   keyStageOptions: DataTableFilterOption[];
-  ownerOptions: DataTableFilterOption[];
+  partyOptions: DataTableFilterOption[];
   savedViews: SavedView[];
 }
 
@@ -41,7 +45,7 @@ export const TasksBoard = ({
   seasonOptions,
   brandOptions,
   keyStageOptions,
-  ownerOptions,
+  partyOptions,
   savedViews,
 }: TasksBoardProps) => {
   const queryState = useDataTableQueryState(TASKS_QUERY_STATE);
@@ -57,6 +61,7 @@ export const TasksBoard = ({
   // pagination/sort/filter navigation) — see useRefreshableData's contract.
   const initialTasks = useMemo(() => ({ data: tasks, rowCount }), [tasks, rowCount]);
   const { data: taskData, refresh, isRefreshing } = useRefreshableData(initialTasks, () => refreshTasks(queryState.params));
+  const critical = useCriticalToggle(taskData.data, refresh);
 
   // Participants first: they're the half with a client-side rule (at least one owner), so a
   // violation stops the save before the row's own fields are written.
@@ -93,6 +98,7 @@ export const TasksBoard = ({
         seasonOptions,
         brandOptions,
         keyStageOptions,
+        critical,
         isResized: isColumnsResized,
       }),
     // rowEditing's methods are stable across renders (from useState setters); only its
@@ -109,7 +115,8 @@ export const TasksBoard = ({
       seasonOptions,
       brandOptions,
       keyStageOptions,
-      ownerOptions,
+      partyOptions,
+      critical,
       isColumnsResized,
     ]
   );
@@ -132,7 +139,7 @@ export const TasksBoard = ({
         onRowClick={(task) => {
           if (!rowEditing.isEditing(task.id)) setSelectedTask(task);
         }}
-        getRowClassName={(task) => (task.status === "overdue" ? "bg-surface-overdue" : undefined)}
+        getRowClassName={(task) => taskRowClassName(task, critical.isCritical(task))}
         toolbar={{
           filters: [
             { columnId: "season_id", title: "Season", placeholder: "All Seasons", options: seasonOptions, multiple: true },
@@ -165,11 +172,18 @@ export const TasksBoard = ({
               options: Object.entries(TASK_STATUS_CONFIG).map(([value, { label }]) => ({ value, label })),
               multiple: true,
             },
-            { columnId: "owner", title: "Owner", placeholder: "All Owners", options: ownerOptions, multiple: true },
+            { columnId: "owner", title: "Owner", placeholder: "All Owners", options: partyOptions, multiple: true },
+            {
+              columnId: "involved",
+              title: "People Involved",
+              placeholder: "All People Involved",
+              options: partyOptions,
+              multiple: true,
+            },
+            { columnId: "due_week", title: "Due", placeholder: "Any Due Date", options: [...DUE_WEEK_OPTIONS] },
+            { columnId: "is_critical", title: "Critical", placeholder: "All Tasks", options: CRITICAL_FILTER_OPTIONS },
           ],
           sortOptions: [
-            { columnId: "task_name", desc: false, label: "Task Name (A-Z)" },
-            { columnId: "task_name", desc: true, label: "Task Name (Z-A)" },
             { columnId: "due_date", desc: false, label: "Due Date (Earliest)" },
             { columnId: "due_date", desc: true, label: "Due Date (Latest)" },
           ],

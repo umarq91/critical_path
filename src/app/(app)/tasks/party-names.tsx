@@ -7,7 +7,7 @@ interface PartyNamesProps {
   parties: PartySummary[];
 }
 
-// A task's owners or people involved as named chips, wrapping onto further lines rather than
+// A task's owners or people involved as name-only chips, wrapping onto further lines rather than
 // hiding any behind a "+N more" — the grid's Owner/People columns wrap (meta.wrap), so every
 // name is readable without hovering. A single chip still truncates if its name alone is wider
 // than the column.

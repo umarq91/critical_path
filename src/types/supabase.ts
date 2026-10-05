@@ -813,6 +813,7 @@ export type Database = {
           google_synced_at: string | null
           id: string
           is_locked: boolean
+          is_critical: boolean
           key_stage_id: string | null
           last_edited_by: string | null
           locked_at: string | null
@@ -841,6 +842,7 @@ export type Database = {
           google_synced_at?: string | null
           id?: string
           is_locked?: boolean
+          is_critical?: boolean
           key_stage_id?: string | null
           last_edited_by?: string | null
           locked_at?: string | null
@@ -869,6 +871,7 @@ export type Database = {
           google_synced_at?: string | null
           id?: string
           is_locked?: boolean
+          is_critical?: boolean
           key_stage_id?: string | null
           last_edited_by?: string | null
           locked_at?: string | null

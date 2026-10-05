@@ -215,6 +215,7 @@ Seeded from real client data — see `supabase/seed-departments.sql` and the Dep
 | `last_edited_by` | uuid, FK → `profiles.id`, nullable, `on delete set null` | stamped by `createTask`/`updateTask` on every write |
 | `deleted_by` | uuid, FK → `profiles.id`, nullable, `on delete set null` | stamped by `deleteTask` alongside `deleted_at` |
 | `is_locked` | boolean, default `false` | column only — no enforcement yet, see below |
+| `is_critical` | boolean, not null, default `false` | "Critical Task" flag (`0036`). Ticked straight from the grid's Critical column (saves on click), the create form, or CSV import; filterable as `filters.is_critical` = `yes`/`no` |
 | `locked_by` / `locked_at` | uuid FK → `profiles.id` / timestamptz, nullable | columns only — no enforcement yet, see below |
 | `google_event_id` | text, nullable | **Superseded by `task_calendar_events` (`0034`); no longer written or read.** Was the single Google event this task was pushed to |
 | `google_calendar_owner_id` | uuid, FK → `profiles.id`, nullable, `on delete set null` | **Superseded by `task_calendar_events` (`0034`); no longer written or read.** Was whose calendar `google_event_id` lived on (first-claim-wins) |
@@ -461,6 +462,7 @@ Unique `(task_id, profile_id)`; index on `profile_id`.
 | `0033_reset_google_calendar_id.sql` | Data only: sets every `google_oauth_tokens.calendar_id` to null, because the synced calendar was renamed to "Critical Path Calendar" and the cached ids pointed at the old "Critical Path" one. No schema change. |
 | `0034_task_calendar_events.sql` | `task_calendar_events` (task × profile → Google event id + `content_hash`), unique per pair, RLS as described above; copies every existing `tasks.google_event_id`/`google_calendar_owner_id` link into it. Backs syncing every task to every user's own calendar. The `tasks` sync columns and `0029`'s viewer policy/trigger are left in place but unused. |
 | `0035_drop_season_owner.sql` | Drops `seasons.owner_id` (and its index/FK). Seasons have no owner; nothing in the app or integration API read it. |
+| `0036_task_is_critical.sql` | Adds `tasks.is_critical` (boolean, not null, default false) and a partial index on critical, non-deleted tasks. Covered by the existing tasks RLS; `0029`'s viewer trigger doesn't admit it, so viewers can't flip it. |
 
 ## Not built yet
 

@@ -1,4 +1,5 @@
 import type { Database } from "@/types/supabase";
+import { isUuid } from "@/lib/utils";
 
 export type PartyKind = "user" | "department";
 export type ParticipantRole = Database["public"]["Enums"]["task_participant_role"];
@@ -25,7 +26,8 @@ export function parsePartyKey(value: string): PartyRef | null {
   const kind = value.slice(0, separator);
   const id = value.slice(separator + 1);
   if (kind !== "user" && kind !== "department") return null;
-  if (!id) return null;
+  // Not just non-empty: callers put this id into a PostgREST `.or()` filter string.
+  if (!isUuid(id)) return null;
 
   return { kind, id };
 }

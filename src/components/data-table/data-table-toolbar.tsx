@@ -89,8 +89,17 @@ export const DataTableToolbar = <TData extends Record<string, unknown>>({
       ...(next ? [{ id: searchColumnId, value: next }] : []),
     ]);
   };
+  // Toolbar filters go through the same columnFilters state, for the same reason: a filter like
+  // the Tasks grid's "owner"/"involved" is a server-side key with no column of that id.
+  const getFilterValue = (id: string) => columnFilters.find((filter) => filter.id === id)?.value as string | undefined;
+  const setFilterValue = (id: string, next: string | undefined) => {
+    table.setColumnFilters([
+      ...columnFilters.filter((filter) => filter.id !== id),
+      ...(next ? [{ id, value: next }] : []),
+    ]);
+  };
   const hasSearchValue = !!searchValue;
-  const hasFilterValue = !!filters?.some((filter) => table.getColumn(filter.columnId)?.getFilterValue() !== undefined);
+  const hasFilterValue = !!filters?.some((filter) => getFilterValue(filter.columnId) !== undefined);
   const showResetFilters = enableResetFilters ?? (hasSearchValue || hasFilterValue);
 
   const currentSort = table.options.state?.sorting?.[0];
@@ -109,16 +118,14 @@ export const DataTableToolbar = <TData extends Record<string, unknown>>({
         />
       ) : null}
       {filters?.map((filter) => {
-        const column = table.getColumn(filter.columnId);
-        if (!column) return null;
         const allLabel = filter.placeholder ?? `All ${filter.title}`;
 
         if (filter.multiple) {
           return (
             <MultiFilterSelect
               key={filter.columnId}
-              value={column.getFilterValue() as string | undefined}
-              onValueChange={(next) => column.setFilterValue(next)}
+              value={getFilterValue(filter.columnId)}
+              onValueChange={(next) => setFilterValue(filter.columnId, next)}
               options={filter.options}
               title={filter.title}
               allLabel={allLabel}
@@ -132,13 +139,13 @@ export const DataTableToolbar = <TData extends Record<string, unknown>>({
         // on SelectValue (not the `placeholder` prop) supplies the "All X" label instead,
         // since relying on SelectItem registration for that label is what caused the
         // earlier "__all__" flash — this renders it ourselves regardless of registry timing.
-        const value = (column.getFilterValue() as string | undefined) ?? ALL_VALUE;
+        const value = getFilterValue(filter.columnId) ?? ALL_VALUE;
 
         return (
           <Select
             key={filter.columnId}
             value={value}
-            onValueChange={(next) => column.setFilterValue(next === ALL_VALUE ? undefined : next)}
+            onValueChange={(next) => setFilterValue(filter.columnId, next === ALL_VALUE || next === null ? undefined : next)}
           >
             <SelectTrigger className="h-10">
               <SelectValue>

@@ -34,7 +34,7 @@ export async function createTask(input: unknown) {
 // The columns a task edit is audited on — every user-editable column, and nothing else (the
 // google_*/locking/tracking columns are stamped by the system, not chosen by a person).
 const AUDITED_TASK_COLUMNS =
-  "id, task_name, season_id, brand_id, key_stage_id, dpsp_category, gender, due_date, start_date, end_date, status, priority, notes";
+  "id, task_name, season_id, brand_id, key_stage_id, dpsp_category, gender, due_date, start_date, end_date, status, priority, notes, is_critical";
 
 export async function updateTask(id: string, patch: unknown) {
   const auth = await requirePermission("task.update");

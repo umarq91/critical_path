@@ -58,6 +58,9 @@ export const taskSchema = z.object({
   status: z.enum(taskStatusValues),
   priority: z.enum(taskPriorityValues),
   notes: z.string().max(2000).optional(),
+  // "Critical Task" flag. Optional so a CSV import row or an older caller that omits it is
+  // still valid; the column defaults to false (0036_task_is_critical.sql).
+  is_critical: z.boolean().optional(),
 });
 
 // What the create form submits: the task columns plus its participant sets. brand_id,
@@ -88,7 +91,13 @@ export const taskCreateSchema = taskSchema.merge(taskParticipantsSchema).extend(
 // Inline-edit/patch schema — the task columns only, made partial for single-field patches.
 // Participants are deliberately NOT patchable here: they're rows in another table, so they go
 // through setTaskParticipants/addTaskParticipant instead of a column update.
-export const taskUpdateSchema = taskSchema.partial();
+//
+// is_critical also accepts "true"/"false" here: the grid's pencil edit mode keeps it in a row
+// draft, which holds strings only (use-row-editing.ts), and submits that draft as-is. Only on
+// this schema, so the create form keeps a plain boolean field.
+export const taskUpdateSchema = taskSchema.partial().extend({
+  is_critical: z.union([z.boolean(), z.enum(["true", "false"]).transform((value) => value === "true")]).optional(),
+});
 
 export type TaskInput = z.infer<typeof taskSchema>;
 export type TaskCreateInput = z.infer<typeof taskCreateSchema>;
