@@ -3,6 +3,7 @@ import { addDays, format } from "date-fns";
 import { createClient } from "@/lib/supabase/server";
 import { decodeMultiFilterValue } from "@/constants/data-table-filters";
 import { isDueWeekPreset } from "@/constants/due-week-filter";
+import { clampTaskPageSize } from "@/constants/task-page-size";
 import { dueWeekRange } from "@/lib/dates";
 import { isUuid } from "@/lib/utils";
 import {
@@ -186,6 +187,23 @@ async function resolvePersonalScope(supabase: SupabaseClient, profileId: string)
   return (row: TaskNarrowRow) => row.created_by === profileId || participantIds.has(row.id);
 }
 
+// Ids per request when a page's full rows are fetched by id. A page can be 300 rows
+// (MAX_TASK_PAGE_SIZE), and an `in` list that long, plus any participant-id clause the scope
+// already carries, approaches the URL length the endpoint rejects (~800 ids measured). Chunks
+// are consecutive slices of an already-ordered id list, so concatenating them keeps the order.
+const PAGE_ID_CHUNK_SIZE = 100;
+
+async function fetchRowsByIdChunks<T>(ids: string[], fetchChunk: (chunk: string[]) => PromiseLike<{ data: unknown; error: unknown }>) {
+  const chunks: string[][] = [];
+  for (let start = 0; start < ids.length; start += PAGE_ID_CHUNK_SIZE) chunks.push(ids.slice(start, start + PAGE_ID_CHUNK_SIZE));
+  // In parallel: at most three requests for a 300-row page, and Promise.all keeps chunk order.
+  const results = await Promise.all(chunks.map((chunk) => fetchChunk(chunk)));
+  return results.flatMap(({ data, error }) => {
+    if (error) throw error;
+    return (data ?? []) as T[];
+  });
+}
+
 // The ONE query function behind the task grid, and every future view-specific list (Gantt
 // range, calendar range, dashboard aggregates, CSV export) — those extend this, not fork it.
 //
@@ -197,7 +215,8 @@ async function resolvePersonalScope(supabase: SupabaseClient, profileId: string)
 // page load pays nothing for the feature.
 export async function listTasks(params: ListTasksParams = {}): Promise<{ data: Task[]; rowCount: number }> {
   const supabase = await createClient();
-  const { page = 1, pageSize = 15, filters = {}, scopeToProfileId } = params;
+  const { page = 1, filters = {}, scopeToProfileId } = params;
+  const pageSize = clampTaskPageSize(params.pageSize ?? 15);
   const term = (filters.search ?? "").trim();
 
   const ids = await resolveTaskScopeIds(supabase, params);
@@ -225,10 +244,11 @@ export async function listTasks(params: ListTasksParams = {}): Promise<{ data: T
   // Re-ordered by the same columns as the narrow pass, so the page reads in the sequence it was
   // sliced in. The scope's filters are redundant here (these ids already passed them) but cost
   // nothing and keep one definition of "how this list is ordered".
-  const { data, error } = await taskScope(supabase, TASK_SELECT, params, ids, false).in("id", pageIds);
-  if (error) throw error;
+  const data = await fetchRowsByIdChunks<Task>(pageIds, (chunk) =>
+    taskScope(supabase, TASK_SELECT, params, ids, false).in("id", chunk)
+  );
 
-  return { data: (data ?? []) as unknown as Task[], rowCount: matched.length };
+  return { data, rowCount: matched.length };
 }
 
 // A type witness, never called. `Task` has to come from a `.select(TASK_SELECT)` where the
@@ -556,7 +576,8 @@ async function timelineScope(supabase: SupabaseClient, select: string, { from, t
 // that set into the main query's filter instead would build a URL long enough to be rejected.
 export async function listTasksForTimeline(params: ListTasksForTimelineParams) {
   const supabase = await createClient();
-  const { filters = {}, page = 1, pageSize } = params;
+  const { filters = {}, page = 1 } = params;
+  const pageSize = params.pageSize === undefined ? undefined : clampTaskPageSize(params.pageSize);
   const term = (filters.search ?? "").trim();
 
   // No search and no pagination: one query, the whole window. The Dashboard preview's path.
@@ -578,16 +599,17 @@ export async function listTasksForTimeline(params: ListTasksForTimelineParams) {
 
   // Re-ordered by the same three columns as the narrow pass, so the page reads in the sequence
   // it was sliced in.
-  const { data, error } = await supabase
-    .from("tasks")
-    .select(TASK_SELECT)
-    .in("id", pageIds)
-    .order("start_date", { ascending: true, nullsFirst: false })
-    .order("due_date", { ascending: true })
-    .order("id", { ascending: true });
-  if (error) throw error;
+  const data = await fetchRowsByIdChunks<Task>(pageIds, (chunk) =>
+    supabase
+      .from("tasks")
+      .select(TASK_SELECT)
+      .in("id", chunk)
+      .order("start_date", { ascending: true, nullsFirst: false })
+      .order("due_date", { ascending: true })
+      .order("id", { ascending: true })
+  );
 
-  return { data: (data ?? []) as Task[], rowCount: matched.length };
+  return { data, rowCount: matched.length };
 }
 
 export interface ListDeletedTasksParams {

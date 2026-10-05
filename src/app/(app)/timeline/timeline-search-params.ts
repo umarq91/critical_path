@@ -1,6 +1,7 @@
 // Same "nuqs/server" split as calendar-search-params.ts — imported by both the Server
 // Component (page.tsx, to run the matching query) and the client toolbar (via useQueryStates),
 // so it stays on "nuqs/server" rather than the "use client"-marked "nuqs" entry.
+import { TASK_PAGE_SIZE_OPTIONS } from "@/constants/task-page-size";
 import { createLoader, parseAsInteger, parseAsString, parseAsStringLiteral } from "nuqs/server";
 
 // Ordered coarse-to-fine is how the toolbar renders them, and Q1–Q4 are calendar quarters
@@ -17,7 +18,9 @@ export const TIMELINE_DEFAULT_VIEW: TimelineView = "year";
  *  past a screenful stops being readable, so it pages instead of scrolling forever. */
 export const TIMELINE_PAGE_SIZE = 25;
 
-export const TIMELINE_PAGE_SIZE_OPTIONS = [20, 25, 30];
+/** Same choices as the Tasks grid, up to 300 (client request). 15 is dropped: under the
+ *  25-row default it would only ever be a step backwards. */
+export const TIMELINE_PAGE_SIZE_OPTIONS = TASK_PAGE_SIZE_OPTIONS.filter((size) => size >= TIMELINE_PAGE_SIZE);
 
 /** How long the search box waits after the last keystroke before the URL — and therefore the
  *  query — updates. Every param here re-runs the Server Component, so an un-debounced text
