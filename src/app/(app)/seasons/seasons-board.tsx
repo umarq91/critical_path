@@ -12,14 +12,12 @@ import { SelectedSeasonPanel } from "@/app/(app)/seasons/selected-season-panel";
 import { UpcomingSeasonsPanel } from "@/app/(app)/seasons/upcoming-seasons-panel";
 import { SEASONS_QUERY_STATE } from "@/app/(app)/seasons/query-state";
 import { SEASON_STATUS_CONFIG } from "@/constants/season-status";
-import type { DataTableFilterOption } from "@/components/data-table/table-features";
 import type { Season, SeasonTaskStats, listUpcomingSeasons } from "@/data/seasons";
 
 interface SeasonsBoardProps {
   seasons: Season[];
   rowCount: number;
   canManage: boolean;
-  ownerOptions: DataTableFilterOption[];
   yearOptions: string[];
   upcomingSeasons: Awaited<ReturnType<typeof listUpcomingSeasons>>;
   seasonStats: Record<string, SeasonTaskStats>;
@@ -29,7 +27,6 @@ export const SeasonsBoard = ({
   seasons,
   rowCount,
   canManage,
-  ownerOptions,
   yearOptions,
   upcomingSeasons,
   seasonStats,
@@ -51,12 +48,23 @@ export const SeasonsBoard = ({
     rowEditing.stopEditing();
   }
 
+  // Same resizable grid as Tasks — see tasks-board.tsx and columns.tsx's `isResized`.
+  const [isColumnsResized, setIsColumnsResized] = useState(false);
+
   const seasonColumns = useMemo(
-    () => createSeasonColumns({ canManage, rowEditing, isSaving, onConfirmEdit: handleConfirmEdit, seasonStats }),
+    () =>
+      createSeasonColumns({
+        canManage,
+        rowEditing,
+        isSaving,
+        onConfirmEdit: handleConfirmEdit,
+        seasonStats,
+        isResized: isColumnsResized,
+      }),
     // rowEditing's methods are stable across renders (from useState setters); only its
     // values (editingId/draft) actually need to trigger a column rebuild.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [canManage, rowEditing.editingId, rowEditing.draft, isSaving, seasonStats]
+    [canManage, rowEditing.editingId, rowEditing.draft, isSaving, seasonStats, isColumnsResized]
   );
   const [selectedId, setSelectedId] = useState(seasons[0]?.id);
   const selectedSeason = seasons.find((season) => season.id === selectedId) ?? seasons[0];
@@ -71,6 +79,9 @@ export const SeasonsBoard = ({
         onRowClick={(season) => setSelectedId(season.id)}
         getRowClassName={(season) => (season.id === selectedId ? "bg-surface-selected" : undefined)}
         enableColumnFilterRow={false}
+        enableColumnResizing
+        resizeStorageKey="seasons-column-widths"
+        onResizedChange={setIsColumnsResized}
         paginationLabel="seasons"
         toolbar={{
           filters: [
@@ -80,7 +91,6 @@ export const SeasonsBoard = ({
               placeholder: "Season Status",
               options: Object.entries(SEASON_STATUS_CONFIG).map(([value, { label }]) => ({ value, label })),
             },
-            { columnId: "owner_id", title: "Owner", placeholder: "Owner", options: ownerOptions },
             {
               columnId: "start_date",
               title: "Year",

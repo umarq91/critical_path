@@ -90,13 +90,12 @@ policy — see `0006_tasks.sql`.
 | `start_date` | date | |
 | `end_date` | date | must be ≥ `start_date` |
 | `color` | text, default `#2b6ef6` | season colour-coding across the app |
-| `owner_id` | uuid, nullable, FK → `profiles.id` | `on delete set null` |
 | `created_at` / `updated_at` | timestamptz | |
 | `deleted_at` | timestamptz, nullable | soft delete |
 
 **RLS:** any authenticated user reads; only admin writes.
 
-**Deliberately not columns:** task count, brand count, completion %, owner count — all shown on the Seasons admin page but computed from `tasks` once that table exists, not stored here.
+**Deliberately not columns:** task count, brand count, completion % — all shown on the Seasons admin page but computed from `tasks` once that table exists, not stored here.
 
 ### `brands`
 *Migration: `0005_brands.sql`, `season_id` replaced by `brand_seasons` in `0013_brand_seasons.sql`. Stable brand identity referenced by `tasks.brand_id`.*
@@ -461,6 +460,7 @@ Unique `(task_id, profile_id)`; index on `profile_id`.
 | `0032_external_sign_in_code.sql` | `session_verifications` (service-role-only), `is_active_user()` now also requires a verified session for `external` profiles, and the lookup (`seasons`, `brands`, `brand_seasons`, `key_stages`, `departments`, `public_holidays`) and own-row (`saved_views`, `reminder_rules`, `reminder_rule_tasks`, `holiday_calendar_events`, `profiles` update) policies now pass through `is_active_user()` too. Backs the emailed sign-in code for external accounts. |
 | `0033_reset_google_calendar_id.sql` | Data only: sets every `google_oauth_tokens.calendar_id` to null, because the synced calendar was renamed to "Critical Path Calendar" and the cached ids pointed at the old "Critical Path" one. No schema change. |
 | `0034_task_calendar_events.sql` | `task_calendar_events` (task × profile → Google event id + `content_hash`), unique per pair, RLS as described above; copies every existing `tasks.google_event_id`/`google_calendar_owner_id` link into it. Backs syncing every task to every user's own calendar. The `tasks` sync columns and `0029`'s viewer policy/trigger are left in place but unused. |
+| `0035_drop_season_owner.sql` | Drops `seasons.owner_id` (and its index/FK). Seasons have no owner; nothing in the app or integration API read it. |
 
 ## Not built yet
 

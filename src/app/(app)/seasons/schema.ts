@@ -2,8 +2,6 @@ import { z } from "zod";
 
 export const seasonStatusValues = ["planning", "upcoming", "active", "completed"] as const;
 
-// owner_id is deliberately not part of this schema — the creator becomes the owner,
-// set server-side in _actions.ts from the authenticated user, never a form input.
 const seasonBaseSchema = z.object({
   season: z.string().min(1, "Season is required").max(50),
   status: z.enum(seasonStatusValues),

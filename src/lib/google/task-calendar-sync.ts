@@ -1,6 +1,7 @@
 import "server-only";
 import { createHash } from "node:crypto";
 import { upsertCalendarEvent, deleteCalendarEvent } from "@/lib/google/calendar";
+import { TASK_GENDER_CONFIG } from "@/constants/task-gender";
 import type { ParticipantRole } from "@/lib/party";
 import type { createClient } from "@/lib/supabase/server";
 
@@ -21,6 +22,8 @@ export interface SyncableTask {
   // has nowhere to go without one.
   due_date: string;
   season: { season: string } | null;
+  brand: { brand_name: string } | null;
+  gender: string;
   participants: SyncableTaskParticipant[];
 }
 
@@ -42,19 +45,21 @@ function formatEventTitle(task: Pick<SyncableTask, "task_name" | "season">): str
   return task.season ? `${task.season.season} - ${task.task_name}` : task.task_name;
 }
 
-// Client-requested format: two labelled lines, comma-joined within each. Always both lines,
-// even when a list is empty — a consistently-shaped description is easier to scan across many
-// events than one that silently drops a line when nobody's in a role (owners are required at
-// task creation, but this is a defensive floor, not an assumption relied on elsewhere).
-function formatEventDescription(task: Pick<SyncableTask, "participants">): string {
+// Client-requested format: four labelled lines (BRAND, GENDER, OWNER, PEOPLE INVOLVED), lists
+// comma-joined. Always all four, even when a value is empty (brand is optional on a task) — a
+// consistently-shaped description is easier to scan across many events than one that silently
+// drops a line. A legacy gender with no config entry (`unisex`, see 0026) shows its raw value.
+function formatEventDescription(task: Pick<SyncableTask, "brand" | "gender" | "participants">): string {
+  const brand = task.brand?.brand_name ?? "";
+  const gender = TASK_GENDER_CONFIG[task.gender]?.label ?? task.gender;
   const owners = participantNames(task.participants, "owner").join(", ");
   const involved = participantNames(task.participants, "involved").join(", ");
-  return `OWNER: ${owners}\nPEOPLE INVOLVED: ${involved}`;
+  return `BRAND: ${brand}\nGENDER: ${gender}\nOWNER: ${owners}\nPEOPLE INVOLVED: ${involved}`;
 }
 
 // The columns pushTaskToGoogleCalendar needs, for callers that load a task themselves.
 export const SYNCABLE_TASK_SELECT =
-  "id, task_name, due_date, deleted_at, season:seasons(season:season_code), participants:task_participants(role, profile:profiles(full_name, email), department:departments(name))";
+  "id, task_name, due_date, deleted_at, gender, season:seasons(season:season_code), brand:brands(brand_name), participants:task_participants(role, profile:profiles(full_name, email), department:departments(name))";
 
 // One user's copy of one task on Google (task_calendar_events, 0034). Every syncing user gets
 // their own copy of every task, so a task can be on many calendars at once.

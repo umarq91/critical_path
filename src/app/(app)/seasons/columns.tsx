@@ -11,19 +11,13 @@ import type { RowEditingState } from "@/components/data-table/use-row-editing";
 import { dataTableFeatures } from "@/components/data-table/table-features";
 import { SEASON_STATUS_CONFIG } from "@/constants/season-status";
 import { SeasonRowActions } from "@/app/(app)/seasons/season-row-actions";
-import { cn } from "@/lib/utils";
 import type { Season, SeasonTaskStats } from "@/data/seasons";
 import { formatDate } from "@/lib/dates";
 
 const columnHelper = createColumnHelper<typeof dataTableFeatures, Season>();
 
-const OWNER_COLORS = ["bg-viz-1", "bg-viz-2", "bg-viz-5", "bg-viz-6"];
 const STATUS_OPTIONS = Object.entries(SEASON_STATUS_CONFIG).map(([value, { label }]) => ({ value, label }));
 const EDITABLE_FIELDS = ["status", "start_date", "end_date", "color"] as const;
-
-function ownerColor(name: string) {
-  return OWNER_COLORS[name.charCodeAt(0) % OWNER_COLORS.length];
-}
 
 interface CreateSeasonColumnsOptions {
   canManage: boolean;
@@ -31,6 +25,9 @@ interface CreateSeasonColumnsOptions {
   isSaving: boolean;
   onConfirmEdit: (season: Season) => void;
   seasonStats: Record<string, SeasonTaskStats>;
+  /** Whether the person has dragged a column yet — headers only wrap once true. Same as
+   *  tasks/columns.tsx's `isResized`. */
+  isResized: boolean;
 }
 
 // canManage gates inline editing + the row actions — computed once per page render from
@@ -41,19 +38,24 @@ export function createSeasonColumns({
   isSaving,
   onConfirmEdit,
   seasonStats,
+  isResized,
 }: CreateSeasonColumnsOptions) {
   return [
     // Not inline-editable: it's the stable value other systems key off (Databricks spec,
     // filters, CSV import), so changing it is deliberately a bit more friction than a click —
     // left for a future dedicated edit flow.
     columnHelper.accessor("season", {
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Season" />,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Season" wrap={isResized} />,
       meta: { label: "Season", width: "sm" },
+      size: 200,
+      minSize: 120,
       filterFn: "includesString",
     }),
     columnHelper.accessor("color", {
       header: "Colour",
       meta: { label: "Colour", width: "xs" },
+      size: 90,
+      minSize: 70,
       enableSorting: false,
       cell: ({ row, getValue }) => (
         <EditableCell
@@ -67,8 +69,10 @@ export function createSeasonColumns({
       ),
     }),
     columnHelper.accessor("status", {
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Status" wrap={isResized} />,
       meta: { label: "Status", width: "sm" },
+      size: 130,
+      minSize: 90,
       filterFn: "weakEquals",
       cell: ({ row, getValue }) => (
         <EditableCell
@@ -83,8 +87,10 @@ export function createSeasonColumns({
       ),
     }),
     columnHelper.accessor("start_date", {
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Start Date" />,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Start Date" wrap={isResized} />,
       meta: { label: "Start Date", width: "sm" },
+      size: 130,
+      minSize: 100,
       sortFn: "datetime",
       // Doubles as the Year filter's target column — matches the year portion of the date
       // rather than the raw string, since there's no separate `year` column to filter on.
@@ -104,6 +110,8 @@ export function createSeasonColumns({
     columnHelper.accessor("end_date", {
       header: "End Date",
       meta: { label: "End Date", width: "sm" },
+      size: 130,
+      minSize: 100,
       enableSorting: false,
       cell: ({ row, getValue }) => (
         <EditableCell
@@ -120,18 +128,24 @@ export function createSeasonColumns({
       id: "brands",
       header: "Brands",
       meta: { label: "Brands", width: "xs" },
+      size: 90,
+      minSize: 70,
       cell: ({ row }) => seasonStats[row.original.id]?.brandsCount ?? 0,
     }),
     columnHelper.display({
       id: "tasks",
       header: "Tasks",
       meta: { label: "Tasks", width: "xs" },
+      size: 90,
+      minSize: 70,
       cell: ({ row }) => seasonStats[row.original.id]?.tasksCount ?? 0,
     }),
     columnHelper.display({
       id: "completion",
       header: "Completion %",
       meta: { label: "Completion %", width: "sm" },
+      size: 150,
+      minSize: 110,
       cell: ({ row }) => {
         const stats = seasonStats[row.original.id];
         const pct = stats && stats.tasksCount > 0 ? Math.round((stats.completedCount / stats.tasksCount) * 100) : 0;
@@ -147,29 +161,12 @@ export function createSeasonColumns({
         );
       },
     }),
-    // Filters on owner_id (a stable id the server can query directly), not the derived
-    // display name — filtering is server-side now, so it needs a real column to match on.
-    columnHelper.accessor((row) => row.owner_id ?? "", {
-      id: "owner_id",
-      header: "Owner",
-      meta: { label: "Owner", width: "md" },
-      enableSorting: false,
-      cell: ({ row }) => {
-        const owner = row.original.owner;
-        if (!owner) return <span className="text-muted-foreground">Unassigned</span>;
-        const name = owner.full_name ?? owner.email;
-        return (
-          <span className="flex items-center gap-2">
-            <span className={cn("size-6 shrink-0 rounded-full", ownerColor(name))} />
-            {name}
-          </span>
-        );
-      },
-    }),
     columnHelper.display({
       id: "actions",
       header: "Actions",
       meta: { label: "Actions", sticky: "right", width: "xs" },
+      size: 110,
+      minSize: 90,
       cell: ({ row }) => {
         if (!canManage) return null;
         const season = row.original;

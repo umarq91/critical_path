@@ -19,7 +19,6 @@ const DetailRow = ({ label, value, icon: Icon }: { label: string; value: string;
 );
 
 export const SelectedSeasonPanel = ({ season }: { season: Season }) => {
-  const ownerName = season.owner?.full_name ?? season.owner?.email ?? "Unassigned";
   // Tasks filters live in the DataTable's single JSON `filters` param (keyed by column id,
   // see data-table-search-params.ts); Calendar's season filter is its own flat `seasonId`
   // param (calendar-search-params.ts) — the two pages don't share a filter shape.
@@ -36,10 +35,9 @@ export const SelectedSeasonPanel = ({ season }: { season: Season }) => {
       <div className="divide-y divide-border">
         <DetailRow label="Start Date" value={formatDate(season.start_date)} icon={Calendar} />
         <DetailRow label="End Date" value={formatDate(season.end_date)} icon={Calendar} />
-        <DetailRow label="Owner" value={ownerName} />
         <DetailRow label="Last Updated" value={formatTimestampDate(season.updated_at)} />
       </div>
-      {/* Brands/Tasks/Completed/In Progress/Not Started/Overdue/Owners rows from the mockup
+      {/* Brands/Tasks/Completed/In Progress/Not Started/Overdue rows from the mockup
           are dropped here — no real source until tasks (and a brand<->season link) exist. */}
       <div className="flex flex-col gap-2 pt-1">
         <Button variant="outline" nativeButton={false} render={<Link href={tasksHref} />}>

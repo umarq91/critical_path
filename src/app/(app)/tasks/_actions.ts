@@ -81,7 +81,7 @@ export async function updateTask(id: string, patch: unknown) {
   // one. Sync is one-way, so this is the only way an event ever changes besides the next Sync.
   // Runs after the response (one Google call per copy, and there can be one per user), and is
   // best-effort: a Google failure must not fail an otherwise valid task edit.
-  if ("task_name" in parsed.data || "due_date" in parsed.data || "season_id" in parsed.data) {
+  if (["task_name", "due_date", "season_id", "brand_id", "gender"].some((field) => field in parsed.data)) {
     after(() => resyncTaskCalendarEvents(auth.supabase, id).catch(() => undefined));
   }
 

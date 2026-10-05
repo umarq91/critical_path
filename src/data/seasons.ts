@@ -14,7 +14,7 @@ export interface ListSeasonsParams {
 // `season` is the app's name for the `season_code` column; `season_name` is never read here
 // (it only exists for the integration API).
 const SEASON_SELECT =
-  "id, season:season_code, status, start_date, end_date, color, owner_id, created_at, updated_at, deleted_at, owner:profiles(id, full_name, email, avatar_url)";
+  "id, season:season_code, status, start_date, end_date, color, created_at, updated_at, deleted_at";
 const SORT_COLUMNS: Record<string, string> = { season: "season_code", status: "status", start_date: "start_date" };
 
 function isSeasonStatus(value: string | undefined): value is SeasonInput["status"] {
@@ -32,7 +32,6 @@ export async function listSeasons({ page = 1, pageSize = 10, sortBy, sortDir, fi
   // Validated against the real enum, not just cast — an arbitrary string from the URL would
   // otherwise error the query outright (Postgres enum comparison, not a loose text match).
   if (isSeasonStatus(filters.status)) query = query.eq("status", filters.status);
-  if (filters.owner_id) query = query.eq("owner_id", filters.owner_id);
   if (filters.start_date) {
     // The Year filter's value — a bare 4-digit year, translated into a date range since
     // there's no separate `year` column.
@@ -71,7 +70,7 @@ export async function listSeasonSummary() {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("seasons")
-    .select("status, start_date, owner:profiles(id, full_name, email)")
+    .select("status, start_date")
     .is("deleted_at", null);
   if (error) throw error;
 
@@ -80,21 +79,16 @@ export async function listSeasonSummary() {
     (typeof seasonStatusValues)[number],
     number
   >;
-  const ownersById = new Map<string, { label: string; value: string }>();
   const years = new Set<string>();
 
   for (const row of rows) {
     statusCounts[row.status]++;
-    if (row.owner) {
-      ownersById.set(row.owner.id, { label: row.owner.full_name ?? row.owner.email, value: row.owner.id });
-    }
     years.add(new Date(row.start_date).getFullYear().toString());
   }
 
   return {
     total: rows.length,
     statusCounts,
-    owners: [...ownersById.values()].sort((a, b) => a.label.localeCompare(b.label)),
     years: [...years].sort(),
   };
 }

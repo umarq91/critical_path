@@ -22,7 +22,7 @@ export const SeasonPageActions = ({ canCreateSeason, canExport, rowCount }: Seas
       {canCreateSeason ? (
         <FormDialog
           title="Add Season"
-          description="Create a new season to organise tasks and brands under. You'll be set as its owner."
+          description="Create a new season to organise tasks and brands under."
           open={open}
           onOpenChange={setOpen}
           trigger={

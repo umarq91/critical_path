@@ -679,7 +679,6 @@ export type Database = {
           deleted_at: string | null
           end_date: string
           id: string
-          owner_id: string | null
           season_code: string
           season_name: string
           start_date: string
@@ -692,7 +691,6 @@ export type Database = {
           deleted_at?: string | null
           end_date: string
           id?: string
-          owner_id?: string | null
           season_code: string
           season_name: string
           start_date: string
@@ -705,22 +703,13 @@ export type Database = {
           deleted_at?: string | null
           end_date?: string
           id?: string
-          owner_id?: string | null
           season_code?: string
           season_name?: string
           start_date?: string
           status?: Database["public"]["Enums"]["season_status"]
           updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "seasons_owner_id_fkey"
-            columns: ["owner_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       task_participants: {
         Row: {

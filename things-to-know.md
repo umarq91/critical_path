@@ -173,26 +173,28 @@ result either way. Stopping or losing the tab is harmless: the next sync skips w
 Calendar page's `maxDuration = 300` is now just headroom for the plan step.
 
 **Edits and deletes fan out to every copy, after the response.** `updateTask` (name, due date,
-season) and `setTaskParticipants` call `resyncTaskCalendarEvents`; `deleteTask` calls
+season, brand, gender) and `setTaskParticipants` call `resyncTaskCalendarEvents`; `deleteTask` calls
 `deleteTaskCalendarEvents`. Both run in `after()` so a save isn't held up by one Google call per
 user. An editor touching someone else's copy is why `0034`'s update/delete policies allow
 `standard_user`/`admin` on any row and why `pushTaskToGoogleCalendar` updates an existing link
 instead of upserting it (an upsert is checked against the insert policy too, which is self-only).
 
 **Event title/description are formatted, not a bare copy of `task_name`.** Client-requested:
-title is `"<Season> - <Task Name>"` and the description is always two lines, `"OWNER: …"` /
-`"PEOPLE INVOLVED: …"`, each a comma-joined list of party display names (department name, else
+title is `"<Season> - <Task Name>"` and the description is always four lines, `"BRAND: …"` /
+`"GENDER: …"` / `"OWNER: …"` / `"PEOPLE INVOLVED: …"`. Gender shows its label (Guys/Girls), brand is
+blank when the task has none, and the last two are comma-joined lists of party display names (department name, else
 profile full name, else email — same precedence `task-parties.ts`'s `PartySummary` uses for the
 in-app picker, reimplemented locally in `task-calendar-sync.ts` rather than shared, since this
 only needs flat strings, not a full party shape). Both lines are always present even when a list
-is empty (`"OWNER: "` with nothing after the colon) — a consistently-shaped description scans
+is empty (`"BRAND: "` or `"OWNER: "` with nothing after the colon) — a consistently-shaped description scans
 better across many events than one that silently drops a line. Formatting lives in
 `formatEventTitle`/`formatEventDescription` (`lib/google/task-calendar-sync.ts`), which is what
 `pushTaskToGoogleCalendar` calls — the one shared push both the Sync button and the edit
 fan-out go through, so both paths format identically. Both load the task with
-`SYNCABLE_TASK_SELECT`-shaped joins `season:seasons(season:season_code)` and `participants:task_participants(role,
+`SYNCABLE_TASK_SELECT`-shaped joins `season:seasons(season:season_code)`, `brand:brands(brand_name)`, `gender` and `participants:task_participants(role,
 profile:profiles(full_name, email), department:departments(name))` to have the data to format
-with.
+with. Changing this format changes every event's `content_hash`, so the next Sync re-pushes every
+task once (one Google call each) and is slow that one time.
 
 **Sync follows the Calendar's filters: what you see is what syncs.** The Sync button sends the
 Calendar's active filters (Season, Brand, Status, Gender, Owner, People Involved, holiday
@@ -765,7 +767,7 @@ or the filters, the page would be sliced from a different set than it was fetche
   year: 540 distinct rows over 22 pages, no gaps, no duplicates.
 - **Two `.or()` calls on one query AND together** — the overlap filter and (where used) any
   second disjunction. Confirmed against the live database, not assumed.
-- **Search matches task name, season (name or code), brand, key stage, owners and people
+- **Search matches task name, season, brand, key stage, owners and people
   involved** — `resolveTaskSearchMatcher()` in `data/task-search.ts`, the same matcher `/tasks`
   uses. It started as the four fields the client named for the Timeline (name, key stage,
   owners, people) and picked up season/brand when the Tasks grid asked for them: one matcher for
@@ -1059,7 +1061,7 @@ and `restoreTask` are that other side, not a new deletion mechanism.
 ## Task grid search (`/tasks`)
 
 **The search box is one term against the task AND everything it relates to** — its own name, its
-season (name *or* code), brand, key stage, and the names of its owners and people involved. It
+season, brand, key stage, and the names of its owners and people involved. It
 runs server-side in `listTasks`, so it searches the whole table, not the page on screen.
 
 - **`filters.search` is not a column.** `DataTableToolbar`'s `searchColumnId` is a *filter key*:
@@ -1385,8 +1387,8 @@ deliberately: a table with many columns runs tighter than any single column woul
 `width` kind for the *typical* value regardless, truncation covers the rest. Adding a column
 without a `width` silently gets `md`, which is usually wrong for a badge or a count.
 
-**Manual column resizing is the one opt-out from the weighted-percentage system, and only Tasks
-and My Tasks use it (each with its own `resizeStorageKey`) — but it renders IDENTICALLY to a
+**Manual column resizing is the one opt-out from the weighted-percentage system, and only Tasks,
+My Tasks and Seasons use it (each with its own `resizeStorageKey`) — but it renders IDENTICALLY to a
 non-resizable table until the person actually drags a column.** `<DataTable enableColumnResizing resizeStorageKey="...">` composes
 TanStack's `columnSizingFeature`/`columnResizingFeature` (added to the shared `dataTableFeatures`
 in `table-features.ts`, but inert for every other table — nothing reads `getSize()`/renders a

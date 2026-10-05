@@ -74,7 +74,6 @@ export default async function SeasonsPage({
           seasons={seasons}
           rowCount={rowCount}
           canManage={canManage}
-          ownerOptions={summary.owners}
           yearOptions={summary.years}
           upcomingSeasons={upcomingSeasons}
           seasonStats={seasonStats}

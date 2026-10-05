@@ -16,7 +16,7 @@ export async function createSeason(input: unknown) {
   const { season, ...rest } = parsed.data;
   const { data, error } = await auth.supabase
     .from("seasons")
-    .insert({ ...rest, season_code: season, season_name: season, owner_id: auth.userId })
+    .insert({ ...rest, season_code: season, season_name: season })
     .select()
     .single();
   if (error) return { ok: false as const, error: error.message };
