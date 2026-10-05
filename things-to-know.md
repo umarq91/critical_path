@@ -880,7 +880,13 @@ or the filters, the page would be sliced from a different set than it was fetche
   it. It does still respect the toolbar's dropdown filters.
 - **`PaginationControls` (`components/shared/`) is shared with the data tables.**
   `DataTablePagination` is now a thin @tanstack adapter over it, so page numbers, ellipses and
-  the size selector exist once. The Timeline offers 20/25/30 per page (default 25).
+  the size selector exist once. The Timeline offers 25/50/100/200/300 per page (default 25), the
+  Tasks grid 15/25/50/100/200/300 (default 15) — both from `constants/task-page-size.ts`, and
+  `listTasks`/`listTasksForTimeline` clamp `pageSize` to 300 so a hand-edited URL can't ask for more.
+- **A page's full rows are fetched in chunks of 100 ids** (`fetchRowsByIdChunks`, `data/tasks.ts`).
+  At 300 rows a single `in` list, plus any participant-id clause the scope already carries, gets
+  close to the URL length the endpoint rejects (~800 ids measured). Chunks are consecutive slices
+  of the already-ordered ids, so joining them keeps the page order.
 - **`data/tasks.ts` runs over the ~250-line guideline, deliberately.** Splitting the timeline
   query into its own module would mean exporting `TASK_SELECT`, `isTaskStatus` and
   `EMPTY_RESULT_ID`, and breaking the stronger rule in `CLAUDE.md` that task queries live in one
@@ -1135,6 +1141,20 @@ and `restoreTask` are that other side, not a new deletion mechanism.
   sitting in Trash, so it's a single click, same as the grid's inline-edit confirm.
 
 ---
+
+**Bulk delete ("Delete selected") is the same soft delete, done once for many rows.**
+`deleteTasks()` (`tasks/_actions.ts`) is one `UPDATE … WHERE id IN (…) AND deleted_at IS NULL`,
+gated on `task.delete`, capped at `MAX_TASK_PAGE_SIZE` (300) ids. The ids come from one grid page,
+so they never exceed that. It writes one audit row per task in a single insert, and it reports
+the count the UPDATE actually touched (RLS or an already-trashed row can make that smaller than
+the selection). Google Calendar cleanup runs after the response, **one task at a time**, because
+300 parallel cleanups would hit the Calendar API rate limit. It's on Tasks and My Tasks, shown only
+with `canDelete`. Restoring stays one task at a time on `/tasks/trash`.
+
+The button sits in `DataTable`'s generic `selectionActions` slot, which only ever receives the
+ticked rows **on the current page**, worked out from `data`. That's why both task grids pass
+`getRowId={(task) => task.id}`: with TanStack's default index ids, a tick on row 3 would carry
+over to whatever lands at row 3 on the next page.
 
 ## Task grid search (`/tasks`)
 

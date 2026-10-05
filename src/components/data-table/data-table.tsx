@@ -108,6 +108,12 @@ interface DataTableProps<TData extends Record<string, unknown>> {
    *  resizing starts (see tasks/columns.tsx's wrap prop) tracks this callback's value in
    *  ordinary React state instead, rather than re-deriving it from the table instance. */
   onResizedChange?: (isResized: boolean) => void;
+  /** Renders beside the toolbar while rows are ticked (needs `enableRowSelection`), e.g. a
+   *  "Delete selected" button. Gets only the ticked rows on the CURRENT page, so an action can
+   *  never reach rows the person can't see; `clearSelection` un-ticks everything. Pass
+   *  `getRowId` with it — the default index ids would carry a tick over to whichever row lands
+   *  at the same position on the next page. */
+  selectionActions?: (selectedRows: TData[], clearSelection: () => void) => ReactNode;
 }
 
 export const DataTable = <TData extends Record<string, unknown>>({
@@ -129,6 +135,7 @@ export const DataTable = <TData extends Record<string, unknown>>({
   enableColumnResizing = false,
   resizeStorageKey,
   onResizedChange,
+  selectionActions,
 }: DataTableProps<TData>) => {
   const [localSorting, setLocalSorting] = useState<SortingState>([]);
   const [localColumnFilters, setLocalColumnFilters] = useState<ColumnFiltersState>([]);
@@ -232,6 +239,13 @@ export const DataTable = <TData extends Record<string, unknown>>({
   // to its declared `size`/`minSize` before tracking the pointer from there, a one-time,
   // self-correcting blip rather than a persistent visual difference.
   const isResized = enableColumnResizing && Object.keys(columnSizing).length > 0;
+  // From `data` rather than a TanStack row model: a ticked id that has since left the page (a
+  // page change, a refresh after delete) simply isn't in `data`, so it drops out on its own.
+  const selectedRows = enableRowSelection
+    ? data.filter((row, index) => rowSelection[getRowId ? getRowId(row, index) : String(index)])
+    : [];
+  const selectionActionsNode =
+    selectionActions && selectedRows.length > 0 ? selectionActions(selectedRows, () => setRowSelection({})) : null;
 
   useEffect(() => {
     onResizedChange?.(isResized);
@@ -240,11 +254,12 @@ export const DataTable = <TData extends Record<string, unknown>>({
 
   return (
     <Card className="gap-5 py-6">
-      {toolbar || onRefresh ? (
+      {toolbar || onRefresh || selectionActionsNode ? (
         <div className="flex items-center justify-between gap-3 px-6">
           <div className="flex flex-1 flex-wrap items-center gap-3">
             {toolbar ? <DataTableToolbar table={table} {...toolbar} /> : null}
           </div>
+          {selectionActionsNode}
           {onRefresh ? <RefreshButton onRefresh={onRefresh} isRefreshing={!!isRefreshing} /> : null}
         </div>
       ) : null}

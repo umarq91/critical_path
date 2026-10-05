@@ -9,6 +9,7 @@ import { useRowEditing } from "@/components/data-table/use-row-editing";
 import { useRefreshableData } from "@/components/shared/use-refreshable-data";
 import { EmptyState } from "@/components/shared/empty-state";
 import { taskRowClassName } from "@/app/(app)/tasks/task-row-class-name";
+import { TasksBulkDeleteButton } from "@/app/(app)/tasks/tasks-bulk-delete-button";
 import { createTaskColumns } from "@/app/(app)/tasks/columns";
 import { useRowParticipants } from "@/app/(app)/tasks/use-row-participants";
 import { updateTask } from "@/app/(app)/tasks/_actions";
@@ -143,6 +144,20 @@ export const MyTasksBoard = ({
         onRefresh={refresh}
         isRefreshing={isRefreshing}
         enableRowSelection
+        getRowId={(task) => task.id}
+        selectionActions={
+          canDelete
+            ? (selected, clearSelection) => (
+                <TasksBulkDeleteButton
+                  tasks={selected}
+                  onDeleted={() => {
+                    clearSelection();
+                    refresh();
+                  }}
+                />
+              )
+            : undefined
+        }
         enableColumnFilterRow={false}
         enableColumnResizing
         // Its own key, not Tasks': the two pages share columns but not a layout preference.

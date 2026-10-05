@@ -2,12 +2,14 @@
 
 import { after } from "next/server";
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { requirePermission } from "@/lib/require-permission";
 import { taskCreateSchema, taskUpdateSchema } from "@/app/(app)/tasks/schema";
 import { insertTask, normaliseDate, normaliseDpspCategory, normaliseOptionalId } from "@/app/(app)/tasks/_insert-task";
 import { listTasks, type ListTasksParams } from "@/data/tasks";
 import { deleteTaskCalendarEvents, resyncTaskCalendarEvents } from "@/lib/google/task-calendar-sync";
-import { logTaskUpdated, logTaskDeleted, logTaskRestored } from "@/app/(app)/tasks/_audit";
+import { logTaskUpdated, logTaskDeleted, logTasksDeleted, logTaskRestored } from "@/app/(app)/tasks/_audit";
+import { MAX_TASK_PAGE_SIZE } from "@/constants/task-page-size";
 
 // Powers the isolated "Refresh" icon on the tasks table (see useRefreshableData). A plain
 // read, not a mutation — router.refresh() can't scope a reload to just this table (it
@@ -111,6 +113,43 @@ export async function deleteTask(id: string) {
   revalidatePath("/tasks");
   revalidatePath("/calendar");
   return { ok: true as const };
+}
+
+// A selection can only come from one grid page, so it never exceeds the largest page size.
+const taskIdsSchema = z.array(z.string().uuid()).min(1).max(MAX_TASK_PAGE_SIZE);
+
+// The grid's "Delete selected". Same soft delete, permission, audit and calendar cleanup as
+// deleteTask, done as one UPDATE rather than N round trips. Rows already in the trash are
+// skipped rather than re-stamped, and the count returned is what the UPDATE actually touched —
+// RLS can narrow it, and the toast should say what really happened.
+export async function deleteTasks(ids: unknown) {
+  const auth = await requirePermission("task.delete");
+  if (!auth.ok) return auth;
+
+  const parsed = taskIdsSchema.safeParse(ids);
+  if (!parsed.success) return { ok: false as const, error: `Select between 1 and ${MAX_TASK_PAGE_SIZE} tasks to delete` };
+
+  const { data: deleted, error } = await auth.supabase
+    .from("tasks")
+    .update({ deleted_at: new Date().toISOString(), deleted_by: auth.userId })
+    .in("id", parsed.data)
+    .is("deleted_at", null)
+    .select("id, task_name");
+  if (error) return { ok: false as const, error: error.message };
+  if (!deleted || deleted.length === 0) return { ok: false as const, error: "None of the selected tasks could be deleted" };
+
+  await logTasksDeleted(auth.supabase, { userId: auth.userId, email: auth.email }, deleted);
+
+  // One task at a time, after the response: each cleanup is a handful of Google Calendar calls,
+  // and 300 of them at once would trip the API's rate limit. Best-effort, as in deleteTask.
+  after(async () => {
+    for (const task of deleted) await deleteTaskCalendarEvents(auth.supabase, task.id).catch(() => undefined);
+  });
+
+  revalidatePath("/tasks");
+  revalidatePath("/my-tasks");
+  revalidatePath("/calendar");
+  return { ok: true as const, deletedCount: deleted.length };
 }
 
 // The Trash view's one write. Same permission as deleteTask (task.delete) — the people who can

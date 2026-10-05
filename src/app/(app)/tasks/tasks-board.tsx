@@ -7,6 +7,7 @@ import { useDataTableQueryState } from "@/components/data-table/use-data-table-q
 import { useRowEditing } from "@/components/data-table/use-row-editing";
 import { useRefreshableData } from "@/components/shared/use-refreshable-data";
 import { taskRowClassName } from "@/app/(app)/tasks/task-row-class-name";
+import { TasksBulkDeleteButton } from "@/app/(app)/tasks/tasks-bulk-delete-button";
 import { createTaskColumns } from "@/app/(app)/tasks/columns";
 import { useRowParticipants } from "@/app/(app)/tasks/use-row-participants";
 import { TASKS_QUERY_STATE } from "@/app/(app)/tasks/query-state";
@@ -18,6 +19,7 @@ import { TASK_STATUS_CONFIG } from "@/constants/task-status";
 import { CRITICAL_FILTER_OPTIONS } from "@/constants/critical-filter";
 import { DUE_WEEK_OPTIONS } from "@/constants/due-week-filter";
 import { TASK_GENDER_CONFIG } from "@/constants/task-gender";
+import { TASK_PAGE_SIZE_OPTIONS } from "@/constants/task-page-size";
 import { DPSP_CATEGORY_CONFIG } from "@/constants/dpsp-category";
 import type { Task } from "@/data/tasks";
 import type { SavedView } from "@/data/saved-views";
@@ -131,11 +133,26 @@ export const TasksBoard = ({
         onRefresh={refresh}
         isRefreshing={isRefreshing}
         enableRowSelection
+        getRowId={(task) => task.id}
+        selectionActions={
+          canDelete
+            ? (selected, clearSelection) => (
+                <TasksBulkDeleteButton
+                  tasks={selected}
+                  onDeleted={() => {
+                    clearSelection();
+                    refresh();
+                  }}
+                />
+              )
+            : undefined
+        }
         enableColumnFilterRow={false}
         enableColumnResizing
         resizeStorageKey="tasks-column-widths"
         onResizedChange={setIsColumnsResized}
         paginationLabel="tasks"
+        pageSizeOptions={TASK_PAGE_SIZE_OPTIONS}
         onRowClick={(task) => {
           if (!rowEditing.isEditing(task.id)) setSelectedTask(task);
         }}

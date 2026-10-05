@@ -148,6 +148,19 @@ export async function logTaskUpdated(
   });
 }
 
+// One audit row per task, written in a single insert — the Logs page reads a bulk delete as the
+// individual deletes it is, rather than one opaque "deleted 40 tasks" entry.
+export async function logTasksDeleted(
+  supabase: SupabaseClient,
+  actor: AuditActor,
+  tasks: { id: string; task_name: string | null }[]
+) {
+  await recordAuditEvents(
+    supabase,
+    tasks.map((task) => ({ ...taskEvent(actor, task.id, task.task_name), action: AUDIT_ACTION.TASK_DELETE }))
+  );
+}
+
 export async function logTaskDeleted(
   supabase: SupabaseClient,
   actor: AuditActor,
