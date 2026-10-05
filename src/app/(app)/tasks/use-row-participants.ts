@@ -4,7 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { setTaskParticipants } from "@/app/(app)/tasks/_participant-actions";
 import { taskOwners, taskPeopleInvolved } from "@/app/(app)/tasks/task-parties";
-import { isSameSet } from "@/app/(app)/tasks/use-participants-draft";
+import { isSameSet } from "@/app/(app)/tasks/use-task-drawer-draft";
 import type { PartySummary } from "@/lib/party";
 import type { Task } from "@/data/tasks";
 
@@ -19,7 +19,7 @@ interface RowParticipantsDraft {
 
 export type ParticipantsSaveResult = "saved" | "unchanged" | "failed";
 
-// The grid's inline counterpart of useParticipantsDraft (the drawer's): Owners + People Involved
+// The grid's inline counterpart of useTaskDrawerDraft (the drawer's): Owners + People Involved
 // for the ONE row in pencil/tick edit mode, buffered until the tick and then written through
 // setTaskParticipants in a single call — same one-write-path, one-audit-entry rule as the drawer.
 // Lives beside useRowEditing rather than inside its draft because a party needs its name and

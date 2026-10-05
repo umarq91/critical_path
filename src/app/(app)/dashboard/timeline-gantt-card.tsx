@@ -52,6 +52,8 @@ interface TimelineGanttCardProps {
   seasonOptions: FilterSelectOption[];
   brandOptions: FilterSelectOption[];
   canAssignPeople: boolean;
+  /** task.update — lets the drawer edit the Critical Task flag. */
+  canEditTask: boolean;
 }
 
 // A `null` in a patch means "back to default", which for these three is the empty string —
@@ -71,6 +73,7 @@ export const TimelineGanttCard = ({
   seasonOptions,
   brandOptions,
   canAssignPeople,
+  canEditTask,
 }: TimelineGanttCardProps) => {
   // No isolated refresh on this surface — a saved reassignment re-runs the page's
   // Server Components so the owners shown here match what was just confirmed.
@@ -180,6 +183,7 @@ export const TimelineGanttCard = ({
           open
           onOpenChange={(open) => !open && setSelectedTask(null)}
           canAssignPeople={canAssignPeople}
+          canEditTask={canEditTask}
           onSaved={() => router.refresh()}
         />
       ) : null}

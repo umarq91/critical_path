@@ -33,6 +33,8 @@ interface CalendarBoardProps {
   tasks: Task[];
   holidays: Holiday[];
   canAssignPeople: boolean;
+  /** task.update — lets the drawer edit the Critical Task flag. */
+  canEditTask: boolean;
   isPending: boolean;
   hasActiveFilters: boolean;
   onNavigateToDate: (date: Date) => void;
@@ -45,6 +47,7 @@ export const CalendarBoard = ({
   tasks,
   holidays,
   canAssignPeople,
+  canEditTask,
   isPending,
   hasActiveFilters,
   onNavigateToDate,
@@ -126,6 +129,7 @@ export const CalendarBoard = ({
           open
           onOpenChange={(open) => !open && setSelectedTask(null)}
           canAssignPeople={canAssignPeople}
+          canEditTask={canEditTask}
           onSaved={() => router.refresh()}
         />
       ) : null}

@@ -215,7 +215,7 @@ Seeded from real client data — see `supabase/seed-departments.sql` and the Dep
 | `last_edited_by` | uuid, FK → `profiles.id`, nullable, `on delete set null` | stamped by `createTask`/`updateTask` on every write |
 | `deleted_by` | uuid, FK → `profiles.id`, nullable, `on delete set null` | stamped by `deleteTask` alongside `deleted_at` |
 | `is_locked` | boolean, default `false` | column only — no enforcement yet, see below |
-| `is_critical` | boolean, not null, default `false` | "Critical Task" flag (`0036`). Ticked straight from the grid's Critical column (saves on click), the create form, or CSV import; filterable as `filters.is_critical` = `yes`/`no` |
+| `is_critical` | boolean, not null, default `false` | "Critical Task" flag (`0036`). Set from the create form, the grid's pencil edit mode (saved with the tick), the task drawer (saved with Save Changes), or CSV import; filterable as `filters.is_critical` = `yes`/`no` |
 | `locked_by` / `locked_at` | uuid FK → `profiles.id` / timestamptz, nullable | columns only — no enforcement yet, see below |
 | `google_event_id` | text, nullable | **Superseded by `task_calendar_events` (`0034`); no longer written or read.** Was the single Google event this task was pushed to |
 | `google_calendar_owner_id` | uuid, FK → `profiles.id`, nullable, `on delete set null` | **Superseded by `task_calendar_events` (`0034`); no longer written or read.** Was whose calendar `google_event_id` lived on (first-claim-wins) |

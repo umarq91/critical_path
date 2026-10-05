@@ -19,6 +19,7 @@ interface CalendarWorkspaceProps {
   holidays: Holiday[];
   holidayCountryOptions: DataTableFilterOption[];
   canAssignPeople: boolean;
+  canEditTask: boolean;
   canSyncGoogleCalendar: boolean;
   seasonOptions: DataTableFilterOption[];
   brandOptions: DataTableFilterOption[];
@@ -39,6 +40,7 @@ export const CalendarWorkspace = ({
   holidays,
   holidayCountryOptions,
   canAssignPeople,
+  canEditTask,
   canSyncGoogleCalendar,
   seasonOptions,
   brandOptions,
@@ -81,6 +83,7 @@ export const CalendarWorkspace = ({
           tasks={tasks}
           holidays={holidays}
           canAssignPeople={canAssignPeople}
+          canEditTask={canEditTask}
           isPending={queryState.isPending || isSyncing}
           hasActiveFilters={hasActiveFilters}
           onNavigateToDate={navigateToDate}

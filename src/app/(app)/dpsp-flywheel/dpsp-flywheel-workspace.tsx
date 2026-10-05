@@ -20,6 +20,8 @@ interface DpspFlywheelWorkspaceProps {
    *  one page of it (see listTasksForFlywheel). */
   tasks: Task[];
   canAssignPeople: boolean;
+  /** task.update — lets the drawer edit the Critical Task flag. */
+  canEditTask: boolean;
   seasonOptions: FilterSelectOption[];
   departmentOptions: FilterSelectOption[];
 }
@@ -27,6 +29,7 @@ interface DpspFlywheelWorkspaceProps {
 export const DpspFlywheelWorkspace = ({
   tasks,
   canAssignPeople,
+  canEditTask,
   seasonOptions,
   departmentOptions,
 }: DpspFlywheelWorkspaceProps) => {
@@ -115,6 +118,7 @@ export const DpspFlywheelWorkspace = ({
           open
           onOpenChange={(open) => !open && setSelectedTask(null)}
           canAssignPeople={canAssignPeople}
+          canEditTask={canEditTask}
           onSaved={() => router.refresh()}
         />
       ) : null}

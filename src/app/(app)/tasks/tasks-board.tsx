@@ -7,11 +7,11 @@ import { useDataTableQueryState } from "@/components/data-table/use-data-table-q
 import { useRowEditing } from "@/components/data-table/use-row-editing";
 import { useRefreshableData } from "@/components/shared/use-refreshable-data";
 import { taskRowClassName } from "@/app/(app)/tasks/task-row-class-name";
-import { useCriticalToggle } from "@/app/(app)/tasks/use-critical-toggle";
 import { createTaskColumns } from "@/app/(app)/tasks/columns";
 import { useRowParticipants } from "@/app/(app)/tasks/use-row-participants";
 import { TASKS_QUERY_STATE } from "@/app/(app)/tasks/query-state";
 import { updateTask, refreshTasks } from "@/app/(app)/tasks/_actions";
+import { useLinkedTask } from "@/app/(app)/tasks/use-linked-task";
 import { TaskDetailDrawer } from "@/app/(app)/tasks/task-detail-drawer";
 import { SavedViewsMenu } from "@/app/(app)/tasks/saved-views-menu";
 import { TASK_STATUS_CONFIG } from "@/constants/task-status";
@@ -34,6 +34,8 @@ interface TasksBoardProps {
   keyStageOptions: DataTableFilterOption[];
   partyOptions: DataTableFilterOption[];
   savedViews: SavedView[];
+  /** The task a `?task=<id>` link points at, opened in the drawer on load. See use-linked-task.ts. */
+  linkedTask: Task | null;
 }
 
 export const TasksBoard = ({
@@ -47,12 +49,13 @@ export const TasksBoard = ({
   keyStageOptions,
   partyOptions,
   savedViews,
+  linkedTask,
 }: TasksBoardProps) => {
   const queryState = useDataTableQueryState(TASKS_QUERY_STATE);
   const rowEditing = useRowEditing();
   const rowParticipants = useRowParticipants();
   const [isSaving, setIsSaving] = useState(false);
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const { selectedTask, setSelectedTask, closeDrawer } = useLinkedTask(linkedTask);
   // Whether the grid has actually been manually resized yet — see DataTable's own
   // `onResizedChange` and columns.tsx's `isResized` for why headers only wrap/shrink once true.
   const [isColumnsResized, setIsColumnsResized] = useState(false);
@@ -61,7 +64,6 @@ export const TasksBoard = ({
   // pagination/sort/filter navigation) — see useRefreshableData's contract.
   const initialTasks = useMemo(() => ({ data: tasks, rowCount }), [tasks, rowCount]);
   const { data: taskData, refresh, isRefreshing } = useRefreshableData(initialTasks, () => refreshTasks(queryState.params));
-  const critical = useCriticalToggle(taskData.data, refresh);
 
   // Participants first: they're the half with a client-side rule (at least one owner), so a
   // violation stops the save before the row's own fields are written.
@@ -98,7 +100,6 @@ export const TasksBoard = ({
         seasonOptions,
         brandOptions,
         keyStageOptions,
-        critical,
         isResized: isColumnsResized,
       }),
     // rowEditing's methods are stable across renders (from useState setters); only its
@@ -116,7 +117,6 @@ export const TasksBoard = ({
       brandOptions,
       keyStageOptions,
       partyOptions,
-      critical,
       isColumnsResized,
     ]
   );
@@ -139,7 +139,7 @@ export const TasksBoard = ({
         onRowClick={(task) => {
           if (!rowEditing.isEditing(task.id)) setSelectedTask(task);
         }}
-        getRowClassName={(task) => taskRowClassName(task, critical.isCritical(task))}
+        getRowClassName={taskRowClassName}
         toolbar={{
           filters: [
             { columnId: "season_id", title: "Season", placeholder: "All Seasons", options: seasonOptions, multiple: true },
@@ -208,8 +208,9 @@ export const TasksBoard = ({
           key={selectedTask.id}
           task={selectedTask}
           open
-          onOpenChange={(open) => !open && setSelectedTask(null)}
+          onOpenChange={(open) => !open && closeDrawer()}
           canAssignPeople={canAssignPeople}
+          canEditTask={canManage}
           onSaved={refresh}
         />
       ) : null}

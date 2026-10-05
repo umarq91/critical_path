@@ -23,13 +23,14 @@ import {
 import { Sheet, SheetClose, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { ColorTag } from "@/components/shared/color-tag";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { PartyListField } from "@/app/(app)/tasks/party-list-field";
 import { TaskDrawerSaveBar } from "@/app/(app)/tasks/task-drawer-save-bar";
-import { useParticipantsDraft } from "@/app/(app)/tasks/use-participants-draft";
+import { useTaskDrawerDraft } from "@/app/(app)/tasks/use-task-drawer-draft";
 import { PartyStack } from "@/app/(app)/tasks/party-stack";
 import { taskOwners, taskPeopleInvolved } from "@/app/(app)/tasks/task-parties";
 import { TASK_STATUS_CONFIG } from "@/constants/task-status";
@@ -44,6 +45,8 @@ interface TaskDetailDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   canAssignPeople: boolean;
+  /** task.update — the Critical Task checkbox is editable only with it. */
+  canEditTask: boolean;
   /** Re-fetches the grid after a save, so the Owner column matches what was just confirmed. */
   onSaved: () => void;
 }
@@ -79,8 +82,19 @@ function EmptyNote({ children }: { children: ReactNode }) {
 
 // Mounted per task (keyed on task.id by the board) so the draft below starts from that task's
 // own participants — there is no reset-on-prop-change path to get wrong.
-export const TaskDetailDrawer = ({ task, open, onOpenChange, canAssignPeople, onSaved }: TaskDetailDrawerProps) => {
-  const draft = useParticipantsDraft(task.id, taskOwners(task), taskPeopleInvolved(task), onSaved);
+export const TaskDetailDrawer = ({
+  task,
+  open,
+  onOpenChange,
+  canAssignPeople,
+  canEditTask,
+  onSaved,
+}: TaskDetailDrawerProps) => {
+  const draft = useTaskDrawerDraft(
+    task.id,
+    { owners: taskOwners(task), people: taskPeopleInvolved(task), isCritical: task.is_critical },
+    onSaved
+  );
   const [confirmingDiscard, setConfirmingDiscard] = useState(false);
 
   // Closing with pending edits would silently drop them — they were never written. Everything
@@ -105,7 +119,7 @@ export const TaskDetailDrawer = ({ task, open, onOpenChange, canAssignPeople, on
               <SheetTitle className="truncate text-base font-semibold">{task.task_name}</SheetTitle>
               <div className="flex flex-wrap items-center gap-2">
                 <StatusBadge value={task.status} config={TASK_STATUS_CONFIG} />
-                {task.is_critical ? (
+                {draft.savedIsCritical ? (
                   <Badge
                     variant="outline"
                     className="gap-1 border-status-overdue-base bg-status-overdue-soft text-status-overdue-text"
@@ -147,6 +161,17 @@ export const TaskDetailDrawer = ({ task, open, onOpenChange, canAssignPeople, on
                   ) : (
                     <span className="text-muted-foreground">Not set</span>
                   )}
+                </OverviewField>
+                <OverviewField icon={Flag} label="Critical Task">
+                  {/* Buffered like Owners/People: saved by the Save Changes bar, not on click. */}
+                  <label className="flex w-fit cursor-pointer items-center gap-2 has-disabled:cursor-default">
+                    <Checkbox
+                      checked={draft.isCritical}
+                      onCheckedChange={(next) => draft.setIsCritical(next)}
+                      disabled={!canEditTask || draft.isSaving}
+                    />
+                    {draft.isCritical ? "Yes" : "No"}
+                  </label>
                 </OverviewField>
                 <OverviewField icon={UserCheck} label="Owners">
                   {draft.owners.length > 0 ? (

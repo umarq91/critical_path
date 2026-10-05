@@ -42,6 +42,7 @@ export default async function TimelinePage({
           rowCount={tasks.rowCount}
           overdueTasks={overdueTasks}
           canAssignPeople={!!profile && can(profile.role, "task.assign")}
+          canEditTask={!!profile && can(profile.role, "task.update")}
           seasonOptions={seasons.map((season) => ({ value: season.id, label: season.season }))}
           brandOptions={brands.map((brand) => ({ value: brand.id, label: brand.brand_name }))}
           keyStageOptions={keyStages.map((keyStage) => ({ value: keyStage.id, label: keyStage.name }))}

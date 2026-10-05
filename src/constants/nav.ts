@@ -53,7 +53,7 @@ export const NAV_GROUPS: NavGroup[] = [
       // removed) — now each gets a direct entry instead.
       { title: "DPSP Flywheel", href: "/dpsp-flywheel", icon: Recycle },
       { title: "Timeline", href: "/timeline", icon: Timeline },
-      { title: "My Tasks", href: "/my-tasks", icon: ListTodo },
+      { title: "My Tasks", href: "/my-tasks", icon: ListTodo, requiredAction: "my_tasks.view" },
       { title: "Tasks", href: "/tasks", icon: Workflow },
       { title: "Calendar", href: "/calendar", icon: Calendar },
       { title: "Brands", href: "/brands", icon: Tag, requiredAction: "brand.view" },

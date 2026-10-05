@@ -355,30 +355,41 @@ rather than `union all`.
 
 ---
 
+## My Tasks — hidden from Google Workspace accounts
+
+**My Tasks is hidden, not removed, for every Google (SSO) account, admins included** (client
+request, temporary). Only `external` (password) accounts see it. Gated by the `my_tasks.view`
+action, which `can()` checks *before* its admin shortcut, because no allow-set can hide a page from
+admin. The sidebar link carries `requiredAction: "my_tasks.view"`. A Google user opening
+`/my-tasks` is redirected to `/tasks`, keeping any `?task=<id>`, so reminder emails (which still
+link to `/my-tasks?task=<id>` for everyone) open that task on Tasks instead. Tasks gained the same
+`?task=` drawer link for this (`use-linked-task.ts`, shared with My Tasks). To bring it back:
+delete the `my_tasks.view` line in `can()` and add the action to the allow-sets.
+
 ## Tasks — Critical Task flag
 
-**`tasks.is_critical` saves on click in the grid, outside the pencil/tick edit mode.** The
-Critical column's checkbox calls `updateTask(id, { is_critical })` straight away
-(`use-critical-toggle.ts`, shared by Tasks and My Tasks), because making someone open a row to flip
-one bit was friction for nothing. The click shows at once through a per-task override, and every
-override is dropped when a new set of rows arrives, so it can't mask a later change by someone
-else. The hook reads `refresh` through a ref because `useRefreshableData`'s `refresh` is rebuilt
-every render around the current filters. A memoised copy would reload with stale ones.
-Disabled for roles without `task.update`. Also on: the create form (`CheckboxField`), a "Critical"
-badge in the drawer header, Excel/CSV export ("Critical Task", TRUE/FALSE, on by default), CSV
-import (optional column: blank, TRUE/FALSE, Yes/No, Y/N, 1/0), the audit log ("Critical Task:
-Yes/No"), and the toolbar's Critical filter (`filters.is_critical` = `yes`/`no`, saveable in views).
-Not sent to Google Calendar or the integration API.
-
-**Two ways to change it in the grid, by request.** Outside edit mode a click saves at once (above).
-While the row is in pencil edit mode, the checkbox writes the row draft instead and saves with the
-tick. A draft holds strings only, so it's `"true"`/`"false"` there, and `taskUpdateSchema` (not the
-base `taskSchema`, which the create form's boolean field types against) accepts those strings.
+**`tasks.is_critical` only changes after a confirm, like every other field** (client request: an
+early version saved on a single click and that was too easy to hit by accident). Two places:
+- **Grid, pencil edit mode.** The Critical checkbox is read-only until the row's pencil is
+  clicked; then it's part of the row draft and saves with the tick. A draft holds strings only
+  (`use-row-editing.ts`), so it's `"true"`/`"false"` there, and `taskUpdateSchema` (not the base
+  `taskSchema`, which the create form's boolean field types against) accepts those strings.
+- **Task drawer.** A checkbox in Task Overview, buffered in `use-task-drawer-draft.ts` alongside
+  Owners/People (renamed from `use-participants-draft.ts`) and saved by the drawer's Save Changes
+  bar; closing with it unsaved asks first. Save writes only the parts that changed (participants
+  via `setTaskParticipants`, the flag via `updateTask`), and re-bases whichever half succeeded.
+  Editable only with `task.update` (`canEditTask`, passed by every page that opens the drawer:
+  Tasks, My Tasks, Calendar, Timeline, Dashboard Gantt, DPSP Flywheel). The header badge shows
+  the saved value, not an unsaved tick.
+Also on: the create form (`CheckboxField`), Excel/CSV export ("Critical Task", TRUE/FALSE, on by
+default), CSV import (optional column: blank, TRUE/FALSE, Yes/No, Y/N, 1/0), the audit log
+("Critical Task: Yes/No"), and the toolbar's Critical filter (`filters.is_critical` = `yes`/`no`,
+saveable in views). Not sent to Google Calendar or the integration API.
 
 **Critical rows are tinted, and critical beats overdue.** `task-row-class-name.ts` (both grids)
 gives a critical row `bg-surface-critical` (the full `prio-high-soft` red, vs overdue's 40% mix)
 plus a 3px `prio-high` stripe on its first cell. An overdue, non-critical row keeps
-`bg-surface-overdue`. The row reads the toggle's live value, so it recolours on click.
+`bg-surface-overdue`.
 
 **The app code needs `0036` applied before it's deployed.** Creating a task writes `is_critical`
 and the filter reads it, so both fail against a database without the column.

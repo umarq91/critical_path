@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { parseAsString, useQueryState } from "nuqs";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { CalendarClock } from "lucide-react";
 import { DataTable } from "@/components/data-table/data-table";
@@ -10,14 +9,13 @@ import { useRowEditing } from "@/components/data-table/use-row-editing";
 import { useRefreshableData } from "@/components/shared/use-refreshable-data";
 import { EmptyState } from "@/components/shared/empty-state";
 import { taskRowClassName } from "@/app/(app)/tasks/task-row-class-name";
-import { useCriticalToggle } from "@/app/(app)/tasks/use-critical-toggle";
 import { createTaskColumns } from "@/app/(app)/tasks/columns";
 import { useRowParticipants } from "@/app/(app)/tasks/use-row-participants";
 import { updateTask } from "@/app/(app)/tasks/_actions";
 import { refreshMyTasks } from "@/app/(app)/my-tasks/_actions";
+import { useLinkedTask } from "@/app/(app)/tasks/use-linked-task";
 import { TaskDetailDrawer } from "@/app/(app)/tasks/task-detail-drawer";
 import { TASK_STATUS_CONFIG } from "@/constants/task-status";
-import { TASK_LINK_PARAM } from "@/constants/routes";
 import type { Task } from "@/data/tasks";
 import type { DataTableFilterOption } from "@/components/data-table/table-features";
 
@@ -65,27 +63,9 @@ export const MyTasksBoard = ({
   const rowEditing = useRowEditing();
   const rowParticipants = useRowParticipants();
   const [isSaving, setIsSaving] = useState(false);
-  const [selectedTask, setSelectedTask] = useState<Task | null>(linkedTask);
+  const { selectedTask, setSelectedTask, closeDrawer } = useLinkedTask(linkedTask);
   // Same resizable grid as Tasks — see tasks-board.tsx and columns.tsx's `isResized`.
   const [isColumnsResized, setIsColumnsResized] = useState(false);
-  const [linkedTaskId, setLinkedTaskId] = useQueryState(TASK_LINK_PARAM, parseAsString);
-
-  // A link to a task that's since been deleted, or was never theirs, would otherwise land on
-  // the plain list with no hint why nothing opened.
-  useEffect(() => {
-    if (!linkedTaskId || linkedTask) return;
-    toast.error("That task is no longer available.");
-    void setLinkedTaskId(null);
-    // Mount-only: this reacts to the link the page was opened with, not later URL changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  function closeDrawer() {
-    setSelectedTask(null);
-    // Otherwise a reload (or Back into this page) would reopen the drawer they just closed.
-    if (linkedTaskId) void setLinkedTaskId(null);
-  }
-
   // Stable reference unless the server actually sent a new tasks/rowCount pair (real
   // pagination/sort/filter navigation) — see useRefreshableData's contract.
   const initialTasks = useMemo(() => ({ data: tasks, rowCount }), [tasks, rowCount]);
@@ -94,7 +74,6 @@ export const MyTasksBoard = ({
     refresh,
     isRefreshing,
   } = useRefreshableData(initialTasks, () => refreshMyTasks(queryState.params));
-  const critical = useCriticalToggle(taskData.data, refresh);
 
   // Participants first: they're the half with a client-side rule (at least one owner), so a
   // violation stops the save before the row's own fields are written.
@@ -131,7 +110,6 @@ export const MyTasksBoard = ({
         seasonOptions,
         brandOptions,
         keyStageOptions,
-        critical,
         isResized: isColumnsResized,
       }),
     // rowEditing's methods are stable across renders (from useState setters); only its
@@ -148,7 +126,6 @@ export const MyTasksBoard = ({
       seasonOptions,
       brandOptions,
       keyStageOptions,
-      critical,
       isColumnsResized,
     ]
   );
@@ -160,7 +137,7 @@ export const MyTasksBoard = ({
       <DataTable
         columns={taskColumns}
         data={taskData.data}
-        getRowClassName={(task) => taskRowClassName(task, critical.isCritical(task))}
+        getRowClassName={taskRowClassName}
         queryState={queryState}
         rowCount={taskData.rowCount}
         onRefresh={refresh}
@@ -219,6 +196,7 @@ export const MyTasksBoard = ({
           open
           onOpenChange={(open) => !open && closeDrawer()}
           canAssignPeople={canAssignPeople}
+          canEditTask={canManage}
           onSaved={refresh}
         />
       ) : null}

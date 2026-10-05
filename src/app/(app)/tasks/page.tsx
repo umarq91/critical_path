@@ -1,7 +1,8 @@
 import { PageHeader } from "@/components/shared/page-header";
 import { TaskPageActions } from "@/app/(app)/tasks/task-page-actions";
 import { TasksBoard } from "@/app/(app)/tasks/tasks-board";
-import { listTasks } from "@/data/tasks";
+import { z } from "zod";
+import { getTaskById, listTasks } from "@/data/tasks";
 import { listSeasonOptions } from "@/data/seasons";
 import { listBrandOptions } from "@/data/brands";
 import { listKeyStageOptions } from "@/data/key-stages";
@@ -11,6 +12,7 @@ import { listSavedViews } from "@/data/saved-views";
 import { can } from "@/lib/permissions";
 import { loadDataTableSearchParams } from "@/components/data-table/data-table-search-params";
 import { TASKS_QUERY_STATE } from "@/app/(app)/tasks/query-state";
+import { TASK_LINK_PARAM } from "@/constants/routes";
 
 export default async function TasksPage({
   searchParams,
@@ -23,13 +25,15 @@ export default async function TasksPage({
   // nothing extra: (app)/layout.tsx already called it once for the auth guard.
   const profile = await getCurrentProfile();
 
-  const [{ data: tasks, rowCount }, seasons, brands, keyStages, partyOptions, savedViews] = await Promise.all([
+  const linkedTaskId = z.string().uuid().safeParse((await searchParams)[TASK_LINK_PARAM]);
+  const [{ data: tasks, rowCount }, seasons, brands, keyStages, partyOptions, savedViews, linkedTask] = await Promise.all([
     listTasks(queryState),
     listSeasonOptions(),
     listBrandOptions(),
     listKeyStageOptions(),
     listPartyOptions(),
     profile ? listSavedViews(profile.id) : Promise.resolve([]),
+    linkedTaskId.success ? getTaskById(linkedTaskId.data) : Promise.resolve(null),
   ]);
 
   const canCreateTask = !!profile && can(profile.role, "task.create");
@@ -71,6 +75,7 @@ export default async function TasksPage({
           keyStageOptions={keyStageOptions}
           partyOptions={partyOptions}
           savedViews={savedViews}
+          linkedTask={linkedTask}
         />
       </div>
     </div>

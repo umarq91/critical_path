@@ -8,7 +8,8 @@ import { listKeyStageOptions } from "@/data/key-stages";
 import { getCurrentProfile } from "@/data/profiles";
 import { can } from "@/lib/permissions";
 import { loadDataTableSearchParams } from "@/components/data-table/data-table-search-params";
-import { TASK_LINK_PARAM } from "@/constants/routes";
+import { redirect } from "next/navigation";
+import { ROUTES, TASK_LINK_PARAM } from "@/constants/routes";
 
 const QUERY_STATE_OPTIONS = { defaultPageSize: 15, defaultSort: { id: "due_date", desc: false } };
 
@@ -20,6 +21,13 @@ export default async function MyTasksPage({
   const queryState = await loadDataTableSearchParams(searchParams, QUERY_STATE_OPTIONS);
   const profile = await getCurrentProfile();
   const linkedTaskId = z.string().uuid().safeParse((await searchParams)[TASK_LINK_PARAM]);
+
+  // Hidden from Google Workspace accounts for now (see "my_tasks.view" in lib/permissions.ts).
+  // Sent to Tasks instead of the dashboard, carrying a `?task=` link along, so reminder emails
+  // (which link here) still open the task for them.
+  if (profile && !can(profile.role, "my_tasks.view")) {
+    redirect(linkedTaskId.success ? `${ROUTES.tasks}?${TASK_LINK_PARAM}=${linkedTaskId.data}` : ROUTES.tasks);
+  }
 
   // No signed-in profile shouldn't happen here — (app)/layout.tsx already guards auth for the
   // whole authenticated shell — but without one there's no "me" to scope this page to.

@@ -39,6 +39,7 @@ export default async function CalendarPage({
 
   const profile = await getCurrentProfile();
   const canAssignPeople = !!profile && can(profile.role, "task.assign");
+  const canEditTask = !!profile && can(profile.role, "task.update");
   // External users have no Workspace Google account, so the Sync control is never rendered
   // for them — the server action refuses the same call independently (see _actions.ts).
   const canSyncGoogleCalendar = !!profile && isGoogleCalendarEligible(profile);
@@ -82,6 +83,7 @@ export default async function CalendarPage({
           holidays={holidays}
           holidayCountryOptions={holidayCountries.map((country) => ({ value: country, label: country }))}
           canAssignPeople={canAssignPeople}
+          canEditTask={canEditTask}
           canSyncGoogleCalendar={canSyncGoogleCalendar}
           seasonOptions={seasonOptions}
           brandOptions={brandOptions}

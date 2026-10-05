@@ -23,6 +23,8 @@ interface TimelineWorkspaceProps {
   rowCount: number;
   overdueTasks: Task[];
   canAssignPeople: boolean;
+  /** task.update — lets the drawer edit the Critical Task flag. */
+  canEditTask: boolean;
   seasonOptions: FilterSelectOption[];
   brandOptions: FilterSelectOption[];
   keyStageOptions: FilterSelectOption[];
@@ -36,6 +38,7 @@ export const TimelineWorkspace = ({
   rowCount,
   overdueTasks,
   canAssignPeople,
+  canEditTask,
   seasonOptions,
   brandOptions,
   keyStageOptions,
@@ -119,6 +122,7 @@ export const TimelineWorkspace = ({
           open
           onOpenChange={(open) => !open && setSelectedTask(null)}
           canAssignPeople={canAssignPeople}
+          canEditTask={canEditTask}
           onSaved={() => router.refresh()}
         />
       ) : null}

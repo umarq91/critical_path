@@ -37,7 +37,10 @@ export type Action =
   // Same reasoning as admin.view_audit_log, one step further: a leaked API key isn't a record
   // of what already happened, it's a standing credential for whatever the integration API
   // exposes going forward. Its own action, not folded into admin.manage_users.
-  | "admin.manage_integrations";
+  | "admin.manage_integrations"
+  // The My Tasks page. Hidden from Google Workspace (SSO) accounts for now, by client request;
+  // only `external` (password) accounts see it. See can() for why this isn't an allow-set entry.
+  | "my_tasks.view";
 
 const STANDARD_USER_ALLOWED: ReadonlySet<Action> = new Set<Action>([
   "profile.update_own",
@@ -95,6 +98,10 @@ const ROLE_ALLOWED: Record<Role, ReadonlySet<Action>> = {
 };
 
 export function can(role: Role, action: Action, resource?: { isLocked?: boolean }): boolean {
+  // Checked before the admin shortcut: this hides a page from admins too, which no allow-set can
+  // express. Temporary (client request) — the page and its code stay; to bring My Tasks back for
+  // Workspace accounts, delete this line and add "my_tasks.view" to the allow-sets.
+  if (action === "my_tasks.view") return role === ROLE.EXTERNAL;
   if (role === ROLE.ADMIN) return true;
 
   // Locked tasks block due-date edits for everyone below admin, layered on top of the

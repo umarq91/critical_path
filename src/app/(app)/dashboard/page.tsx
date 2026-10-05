@@ -138,6 +138,7 @@ export default async function DashboardPage() {
           seasonOptions={toFilterOptions(metrics.bySeason)}
           brandOptions={toFilterOptions(metrics.byBrand)}
           canAssignPeople={!!profile && can(profile.role, "task.assign")}
+          canEditTask={!!profile && can(profile.role, "task.update")}
         />
       </div>
     </div>
