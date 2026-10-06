@@ -1305,7 +1305,7 @@ Not fixed; accepted the same way a dead deep link would be.
 **One profile, one namespace — `unique (profile_id, name)`.** `createSavedView` maps the
 resulting `23505` to a friendly "You already have a view named …" rather than surfacing the raw
 constraint error. There's no rename action; deleting and re-saving under a new name is the only
-path, since v1 has no edit flow for an existing view's filters either (see below).
+path.
 
 **Saved filters are validated per key before they're stored.** `saved-view-schema.ts` holds the
 list of every `filters` key `listTasks` reads; an unknown key, or a malformed value for a key with
@@ -1320,11 +1320,17 @@ bookmark of the grid the viewer already has open, same reasoning as `reminder_ru
 on `profile.update_own` rather than an admin action — every role that can see `/tasks` at all
 (including `external`, scoped by RLS to their own tasks) can save and re-apply their own views.
 
-**No "update this saved view" — only save-as-new and delete.** `createSavedView` always inserts;
-re-saving under a name that already exists just hits the unique-constraint error above rather
-than overwriting. Changing what a saved view points at is delete-then-resave under the same name,
-not an edit-in-place. Acceptable for v1's scope; a real "update" would need `createSavedView` to
-accept an optional id and do an upsert instead of a plain insert.
+**Which view is selected lives in the URL as `?view=<id>` (`SAVED_VIEW_PARAM`).** Applying a
+view's link adds it; listTasks never reads it. nuqs leaves keys it doesn't own alone, so the param
+survives filter/sort/page changes. That's how the menu keeps naming the view and shows "(edited)"
+once the grid drifts from what the view stored (`saved-view-match.ts`). Selection is **only** the
+param, never inferred from matching filters, or deselecting wouldn't stick. Deselecting (✕, or
+re-clicking the selected view) and Reset Filters (via the toolbar's `onResetFilters`) both clear it.
+The edited check fills in the grid's default sort on both sides, because a view saved without a
+sort lands on `due_date asc`.
+
+**Updating overwrites filters/sort only.** `updateSavedView` takes the grid's current state and
+never changes the name. There's still no rename: delete and re-save. Saving a new view selects it.
 
 **Scoped to the Tasks grid only — `saved_views` deliberately has no `page`/`entity` column.**
 Tasks is the one spreadsheet-style view this was built for (`plan.md` §4's original `saved_views`
@@ -1523,10 +1529,11 @@ just reusing the untouched render path exactly. The trade-off actually paid: the
 tracking the pointer from there — a one-time, self-correcting blip, not a persistent difference.
 
 **Resized widths persist to `localStorage`, not the database.** Keyed by `resizeStorageKey`
-(`"tasks-column-widths"` for Tasks) — a per-browser, per-device preference, seeded synchronously
-in `useState`'s initializer (not an effect) so a return visitor's reload goes straight to pixel
-mode with their last widths, rather than flashing the untouched percentage layout for one frame
-first. Wrapped in try/catch on both read and write: private browsing or a blocked storage API
+(`"tasks-column-widths"` for Tasks) — a per-browser, per-device preference, read through
+`useSyncExternalStore` (`use-persisted-column-sizing.ts`), **never** a `useState` initializer. The
+server has no localStorage, so seeding state from it renders pixel widths on the client where the
+server rendered percentages: a hydration error for anyone who has resized. The cost is one
+percentage-layout frame on reload before the saved widths apply. Wrapped in try/catch on both read and write: private browsing or a blocked storage API
 throws on access, not just on read, and the table still has to render (falling back to "not yet
 resized") either way.
 

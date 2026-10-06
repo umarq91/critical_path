@@ -12,6 +12,10 @@ export const ROUTES = {
 // to link straight to one task (e.g. from a reminder email, which uses the /my-tasks form).
 export const TASK_LINK_PARAM = "task";
 
+// `/tasks?view=<id>` marks which saved view the grid was opened from, so the Views menu can name
+// it and offer to overwrite it once the filters drift. Display-only: listTasks never reads it.
+export const SAVED_VIEW_PARAM = "view";
+
 // Checked by src/proxy.ts — any request under these prefixes requires a session.
 // Kept as the full set of (app) route-group modules (see CLAUDE.md file tree + the
 // sidebar nav in src/constants/nav.ts) so proxy.ts doesn't need editing every time a new

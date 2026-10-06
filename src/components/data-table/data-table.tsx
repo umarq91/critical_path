@@ -6,7 +6,6 @@ import { FlexRender, useTable } from "@tanstack/react-table";
 import type {
   ColumnDef,
   ColumnFiltersState,
-  ColumnSizingState,
   ColumnVisibilityState,
   PaginationState,
   RowSelectionState,
@@ -24,6 +23,7 @@ import { dataTableFeatures, type DataTableColumnMeta } from "@/components/data-t
 import { getStickyCellClassName } from "@/components/data-table/sticky-column";
 import { columnWidthPercents } from "@/components/data-table/column-widths";
 import { showTitleWhenTruncated } from "@/components/data-table/truncation-title";
+import { usePersistedColumnSizing } from "@/components/data-table/use-persisted-column-sizing";
 import { useTableScrollEdges } from "@/components/data-table/use-table-scroll-edges";
 import type { DataTableQueryState } from "@/components/data-table/use-data-table-query-state";
 import { cn } from "@/lib/utils";
@@ -145,29 +145,7 @@ export const DataTable = <TData extends Record<string, unknown>>({
   });
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>({});
-  // Seeded from localStorage synchronously (not in an effect) so the very first render already
-  // has the person's last-resized widths — an effect-driven seed would flash the column defs'
-  // starting sizes for one frame first. try/catch: private browsing or a blocked storage API
-  // throws on access, not just on read, and a resizable table should still render either way.
-  const [columnSizing, setColumnSizing] = useState<ColumnSizingState>(() => {
-    if (!enableColumnResizing || !resizeStorageKey || typeof window === "undefined") return {};
-    try {
-      const raw = window.localStorage.getItem(resizeStorageKey);
-      return raw ? (JSON.parse(raw) as ColumnSizingState) : {};
-    } catch {
-      return {};
-    }
-  });
-
-  useEffect(() => {
-    if (!enableColumnResizing || !resizeStorageKey) return;
-    try {
-      window.localStorage.setItem(resizeStorageKey, JSON.stringify(columnSizing));
-    } catch {
-      // Storage unavailable (private browsing, quota, disabled) — resizing still works for the
-      // rest of this session, it just won't survive a reload.
-    }
-  }, [columnSizing, enableColumnResizing, resizeStorageKey]);
+  const [columnSizing, setColumnSizing] = usePersistedColumnSizing(enableColumnResizing ? resizeStorageKey : undefined);
 
   const tableColumns = useMemo(() => {
     if (!enableRowSelection) return columns;
@@ -344,11 +322,7 @@ export const DataTable = <TData extends Record<string, unknown>>({
                   key={row.id}
                   data-state={row.getIsSelected() ? "selected" : undefined}
                   onClick={onRowClick ? () => onRowClick(row.original) : undefined}
-                  className={cn(
-                    "group bg-card",
-                    onRowClick && "cursor-pointer",
-                    getRowClassName?.(row.original)
-                  )}
+                  className={cn("group bg-card", onRowClick && "cursor-pointer", getRowClassName?.(row.original))}
                 >
                   {row.getVisibleCells().map((cell) => {
                     const meta = cell.column.columnDef.meta as DataTableColumnMeta | undefined;

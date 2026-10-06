@@ -54,6 +54,8 @@ export interface DataTableToolbarConfig {
   enableColumnVisibility?: boolean;
   /** Defaults to on only once a search value or a filter is actually applied. */
   enableResetFilters?: boolean;
+  /** Runs alongside Reset Filters' own clear, for URL state the table doesn't own (e.g. a selected saved view). */
+  onResetFilters?: () => void;
 }
 
 function encodeSortValue(option: DataTableToolbarSortOption) {
@@ -75,6 +77,7 @@ export const DataTableToolbar = <TData extends Record<string, unknown>>({
   actions,
   enableColumnVisibility = false,
   enableResetFilters,
+  onResetFilters,
 }: DataTableToolbarProps<TData>) => {
   // Read and written through columnFilters state rather than table.getColumn(), so the key
   // does not have to name a real column — see searchColumnId's note above.
@@ -145,12 +148,16 @@ export const DataTableToolbar = <TData extends Record<string, unknown>>({
           <Select
             key={filter.columnId}
             value={value}
-            onValueChange={(next) => setFilterValue(filter.columnId, next === ALL_VALUE || next === null ? undefined : next)}
+            onValueChange={(next) =>
+              setFilterValue(filter.columnId, next === ALL_VALUE || next === null ? undefined : next)
+            }
           >
             <SelectTrigger className="h-10">
               <SelectValue>
                 {(current: string) =>
-                  current === ALL_VALUE ? allLabel : (filter.options.find((option) => option.value === current)?.label ?? current)
+                  current === ALL_VALUE
+                    ? allLabel
+                    : (filter.options.find((option) => option.value === current)?.label ?? current)
                 }
               </SelectValue>
             </SelectTrigger>
@@ -192,7 +199,14 @@ export const DataTableToolbar = <TData extends Record<string, unknown>>({
       ) : null}
       {actions}
       {showResetFilters ? (
-        <Button variant="link" className="px-1 text-primary" onClick={() => table.resetColumnFilters()}>
+        <Button
+          variant="link"
+          className="px-1 text-primary"
+          onClick={() => {
+            table.resetColumnFilters();
+            onResetFilters?.();
+          }}
+        >
           <RotateCcw />
           Reset Filters
         </Button>

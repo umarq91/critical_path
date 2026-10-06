@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requirePermission } from "@/lib/require-permission";
-import { savedViewSchema } from "@/app/(app)/tasks/saved-view-schema";
+import { savedViewSchema, savedViewStateSchema } from "@/app/(app)/tasks/saved-view-schema";
 
 // Split out from tasks/_actions.ts (task CRUD) rather than added there — a distinct entity,
 // and that file is already near the file-length guideline. Gated on "task.view", not a more
@@ -39,6 +39,32 @@ export async function createSavedView(input: unknown) {
 
   revalidatePath("/tasks");
   return { ok: true as const, data };
+}
+
+export async function updateSavedView(id: string, input: unknown) {
+  const auth = await requirePermission("task.view");
+  if (!auth.ok) return auth;
+
+  const parsed = savedViewStateSchema.safeParse(input);
+  if (!parsed.success) return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid input" };
+
+  // Scoped to the caller's own row via RLS (saved_views_own_row), same as deleteSavedView.
+  const { data, error } = await auth.supabase
+    .from("saved_views")
+    .update({
+      filters: parsed.data.filters,
+      sort_by: parsed.data.sortBy ?? null,
+      sort_dir: parsed.data.sortDir ?? null,
+    })
+    .eq("id", id)
+    .select("id")
+    .maybeSingle();
+
+  if (error) return { ok: false as const, error: error.message };
+  if (!data) return { ok: false as const, error: "That view no longer exists" };
+
+  revalidatePath("/tasks");
+  return { ok: true as const };
 }
 
 export async function deleteSavedView(id: string) {

@@ -52,6 +52,9 @@ export const savedViewSchema = z.object({
   sortDir: z.enum(["asc", "desc"]).optional(),
 });
 
+// Overwriting an existing view's filters/sort — same checks, minus the name, which never changes.
+export const savedViewStateSchema = savedViewSchema.omit({ name: true });
+
 // What the "Save current filters" form actually collects — just the name. filters/sortBy/sortDir
 // are read off the current URL by the caller, not typed by the user, so they don't belong on
 // this form's own resolver.

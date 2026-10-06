@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import { useQueryState } from "nuqs";
 import { DataTable } from "@/components/data-table/data-table";
 import { useDataTableQueryState } from "@/components/data-table/use-data-table-query-state";
 import { useRowEditing } from "@/components/data-table/use-row-editing";
@@ -21,6 +22,7 @@ import { DUE_WEEK_OPTIONS } from "@/constants/due-week-filter";
 import { TASK_GENDER_CONFIG } from "@/constants/task-gender";
 import { TASK_PAGE_SIZE_OPTIONS } from "@/constants/task-page-size";
 import { DPSP_CATEGORY_CONFIG } from "@/constants/dpsp-category";
+import { SAVED_VIEW_PARAM } from "@/constants/routes";
 import type { Task } from "@/data/tasks";
 import type { SavedView } from "@/data/saved-views";
 import type { DataTableFilterOption } from "@/components/data-table/table-features";
@@ -54,6 +56,7 @@ export const TasksBoard = ({
   linkedTask,
 }: TasksBoardProps) => {
   const queryState = useDataTableQueryState(TASKS_QUERY_STATE);
+  const [, setViewParam] = useQueryState(SAVED_VIEW_PARAM);
   const rowEditing = useRowEditing();
   const rowParticipants = useRowParticipants();
   const [isSaving, setIsSaving] = useState(false);
@@ -208,6 +211,7 @@ export const TasksBoard = ({
           // name, its season, brand and key stage, and its owners and people involved.
           searchColumnId: "search",
           searchPlaceholder: "Search tasks, season, brand, key stage, people...",
+          onResetFilters: () => void setViewParam(null),
           actions: (
             <SavedViewsMenu
               savedViews={savedViews}
