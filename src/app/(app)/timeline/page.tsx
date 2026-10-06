@@ -18,10 +18,18 @@ export default async function TimelinePage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const { view, date, seasonId, brandId, keyStageId, owner, involved, q, countries, page, pageSize } =
+  const { view, date, seasonId, brandId, keyStageId, owner, involved, q, critical, countries, page, pageSize } =
     await loadTimelineSearchParams(searchParams);
   const range = getTimelineRange(view, resolveAnchorDate(date));
-  const filters = { season_id: seasonId, brand_id: brandId, key_stage_id: keyStageId, owner, involved, search: q };
+  const filters = {
+    season_id: seasonId,
+    brand_id: brandId,
+    key_stage_id: keyStageId,
+    owner,
+    involved,
+    is_critical: critical,
+    search: q,
+  };
 
   const profile = await getCurrentProfile();
 

@@ -14,6 +14,7 @@ import { TIMELINE_PAGE_SIZE_OPTIONS } from "@/app/(app)/timeline/timeline-search
 import { PaginationControls } from "@/components/shared/pagination-controls";
 import type { FilterSelectOption } from "@/components/shared/filter-select";
 import { cn } from "@/lib/utils";
+import { CRITICAL_FILTER_OPTIONS } from "@/constants/critical-filter";
 import type { Task } from "@/data/tasks";
 import type { Holiday } from "@/data/holidays";
 
@@ -80,6 +81,7 @@ export const TimelineWorkspace = ({
         keyStageOptions={keyStageOptions}
         ownerOptions={partyOptions}
         involvedOptions={partyOptions}
+        criticalOptions={CRITICAL_FILTER_OPTIONS}
         holidayCountryOptions={holidayCountryOptions}
         enableSearch
         taskCount={rowCount}

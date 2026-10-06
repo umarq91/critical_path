@@ -39,6 +39,7 @@ const INITIAL_CONTROLS: TimelineControls = {
   owner: "",
   involved: "",
   search: "",
+  critical: "",
   countries: "",
 };
 

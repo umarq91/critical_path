@@ -74,6 +74,13 @@ function applyMultiEq<Q extends { eq: (column: string, value: string) => Q; in: 
   return values.length === 1 ? query.eq(column, values[0]) : query.in(column, values);
 }
 
+// "Critical" toolbar filter (Tasks, Timeline): "yes" / "no". Anything else is ignored, not an error.
+function applyCriticalFilter<Q extends { eq: (column: string, value: boolean) => Q }>(query: Q, value: string | undefined): Q {
+  if (value === "yes") return query.eq("is_critical", true);
+  if (value === "no") return query.eq("is_critical", false);
+  return query;
+}
+
 /** Task-id allow-lists that can't be expressed as inline PostgREST filters, resolved once per
  *  call so the two passes below don't look them up twice. `null` = that scope isn't set. */
 interface TaskScopeIds {
@@ -137,9 +144,7 @@ function taskScope(
   // "Hide done" toggle (DPSP Flywheel board) — an exclusion, not an equality match, so it's
   // its own filter key rather than overloading `status`.
   if (filters.hide_done === "true") query = query.neq("status", "completed");
-  // "Critical" toolbar filter (Tasks): "yes" / "no". Anything else is ignored, not an error.
-  if (filters.is_critical === "yes") query = query.eq("is_critical", true);
-  if (filters.is_critical === "no") query = query.eq("is_critical", false);
+  query = applyCriticalFilter(query, filters.is_critical);
   // An unmatched party must yield zero rows, not every row, hence the impossible-id fallback
   // rather than skipping the clause.
   if (ids.participants) {
@@ -548,6 +553,7 @@ async function timelineScope(supabase: SupabaseClient, select: string, { from, t
   query = applyMultiEq(query, "brand_id", decodeMultiFilterValue(filters.brand_id));
   query = applyMultiEq(query, "key_stage_id", decodeMultiFilterValue(filters.key_stage_id));
   if (isTaskStatus(filters.status)) query = query.eq("status", filters.status);
+  query = applyCriticalFilter(query, filters.is_critical);
 
   const participantIds = await participantTaskIds(supabase, filters);
   if (participantIds) {
@@ -672,6 +678,7 @@ export async function listOverdueTasks({ filters = {}, limit = 50 }: { filters?:
   query = applyMultiEq(query, "season_id", decodeMultiFilterValue(filters.season_id));
   query = applyMultiEq(query, "brand_id", decodeMultiFilterValue(filters.brand_id));
   query = applyMultiEq(query, "key_stage_id", decodeMultiFilterValue(filters.key_stage_id));
+  query = applyCriticalFilter(query, filters.is_critical);
 
   const participantIds = await participantTaskIds(supabase, filters);
   if (participantIds) {

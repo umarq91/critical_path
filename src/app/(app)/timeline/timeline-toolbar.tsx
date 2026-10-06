@@ -3,6 +3,7 @@
 import { ChevronLeft, ChevronRight, PartyPopper, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { FilterSelect } from "@/components/shared/filter-select";
 import { MultiFilterSelect } from "@/components/shared/multi-filter-select";
 import { timelineViewValues, type TimelineView } from "@/app/(app)/timeline/timeline-search-params";
 import {
@@ -40,6 +41,8 @@ export interface TimelineControls {
   involved: string;
   /** Free-text term, matched against task name, key stage, owners and people involved. */
   search: string;
+  /** Single-select "yes" / "no" (CRITICAL_FILTER_OPTIONS); empty means every task. */
+  critical: string;
   /** Which countries' public holidays are marked — not a task filter, so Clear leaves it. */
   countries: string;
 }
@@ -61,6 +64,7 @@ interface TimelineToolbarProps {
   keyStageOptions?: FilterSelectOption[];
   ownerOptions?: FilterSelectOption[];
   involvedOptions?: FilterSelectOption[];
+  criticalOptions?: FilterSelectOption[];
   /** Countries with at least one public holiday; omitted where no holidays are drawn. */
   holidayCountryOptions?: FilterSelectOption[];
   /** Renders the search box. Off by default — it narrows a list the consumer is expected to
@@ -89,6 +93,7 @@ export const TimelineToolbar = ({
   keyStageOptions,
   ownerOptions,
   involvedOptions,
+  criticalOptions,
   holidayCountryOptions,
   enableSearch = false,
   taskCount,
@@ -99,7 +104,7 @@ export const TimelineToolbar = ({
 }: TimelineToolbarProps) => {
   const anchorDate = resolveAnchorDate(state.date);
   const range = getTimelineRange(state.view, anchorDate);
-  const hasFilters = !!(state.seasonId || state.brandId || state.keyStageId || state.owner || state.involved || state.search);
+  const hasFilters = !!(state.seasonId || state.brandId || state.keyStageId || state.owner || state.involved || state.critical || state.search);
 
   function nextRange(direction: 1 | -1) {
     return getTimelineRange(state.view, shiftAnchorDate(state.view, anchorDate, direction));
@@ -229,6 +234,14 @@ export const TimelineToolbar = ({
             className="h-8"
           />
         ) : null}
+        {criticalOptions ? (
+          <FilterSelect
+            value={state.critical || null}
+            onValueChange={(value) => setState({ critical: value })}
+            options={criticalOptions}
+            allLabel="All Tasks"
+          />
+        ) : null}
         {holidayCountryOptions ? (
           <div className="flex items-center gap-1.5">
             <PartyPopper className="size-4 text-accent-teal" aria-hidden />
@@ -248,7 +261,15 @@ export const TimelineToolbar = ({
             variant="link"
             className="px-1 text-primary"
             onClick={() =>
-              setState({ seasonId: null, brandId: null, keyStageId: null, owner: null, involved: null, search: null })
+              setState({
+                seasonId: null,
+                brandId: null,
+                keyStageId: null,
+                owner: null,
+                involved: null,
+                critical: null,
+                search: null,
+              })
             }
           >
             Clear

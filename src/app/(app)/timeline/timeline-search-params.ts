@@ -48,6 +48,8 @@ export function timelineSearchParams() {
     /** Free text, matched server-side against task name, key stage, owners and people
      *  involved — see listTasksForTimeline. */
     q: parseAsString.withDefault(""),
+    /** "yes" / "no" — CRITICAL_FILTER_OPTIONS' vocabulary, read by listTasks' `is_critical`. */
+    critical: parseAsString.withDefault(""),
     /** Public-holiday countries, MULTI_FILTER_DELIMITER-joined like the filters above; empty
      *  means every country's holidays. Same param name as the Calendar's country filter. */
     countries: parseAsString.withDefault(""),

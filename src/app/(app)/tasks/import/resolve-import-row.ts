@@ -5,7 +5,6 @@ import { importFieldLabel, type TaskImportField } from "@/app/(app)/tasks/import
 import type { ImportSheetRow } from "@/app/(app)/tasks/import/parse-import-file";
 import { TASK_STATUS_CONFIG } from "@/constants/task-status";
 import { TASK_GENDER_CONFIG } from "@/constants/task-gender";
-import { TASK_PRIORITY_CONFIG } from "@/constants/task-priority";
 import { DPSP_CATEGORY_CONFIG } from "@/constants/dpsp-category";
 import { dayFirstDateToIso, parseDateOnly } from "@/lib/dates";
 import { partyKey } from "@/lib/party";
@@ -34,7 +33,6 @@ function indexEnum(config: StatusBadgeConfig): Map<string, string> {
 
 const STATUS_INDEX = indexEnum(TASK_STATUS_CONFIG);
 const GENDER_INDEX = indexEnum(TASK_GENDER_CONFIG);
-const PRIORITY_INDEX = indexEnum(TASK_PRIORITY_CONFIG);
 const DPSP_INDEX = indexEnum(DPSP_CATEGORY_CONFIG);
 
 export interface TaskImportIndexes {
@@ -159,8 +157,9 @@ export function resolveImportRow({ values }: ImportSheetRow, indexes: TaskImport
     task_name: text("task_name"),
     notes: text("notes") || undefined,
     status: problems.enumValue(STATUS_INDEX, text("status"), "status", "not_started"),
-    // Priority is hidden from the Add Task form, which submits "med" (the column's own default).
-    priority: problems.enumValue(PRIORITY_INDEX, text("priority"), "priority", "med"),
+    // Priority isn't used anywhere in the UI, so a sheet's Priority column (if any) is ignored and
+    // every imported task gets "med", the column's default — the same value Add Task submits.
+    priority: "med",
     gender: problems.enumValue(GENDER_INDEX, text("gender"), "gender", ""),
     dpsp_category: problems.enumValue(DPSP_INDEX, text("dpsp_category"), "dpsp_category", ""),
     season_id: problems.lookup(indexes.seasons, text("season"), "season") ?? "",

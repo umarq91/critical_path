@@ -170,31 +170,6 @@ export function createTaskColumns({
         />
       ),
     }),
-    // Read-only until the row's pencil is clicked; then it's part of the row draft (as
-    // "true"/"false", since a draft holds strings) and saves with the tick, like every other
-    // field. The drawer is the other place it can be changed (use-task-drawer-draft.ts).
-    columnHelper.accessor("is_critical", {
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Critical" wrap={isResized} />,
-      meta: { label: "Critical", width: "xs" },
-      size: 90,
-      minSize: 70,
-      enableSorting: false,
-      cell: ({ row }) => {
-        const task = row.original;
-        const isEditing = rowEditing.isEditing(task.id);
-        const checked = isEditing ? rowEditing.draft.is_critical === "true" : task.is_critical;
-        return (
-          <span className="flex" onClick={(event) => event.stopPropagation()}>
-            <Checkbox
-              checked={checked}
-              disabled={!isEditing || isSaving}
-              onCheckedChange={(next) => rowEditing.setDraftField("is_critical", String(next))}
-              aria-label={checked ? `Unmark ${task.task_name} as critical` : `Mark ${task.task_name} as critical`}
-            />
-          </span>
-        );
-      },
-    }),
     // Display, not accessor: owners and people are rows in task_participants, not columns on
     // the task, so there's nothing to sort on and no single value an EditableCell could hold.
     // Their inline edit is PartyCellEditor, buffered by useRowParticipants alongside the row's
@@ -360,31 +335,45 @@ export function createTaskColumns({
         const editing = rowEditing.isEditing(task.id);
 
         return (
-          <div className="flex items-center gap-1" onClick={(event) => event.stopPropagation()}>
-            {canManage ? (
-              <RowEditToggle
-                isEditing={editing}
-                isSaving={editing && isSaving}
-                onEdit={() => {
-                  const initialDraft = Object.fromEntries(
-                    EDITABLE_FIELDS.map((field) => [
-                      field,
-                      // key_stage_id/dpsp_category's "not set" sentinel is "none", not "" —
-                      // see keyStageEditOptions/dpspCategoryEditOptions above.
-                      field === "key_stage_id" || field === "dpsp_category"
-                        ? (task[field] ?? "none")
-                        : (task[field] ?? ""),
-                    ])
-                  );
-                  initialDraft.is_critical = String(task.is_critical);
-                  rowEditing.startEditing(task.id, initialDraft);
-                  if (canAssignPeople) rowParticipants.start(task);
-                  else rowParticipants.clear();
-                }}
-                onConfirm={() => onConfirmEdit(task)}
-              />
+          <div className="flex flex-col items-start gap-1" onClick={(event) => event.stopPropagation()}>
+            <div className="flex items-center gap-1">
+              {canManage ? (
+                <RowEditToggle
+                  isEditing={editing}
+                  isSaving={editing && isSaving}
+                  onEdit={() => {
+                    const initialDraft = Object.fromEntries(
+                      EDITABLE_FIELDS.map((field) => [
+                        field,
+                        // key_stage_id/dpsp_category's "not set" sentinel is "none", not "" —
+                        // see keyStageEditOptions/dpspCategoryEditOptions above.
+                        field === "key_stage_id" || field === "dpsp_category"
+                          ? (task[field] ?? "none")
+                          : (task[field] ?? ""),
+                      ])
+                    );
+                    initialDraft.is_critical = String(task.is_critical);
+                    rowEditing.startEditing(task.id, initialDraft);
+                    if (canAssignPeople) rowParticipants.start(task);
+                    else rowParticipants.clear();
+                  }}
+                  onConfirm={() => onConfirmEdit(task)}
+                />
+              ) : null}
+              {canDelete ? <TaskRowActions taskId={task.id} taskName={task.task_name} /> : null}
+            </div>
+            {/* No Critical column: the row tint already shows it (task-row-class-name.ts). It's only
+              editable here, as part of the pencil draft, saved with the tick. */}
+            {editing ? (
+              <label className="flex items-center gap-1.5 px-1 text-xs text-foreground">
+                <Checkbox
+                  checked={rowEditing.draft.is_critical === "true"}
+                  disabled={isSaving}
+                  onCheckedChange={(next) => rowEditing.setDraftField("is_critical", String(next))}
+                />
+                Critical
+              </label>
             ) : null}
-            {canDelete ? <TaskRowActions taskId={task.id} taskName={task.task_name} /> : null}
           </div>
         );
       },

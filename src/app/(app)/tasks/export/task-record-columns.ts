@@ -1,7 +1,6 @@
 import { taskOwners, taskPeopleInvolved } from "@/app/(app)/tasks/task-parties";
 import { TASK_STATUS_CONFIG } from "@/constants/task-status";
 import { TASK_GENDER_CONFIG } from "@/constants/task-gender";
-import { TASK_PRIORITY_CONFIG } from "@/constants/task-priority";
 import { DPSP_CATEGORY_CONFIG } from "@/constants/dpsp-category";
 import { toExportDateOnly, toExportTimestamp } from "@/lib/export/dates";
 import type { ExportColumnGroup } from "@/lib/export/types";
@@ -26,8 +25,7 @@ function partyNames(parties: { name: string }[]) {
 // app already makes for this data: what's on the task grid by default (name, status, season,
 // brand, key stage, due date) stays on; audit-trail and rarely-populated fields (created/updated
 // timestamps, working-timeline dates, the raw id) start off but stay available. Priority is
-// temporarily hidden from the grid/form/drawer (client request) and defaults off here too, for
-// the same reason — still selectable, just not surfaced unless asked for.
+// left out entirely: it's hidden everywhere in the UI (client request), so it isn't offered here.
 export const TASK_RECORD_COLUMN_GROUPS: ExportColumnGroup<Task>[] = [
   {
     key: "basic",
@@ -42,15 +40,6 @@ export const TASK_RECORD_COLUMN_GROUPS: ExportColumnGroup<Task>[] = [
         dataType: "string",
         width: 14,
         getValue: (t) => TASK_STATUS_CONFIG[t.status]?.label ?? t.status,
-      },
-      {
-        key: "priority",
-        label: "Priority",
-        category: "basic",
-        defaultSelected: false,
-        dataType: "string",
-        width: 12,
-        getValue: (t) => TASK_PRIORITY_CONFIG[t.priority]?.label ?? t.priority,
       },
       {
         key: "gender",
@@ -233,7 +222,6 @@ export const TASK_GRID_COLUMN_ORDER = [
   "gender",
   "dpsp_category",
   "notes",
-  "priority",
   "is_locked",
   "created_by",
   "last_edited_by",

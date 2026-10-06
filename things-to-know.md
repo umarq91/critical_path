@@ -370,8 +370,10 @@ delete the `my_tasks.view` line in `can()` and add the action to the allow-sets.
 
 **`tasks.is_critical` only changes after a confirm, like every other field** (client request: an
 early version saved on a single click and that was too easy to hit by accident). Two places:
-- **Grid, pencil edit mode.** The Critical checkbox is read-only until the row's pencil is
-  clicked; then it's part of the row draft and saves with the tick. A draft holds strings only
+- **Grid, pencil edit mode.** There's no Critical column (client request): the row tint
+  (`task-row-class-name.ts`) already marks a critical task. The checkbox appears only while the
+  row's pencil is open, under the tick in the sticky Actions cell, as part of the row draft, and
+  saves with the tick. Same on My Tasks (shared `columns.tsx`). A draft holds strings only
   (`use-row-editing.ts`), so it's `"true"`/`"false"` there, and `taskUpdateSchema` (not the base
   `taskSchema`, which the create form's boolean field types against) accepts those strings.
 - **Task drawer.** A checkbox in Task Overview, buffered in `use-task-drawer-draft.ts` alongside
@@ -381,7 +383,9 @@ early version saved on a single click and that was too easy to hit by accident).
   Editable only with `task.update` (`canEditTask`, passed by every page that opens the drawer:
   Tasks, My Tasks, Calendar, Timeline, Dashboard Gantt, DPSP Flywheel). The header badge shows
   the saved value, not an unsaved tick.
-Also on: the create form (`CheckboxField`), Excel/CSV export ("Critical Task", TRUE/FALSE, on by
+Also on: the Timeline toolbar's "All Tasks / Critical Only / Not Critical" filter (`critical`
+URL param → `filters.is_critical`; it also narrows the Overdue panel, like the other dropdowns;
+the Dashboard's Gantt card doesn't offer it), the create form (`CheckboxField`), Excel/CSV export ("Critical Task", TRUE/FALSE, on by
 default), CSV import (optional column: blank, TRUE/FALSE, Yes/No, Y/N, 1/0), the audit log
 ("Critical Task: Yes/No"), and the toolbar's Critical filter (`filters.is_critical` = `yes`/`no`,
 saveable in views). Not sent to Google Calendar or the integration API.
@@ -534,8 +538,9 @@ anymore, new or edited. Two concrete effects worth knowing:
 **Priority is a real column, deliberately not shown in the UI.** Per client request ("Priority
 field is not needed — unless I requested this?"), it's removed from the grid, the create form,
 the detail drawer, and both boards' toolbar filters — but the `tasks.priority` column, its zod
-field, and `TASK_PRIORITY_CONFIG` are untouched, and the Task Records export still offers it as
-an opt-in column (just `defaultSelected: false` now, matching the grid). This is a UI-only,
+field, and `TASK_PRIORITY_CONFIG` are untouched. It's also gone from the Task Records export (Tasks and
+Dashboard) and the import: the template has no Priority header, a sheet's Priority column is
+ignored, and every imported task gets `med` (same as Add Task). This is a UI-only,
 easily-reversible removal, not a schema change — don't repurpose the column for anything else
 while it's hidden.
 
@@ -1256,7 +1261,7 @@ checklist, because Task Management has exactly one table to export.
   writes), Brand = `brand_name`, Key Stage = `key_stages.name`, Owners / People Involved = a
   department name, a person's full name, or their email, joined by `, `. Matching is exact after
   trimming, because season codes deliberately differ only by case (see § Seasons & Key Stages).
-  Status / Gender / Priority / DPSP take the app's label or the stored value, case-insensitively.
+  Status / Gender / DPSP take the app's label or the stored value, case-insensitively.
 - **A name matching more than one record fails the row; the import never guesses.** Brand,
   key-stage, department and person names aren't unique columns, and a person can share a
   department's name.
@@ -1265,10 +1270,10 @@ checklist, because Task Management has exactly one table to export.
   department).
 - **Headers are the export's own labels**, looked up from `TASK_RECORD_COLUMN_GROUPS` rather
   than retyped, so an exported sheet re-imports as-is. Export columns the import doesn't read
-  (Locked, Task ID, timestamps, Created By) are ignored. Renaming an export label renames the
+  (Locked, Task ID, timestamps, Created By, and Priority from older sheets) are ignored. Renaming an export label renames the
   import header too.
 - **Same rules as Add Task.** Every row goes through `taskCreateSchema`. A blank Status becomes
-  Not Started and a blank Priority becomes Medium, matching the form. Every other required field
+  Not Started, matching the form; Priority is never read (always `med`, see § Priority). Every other required field
   missing fails the row. The resolver reports which fields are at fault (`problemFields`), and the
   preview highlights those cells.
 - **Duplicates are skipped, not created.** A row is a duplicate when it has the same trimmed
