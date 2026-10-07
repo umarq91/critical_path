@@ -251,10 +251,20 @@ self or admin, any active user), not `tasks`. `0029` gave `viewer` a narrow UPDA
 `resolveCalendarId()` (`lib/google/calendar.ts`) looks for a calendar with that name that the user
 can write to (`calendarList.list`, `minAccessRole: "writer"`, matched on `summaryOverride ??
 summary`). If there is none, it creates one (`calendars.insert`). The id is cached in
-`google_oauth_tokens.calendar_id` (`0031`), so only the first push lists calendars. If the user
-deletes the calendar in Google, the next insert 404s. The cache is then cleared and the calendar
-is found or created again. Listing calendars reads metadata only (name, id, access role), not
-events, so it doesn't break the one-way rule above.
+`google_oauth_tokens.calendar_id` (`0031`), so only the first push lists calendars. Listing
+calendars reads metadata only (name, id, access role), not events, so it doesn't break the
+one-way rule above.
+
+**A deleted calendar is caught at the start of Sync, not mid-push.** `ensureCriticalPathCalendar()`
+checks the cached id with `calendarList.get` (one call per Sync). If it's gone, it creates a new one
+and returns `"replaced"`, and `planGoogleCalendarSync` deletes that user's `task_calendar_events` and
+`holiday_calendar_events` rows before planning, so every task and holiday is pushed again. Without
+that reset, the plan trusts the link rows and skips everything as "Already on your calendar" /
+"Already up to date", leaving an empty new calendar under a success message (the reported bug).
+If the calendar vanishes *during* a sync, `upsertCalendarEvent` throws `CALENDAR_DELETED_ERROR`
+instead of re-creating it, because a single push can't reset the other links. It keeps the cached
+id on purpose so the next Sync detects the loss. Can't self-heal: a calendar that already exists
+but holds stale links (re-created by the old mid-push code). Deleting it in Google and syncing fixes it.
 
 **The calendar used to be called "Critical Path", and that name is now off-limits.** People use a
 calendar by that name for their own things, so the app never matches, renames or writes to it.

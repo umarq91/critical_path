@@ -64,6 +64,16 @@ export async function planGoogleCalendarSync(input: unknown) {
       error: "Google Calendar needs an updated permission — sign out and sign back in, and allow all Calendar access.",
     };
   }
+  // A new, empty calendar replaced a deleted one: every link below points at an event that went
+  // with the old calendar. Forget them all, so this sync pushes every task and holiday again.
+  if (calendarStatus === "replaced") {
+    const [taskReset, holidayReset] = await Promise.all([
+      auth.supabase.from("task_calendar_events").delete().eq("profile_id", auth.userId),
+      auth.supabase.from("holiday_calendar_events").delete().eq("profile_id", auth.userId),
+    ]);
+    const resetError = taskReset.error ?? holidayReset.error;
+    if (resetError) return { ok: false as const, error: resetError.message };
+  }
 
   const today = new Date();
   const from = format(subYears(today, SYNC_WINDOW_YEARS_PAST), "yyyy-MM-dd");
