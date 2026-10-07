@@ -2,6 +2,8 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { upsertCalendarEvent, deleteCalendarEvent } from "@/lib/google/calendar";
 import { TASK_GENDER_CONFIG } from "@/constants/task-gender";
+import { getVizColorForId } from "@/constants/chart-colors";
+import { googleEventColorId } from "@/lib/google/event-color";
 import type { ParticipantRole } from "@/lib/party";
 import type { createClient } from "@/lib/supabase/server";
 
@@ -21,7 +23,7 @@ export interface SyncableTask {
   // before calling this for a task whose due_date is null) — an all-day Google Calendar event
   // has nowhere to go without one.
   due_date: string;
-  season: { season: string } | null;
+  season: { season: string; color: string } | null;
   brand: { brand_name: string } | null;
   gender: string;
   participants: SyncableTaskParticipant[];
@@ -59,7 +61,7 @@ function formatEventDescription(task: Pick<SyncableTask, "brand" | "gender" | "p
 
 // The columns pushTaskToGoogleCalendar needs, for callers that load a task themselves.
 export const SYNCABLE_TASK_SELECT =
-  "id, task_name, due_date, deleted_at, gender, season:seasons(season:season_code), brand:brands(brand_name), participants:task_participants(role, profile:profiles(full_name, email), department:departments(name))";
+  "id, task_name, due_date, deleted_at, gender, season:seasons(season:season_code, color), brand:brands(brand_name), participants:task_participants(role, profile:profiles(full_name, email), department:departments(name))";
 
 // One user's copy of one task on Google (task_calendar_events, 0034). Every syncing user gets
 // their own copy of every task, so a task can be on many calendars at once.
@@ -70,12 +72,22 @@ export interface TaskCalendarLink {
 
 export type TaskPushResult = "pushed" | "unchanged" | "failed";
 
+// Colour follows the in-app Calendar chip: the season's colour, with the same id-based fallback
+// as taskSeasonColor() (tasks/task-season-color.ts) for an unresolved season join.
 function toEvent(task: SyncableTask) {
-  return { title: formatEventTitle(task), description: formatEventDescription(task), date: task.due_date };
+  return {
+    title: formatEventTitle(task),
+    description: formatEventDescription(task),
+    date: task.due_date,
+    colorId: googleEventColorId(task.season?.color ?? getVizColorForId(task.id)),
+  };
 }
 
+// colorId is part of the hash, so recolouring a season re-pushes its tasks on the next Sync.
 function hashEvent(event: ReturnType<typeof toEvent>): string {
-  return createHash("sha256").update(JSON.stringify([event.title, event.description, event.date])).digest("hex");
+  return createHash("sha256")
+    .update(JSON.stringify([event.title, event.description, event.date, event.colorId]))
+    .digest("hex");
 }
 
 // Whether pushing would change anything on Google. Sync's planning step uses this to count only

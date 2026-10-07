@@ -123,7 +123,13 @@ export async function ensureCriticalPathCalendar(profileId: string): Promise<"ok
 // side can write (0019).
 export async function upsertCalendarEvent(
   profileId: string,
-  { eventId, title, date, description }: { eventId: string | null; title: string; date: string; description?: string }
+  {
+    eventId,
+    title,
+    date,
+    description,
+    colorId,
+  }: { eventId: string | null; title: string; date: string; description?: string; colorId?: string | null }
 ): Promise<{ id: string; updatedAt: string } | null> {
   const client = await getCalendarClientForProfile(profileId);
   if (!client) return null;
@@ -137,6 +143,10 @@ export async function upsertCalendarEvent(
     // the calendar's default all-day notification. Set on every push, so the next sync also
     // strips reminders from events pushed before this existed (events.update replaces the event).
     reminders: { useDefault: false, overrides: [] },
+    // Google's fixed palette id (lib/google/event-color.ts) matching the in-app colour. Null falls
+    // back to the calendar's own colour. events.update replaces the event, so an existing event
+    // takes the new colour on its next push.
+    colorId: colorId ?? null,
   };
 
   const calendarId = await resolveCalendarId(profileId, client);

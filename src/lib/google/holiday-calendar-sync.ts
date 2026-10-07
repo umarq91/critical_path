@@ -1,6 +1,7 @@
 import "server-only";
 import { formatHolidayTitle } from "@/constants/holiday-country";
 import { upsertCalendarEvent, deleteCalendarEvent } from "@/lib/google/calendar";
+import { HOLIDAY_GOOGLE_COLOR_ID } from "@/lib/google/event-color";
 import type { createClient } from "@/lib/supabase/server";
 
 type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
@@ -26,6 +27,7 @@ export async function pushHolidayToGoogleCalendar(
     eventId: existingEventId,
     title: formatHolidayTitle(holiday),
     date: holiday.holiday_date,
+    colorId: HOLIDAY_GOOGLE_COLOR_ID,
   });
   if (!result) return false;
 

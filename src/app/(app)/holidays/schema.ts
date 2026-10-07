@@ -21,8 +21,8 @@ export type HolidayInput = z.infer<typeof holidaySchema>;
 
 // Shared by the "Download CSV Format" button (the only row it writes) and bulkImportHolidays
 // (what it matches an uploaded file's header row against), so the two can never drift apart.
-export const HOLIDAY_CSV_HEADERS = ["Date (DD-MM-YYYY)", "Event Name", "Description", "Country"] as const;
+export const HOLIDAY_CSV_HEADERS = ["Date (dd-mm-yyyy)", "Event Name", "Description", "Country"] as const;
 
-export const HOLIDAY_CSV_DATE_FORMAT_ERROR = "Date must be in DD-MM-YYYY format";
+export const HOLIDAY_CSV_DATE_FORMAT_ERROR = "Date must be in dd-mm-yyyy format, e.g. 05-01-2026";
 
 export const MAX_BULK_HOLIDAY_ROWS = 500;

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import Papa from "papaparse";
 import { requirePermission } from "@/lib/require-permission";
 import { holidaySchema, HOLIDAY_CSV_DATE_FORMAT_ERROR, MAX_BULK_HOLIDAY_ROWS } from "@/app/(app)/holidays/schema";
-import { dayFirstDateToIso } from "@/lib/dates";
+import { strictDayFirstDateToIso } from "@/lib/dates";
 import { listHolidays, type ListHolidaysParams } from "@/data/holidays";
 import { resyncHolidayCalendarEvents, deleteHolidayCalendarEvents } from "@/lib/google/holiday-calendar-sync";
 
@@ -92,7 +92,7 @@ export interface BulkImportRowResult {
 // Matches a parsed CSV header against HOLIDAY_CSV_HEADERS regardless of case or spacing, so
 // "Event Name", "event_name" and "EVENT NAME" all resolve the same column.
 function normaliseHeader(header: string) {
-  // The template's date header carries a "(DD-MM-YYYY)" hint — dropped before matching.
+  // The template's date header carries a "(dd-mm-yyyy)" hint — dropped before matching.
   return header.replace(/\(.*\)/, "").trim().toLowerCase().replace(/[\s_-]+/g, "");
 }
 
@@ -141,7 +141,7 @@ export async function bulkImportHolidays(formData: FormData): Promise<
     const rowNumber = index + 2; // +1 for the header row, +1 for 1-based counting
     // Results echo the date as typed (day-first), not the ISO form it's stored as.
     const typedDate = (rawRow.holiday_date ?? "").trim();
-    const isoDate = dayFirstDateToIso(typedDate);
+    const isoDate = strictDayFirstDateToIso(typedDate);
     const candidate = {
       country: rawRow.country ?? "",
       holiday_date: isoDate ?? "",

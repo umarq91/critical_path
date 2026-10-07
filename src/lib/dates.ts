@@ -65,6 +65,16 @@ export function dayFirstDateToIso(value: string): string | null {
   return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
 }
 
+// The Holidays import's stricter twin of dayFirstDateToIso: exactly dd-mm-yyyy (two-digit day and
+// month, hyphens), nothing else — client request, since the template states that format.
+// Whether the date is real (31-02-2026) is left to the schema. Null = wrong format.
+export function strictDayFirstDateToIso(value: string): string | null {
+  const match = /^(\d{2})-(\d{2})-(\d{4})$/.exec(value.trim());
+  if (!match) return null;
+  const [, day, month, year] = match;
+  return `${year}-${month}-${day}`;
+}
+
 const WEEK_STARTS_ON_MONDAY = { weekStartsOn: 1 } as const;
 
 // Today's calendar date in Melbourne, not the runtime's: the server is a UTC host, so its own

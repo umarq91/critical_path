@@ -137,6 +137,15 @@ fails, rather than leaving an account of indeterminate role behind.
 **One-way, and that's a product rule, not an implementation detail.** Platform task → Google
 Calendar. Nothing reads events back. `lib/google/calendar.ts` deliberately has no event
 list/read function (it lists *calendars*, to find "Critical Path Calendar" — see below); if you find yourself adding one, that's the rule being broken, not a gap being filled.
+
+**Event colours are the closest of Google's 11, not the app's exact hex.** Google only accepts a
+`colorId` 1–11 on an event. `googleEventColorId()` (`lib/google/event-color.ts`) maps a task's
+season colour (same source as the in-app chip, `taskSeasonColor`) to one. The 7 picker colours are
+pinned by hand so they stay 7 distinct Google colours; pure nearest-match would merge teal/green and
+indigo/blue. Holidays are always Peacock (the app's accent-teal). `colorId` is in the task
+`content_hash`, so recolouring a season re-pushes its tasks on the next Sync. Holidays have no hash
+and Sync skips one already on the calendar, so an existing holiday event only picks up its colour
+when an admin edits that holiday.
 `0011` originally pulled two ways — a Google event whose `updated` beat `google_synced_at`
 overwrote the task's name and due date, which made anyone's phone a writer to org-wide data —
 and cached every unrelated calendar event in `external_calendar_events` for display. Both were
@@ -987,14 +996,16 @@ spacing-insensitively (`"Event Name"`, `"event_name"`, `"EVENT NAME"` all resolv
 column), since a CSV re-opened and re-saved in different spreadsheet software doesn't reliably
 preserve exact header casing.
 
-**CSV import dates are day-first (`DD-MM-YYYY`), by client request; the stored value stays ISO.** The
-template's date header reads `Date (DD-MM-YYYY)` — the template has no sample row, so the header
+**CSV import dates must be exactly `dd-mm-yyyy`, by client request; the stored value stays ISO.**
+The template's date header reads `Date (dd-mm-yyyy)`. The template has no sample row, so the header
 is the only place to state the format, and `normaliseHeader` strips the bracketed hint before
-matching (a plain `Date` header still works). `dayFirstDateToIso()` (`lib/dates.ts`) converts
+matching (a plain `Date` header still works). `strictDayFirstDateToIso()` (`lib/dates.ts`) converts
 each row before `holidaySchema` sees it, so the schema and the Add Holiday form are unchanged.
-It also accepts `DD/MM/YYYY` (spreadsheets swap separators on re-save) and ISO (files built from
-the older template). A two-number-first date is always read as day-month, never month-day. The
-results dialog echoes the date as typed.
+**It is strict on purpose:** two-digit day and month, hyphens only. ISO, `dd/mm/yyyy`, single
+digits and two-digit years are all rejected as invalid rows (the client reported the lenient
+parser as a bug). A file re-saved by a spreadsheet that swaps in slashes will fail; that's
+accepted. Don't switch this back to `dayFirstDateToIso()`, which stays lenient for the Tasks
+import. The results dialog echoes the date as typed.
 
 **The row cap (`MAX_BULK_HOLIDAY_ROWS = 500`) rejects the whole file up front**, before any row
 is written — not a partial import that silently stops at row 500. Sized against
