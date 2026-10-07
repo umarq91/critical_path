@@ -162,7 +162,7 @@ export const TasksBoard = ({
         getRowClassName={taskRowClassName}
         toolbar={{
           filters: [
-            { columnId: "season_id", title: "Season", placeholder: "All Seasons", options: seasonOptions, multiple: true },
+            { columnId: "season_id", title: "Season", placeholder: "All Seasons", options: seasonOptions, multiple: true, searchable: true },
             { columnId: "brand_id", title: "Brand", placeholder: "All Brands", options: brandOptions, multiple: true },
             {
               columnId: "key_stage_id",

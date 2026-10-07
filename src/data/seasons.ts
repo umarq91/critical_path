@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { compareLabels } from "@/lib/utils";
 import { MAX_LOOKUP_EXPORT_ROWS } from "@/lib/export/types";
 import { seasonStatusValues, type SeasonInput } from "@/app/(app)/seasons/schema";
 
@@ -14,8 +15,8 @@ export interface ListSeasonsParams {
 // `season` is the app's name for the `season_code` column; `season_name` is never read here
 // (it only exists for the integration API).
 const SEASON_SELECT =
-  "id, season:season_code, status, start_date, end_date, color, created_at, updated_at, deleted_at";
-const SORT_COLUMNS: Record<string, string> = { season: "season_code", status: "status", start_date: "start_date" };
+  "id, season:season_code, status, color, created_at, updated_at, deleted_at";
+const SORT_COLUMNS: Record<string, string> = { season: "season_code", status: "status" };
 
 function isSeasonStatus(value: string | undefined): value is SeasonInput["status"] {
   return !!value && (seasonStatusValues as readonly string[]).includes(value);
@@ -32,16 +33,7 @@ export async function listSeasons({ page = 1, pageSize = 10, sortBy, sortDir, fi
   // Validated against the real enum, not just cast — an arbitrary string from the URL would
   // otherwise error the query outright (Postgres enum comparison, not a loose text match).
   if (isSeasonStatus(filters.status)) query = query.eq("status", filters.status);
-  if (filters.start_date) {
-    // The Year filter's value — a bare 4-digit year, translated into a date range since
-    // there's no separate `year` column.
-    const year = Number(filters.start_date);
-    if (Number.isInteger(year)) {
-      query = query.gte("start_date", `${year}-01-01`).lt("start_date", `${year + 1}-01-01`);
-    }
-  }
-
-  const orderColumn = (sortBy && SORT_COLUMNS[sortBy]) ?? "start_date";
+  const orderColumn = (sortBy && SORT_COLUMNS[sortBy]) ?? "season_code";
   query = query.order(orderColumn, { ascending: sortDir !== "desc" });
 
   const from = (page - 1) * pageSize;
@@ -70,7 +62,7 @@ export async function listSeasonSummary() {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("seasons")
-    .select("status, start_date")
+    .select("status")
     .is("deleted_at", null);
   if (error) throw error;
 
@@ -79,17 +71,14 @@ export async function listSeasonSummary() {
     (typeof seasonStatusValues)[number],
     number
   >;
-  const years = new Set<string>();
 
   for (const row of rows) {
-    statusCounts[row.status]++;
-    years.add(new Date(row.start_date).getFullYear().toString());
+    if (isSeasonStatus(row.status)) statusCounts[row.status]++;
   }
 
   return {
     total: rows.length,
     statusCounts,
-    years: [...years].sort(),
   };
 }
 
@@ -99,10 +88,10 @@ export async function listUpcomingSeasons(limit = 4) {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("seasons")
-    .select("id, season:season_code, start_date")
+    .select("id, season:season_code")
     .is("deleted_at", null)
     .eq("status", "upcoming")
-    .order("start_date", { ascending: true })
+    .order("season_code", { ascending: true })
     .limit(limit);
   if (error) throw error;
   return data ?? [];
@@ -165,8 +154,7 @@ export async function listSeasonOptions() {
   const { data, error } = await supabase
     .from("seasons")
     .select("id, season:season_code, color")
-    .is("deleted_at", null)
-    .order("season_code", { ascending: true });
+    .is("deleted_at", null);
   if (error) throw error;
-  return data ?? [];
+  return (data ?? []).sort((a, b) => compareLabels(a.season, b.season));
 }

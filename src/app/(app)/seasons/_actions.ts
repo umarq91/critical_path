@@ -13,10 +13,11 @@ export async function createSeason(input: unknown) {
 
   // The app keeps one value per season, stored in `season_code`. `season_name` is still a
   // NOT NULL column only because the integration API returns it, so it mirrors the same value.
+  // Seasons no longer carry dates in the app; the columns are always written as null.
   const { season, ...rest } = parsed.data;
   const { data, error } = await auth.supabase
     .from("seasons")
-    .insert({ ...rest, season_code: season, season_name: season })
+    .insert({ ...rest, season_code: season, season_name: season, start_date: null, end_date: null })
     .select()
     .single();
   if (error) return { ok: false as const, error: error.message };

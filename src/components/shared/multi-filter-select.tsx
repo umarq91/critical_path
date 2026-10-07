@@ -13,6 +13,7 @@ import {
 import { decodeMultiFilterValue, encodeMultiFilterValue } from "@/constants/data-table-filters";
 import { cn } from "@/lib/utils";
 import type { FilterSelectOption } from "@/components/shared/filter-select";
+import { SearchableFilterSelect } from "@/components/shared/searchable-filter-select";
 
 interface MultiFilterSelectProps {
   /** The selected option values joined with MULTI_FILTER_DELIMITER (constants/data-table-
@@ -26,6 +27,8 @@ interface MultiFilterSelectProps {
   /** The "show everything" trigger label, e.g. "All Seasons". */
   allLabel: string;
   className?: string;
+  /** Adds a search box and lists options A–Z — for long lists such as seasons. */
+  searchable?: boolean;
 }
 
 // The multi-select twin of <FilterSelect>: a checkbox menu whose selection is a union (any of
@@ -38,8 +41,29 @@ export const MultiFilterSelect = ({
   title,
   allLabel,
   className,
+  searchable = false,
 }: MultiFilterSelectProps) => {
   const selected = decodeMultiFilterValue(value);
+  const triggerClassName = cn(
+    buttonVariants({ variant: "outline" }),
+    "h-10 min-w-0 justify-between gap-2 font-normal",
+    className
+  );
+
+  if (searchable) {
+    return (
+      <SearchableFilterSelect
+        multiple
+        selected={selected}
+        onSelectedChange={(next) => onValueChange(encodeMultiFilterValue(next))}
+        options={options}
+        title={title}
+        allLabel={allLabel}
+        triggerClassName={triggerClassName}
+      />
+    );
+  }
+
   const toggleOption = (optionValue: string, checked: boolean) => {
     const next = checked ? [...selected, optionValue] : selected.filter((current) => current !== optionValue);
     onValueChange(encodeMultiFilterValue(next));
@@ -53,9 +77,7 @@ export const MultiFilterSelect = ({
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger
-        className={cn(buttonVariants({ variant: "outline" }), "h-10 min-w-0 justify-between gap-2 font-normal", className)}
-      >
+      <DropdownMenuTrigger className={triggerClassName}>
         {triggerLabel}
       </DropdownMenuTrigger>
       {/* min-w-56 overrides the primitive's default w-(--anchor-width) — that ties the

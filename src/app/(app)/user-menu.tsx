@@ -20,9 +20,12 @@ type Profile = {
   email: string;
   avatar_url: string | null;
   role: Role;
+  department: { name: string } | null;
 };
 
 export function UserMenu({ profile }: { profile: Profile }) {
+  const roleAndDepartment = [ROLE_LABEL[profile.role], profile.department?.name].filter(Boolean).join(" · ");
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger className="flex items-center gap-2 rounded-md p-1 outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring">
@@ -34,7 +37,7 @@ export function UserMenu({ profile }: { profile: Profile }) {
         </Avatar>
         <div className="hidden flex-col items-start sm:flex">
           <span className="text-label text-foreground">{profile.full_name ?? profile.email}</span>
-          <span className="text-caption text-muted-foreground">{ROLE_LABEL[profile.role]}</span>
+          <span className="text-caption text-muted-foreground">{roleAndDepartment}</span>
         </div>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
@@ -42,7 +45,7 @@ export function UserMenu({ profile }: { profile: Profile }) {
           <DropdownMenuLabel className="flex flex-col">
             <span className="font-medium">{profile.full_name ?? profile.email}</span>
             <span className="text-xs font-normal text-muted-foreground">
-              {profile.email} · {ROLE_LABEL[profile.role]}
+              {profile.email} · {roleAndDepartment}
             </span>
           </DropdownMenuLabel>
         </DropdownMenuGroup>

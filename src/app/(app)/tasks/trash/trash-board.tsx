@@ -39,7 +39,7 @@ export const TrashBoard = ({ tasks, rowCount, canRestore, seasonOptions, brandOp
       }
       toolbar={{
         filters: [
-          { columnId: "season_id", title: "Season", placeholder: "All Seasons", options: seasonOptions },
+          { columnId: "season_id", title: "Season", placeholder: "All Seasons", options: seasonOptions, searchable: true },
           { columnId: "brand_id", title: "Brand", placeholder: "All Brands", options: brandOptions },
         ],
         sortOptions: [

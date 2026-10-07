@@ -1,12 +1,11 @@
 import Link from "next/link";
-import { Calendar } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { SEASON_STATUS_CONFIG } from "@/constants/season-status";
 import type { Season } from "@/data/seasons";
-import { formatDate, formatTimestampDate } from "@/lib/dates";
+import { formatTimestampDate } from "@/lib/dates";
 
 const DetailRow = ({ label, value, icon: Icon }: { label: string; value: string; icon?: LucideIcon }) => (
   <div className="flex items-center justify-between py-2 text-sm">
@@ -33,8 +32,6 @@ export const SelectedSeasonPanel = ({ season }: { season: Season }) => {
       </div>
       <p className="text-lg font-semibold text-foreground">{season.season}</p>
       <div className="divide-y divide-border">
-        <DetailRow label="Start Date" value={formatDate(season.start_date)} icon={Calendar} />
-        <DetailRow label="End Date" value={formatDate(season.end_date)} icon={Calendar} />
         <DetailRow label="Last Updated" value={formatTimestampDate(season.updated_at)} />
       </div>
       {/* Brands/Tasks/Completed/In Progress/Not Started/Overdue rows from the mockup

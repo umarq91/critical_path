@@ -153,6 +153,7 @@ export const CalendarToolbar = ({
           selected={state.seasonId}
           options={seasonOptions}
           onChange={(next) => void setState({ seasonId: next.length > 0 ? next : null })}
+          searchable
         />
         <CalendarMultiSelectFilter
           title="Brand"

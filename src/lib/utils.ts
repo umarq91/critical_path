@@ -31,3 +31,9 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 export function isUuid(value: string) {
   return UUID_PATTERN.test(value);
 }
+
+// Case-insensitive, number-aware label order ("Q2'27" before "Q10'27", "RJ'S" beside "RJ's") —
+// Postgres's `order by` on these columns follows the DB collation, which isn't the A–Z people expect.
+export function compareLabels(a: string, b: string) {
+  return a.localeCompare(b, undefined, { sensitivity: "base", numeric: true });
+}

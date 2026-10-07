@@ -195,6 +195,7 @@ export const TimelineToolbar = ({
           title="Season"
           allLabel="All Seasons"
           className="h-8"
+          searchable
         />
         <MultiFilterSelect
           value={state.brandId}

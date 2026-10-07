@@ -30,6 +30,9 @@ interface BreakdownDonutCardProps {
    *  needs this: "completed" is one of its own slices, so scoping to "Overdue" would otherwise
    *  report a 0% completion rate for the whole business. */
   centerRate?: number;
+  /** Makes the scope dropdown searchable (A–Z, with a search box), naming the list in its
+   *  placeholder — for long dimensions such as seasons. */
+  searchTitle?: string;
   className?: string;
 }
 
@@ -42,6 +45,7 @@ export const BreakdownDonutCard = ({
   allLabel,
   groups,
   centerRate,
+  searchTitle,
   className,
 }: BreakdownDonutCardProps) => {
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -71,6 +75,8 @@ export const BreakdownDonutCard = ({
         onValueChange={setSelectedId}
         options={toFilterOptions(groups)}
         allLabel={allLabel}
+        searchable={!!searchTitle}
+        title={searchTitle}
       />
     ) : null;
 

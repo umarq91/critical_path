@@ -5,6 +5,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { DataTableFilterOption } from "@/components/data-table/table-features";
 import { cn } from "@/lib/utils";
+import { SearchableFilterSelect } from "@/components/shared/searchable-filter-select";
 
 // Every Calendar filter is multi-select — one component drives all seven (Season/Brand/Status/
 // Gender/Owner/People Involved/Holiday Country) rather than a near-duplicate per filter. Unchecked by default, exactly
@@ -19,6 +20,7 @@ export const CalendarMultiSelectFilter = ({
   selected,
   options,
   onChange,
+  searchable = false,
 }: {
   icon?: ReactNode;
   title: string;
@@ -26,8 +28,30 @@ export const CalendarMultiSelectFilter = ({
   selected: string[];
   options: DataTableFilterOption[];
   onChange: (next: string[]) => void;
+  /** Adds a search box and lists options A–Z — for long lists such as seasons. */
+  searchable?: boolean;
 }) => {
   if (options.length === 0) return null;
+
+  const triggerClassName = cn(buttonVariants({ variant: "outline" }), "h-10 gap-2 transition-colors duration-150");
+  const ariaLabel = `Filter by ${title.toLowerCase()}`;
+
+  if (searchable) {
+    return (
+      <SearchableFilterSelect
+        multiple
+        selected={selected}
+        onSelectedChange={onChange}
+        options={options}
+        title={title}
+        allLabel={allLabel}
+        triggerClassName={triggerClassName}
+        icon={icon}
+        align="end"
+        ariaLabel={ariaLabel}
+      />
+    );
+  }
 
   function toggle(value: string, checked: boolean) {
     onChange(checked ? [...selected, value] : selected.filter((v) => v !== value));
@@ -44,10 +68,7 @@ export const CalendarMultiSelectFilter = ({
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger
-        className={cn(buttonVariants({ variant: "outline" }), "h-10 gap-2 transition-colors duration-150")}
-        aria-label={`Filter by ${title.toLowerCase()}`}
-      >
+      <DropdownMenuTrigger className={triggerClassName} aria-label={ariaLabel}>
         {icon}
         {triggerLabel}
       </DropdownMenuTrigger>

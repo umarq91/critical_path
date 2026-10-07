@@ -6,5 +6,5 @@ import type { DataTableSearchParamsOptions } from "@/components/data-table/data-
 // means a link's params are read against a different baseline than the one that wrote them.
 export const SEASONS_QUERY_STATE: DataTableSearchParamsOptions = {
   defaultPageSize: 10,
-  defaultSort: { id: "start_date", desc: false },
+  defaultSort: { id: "season", desc: false },
 };

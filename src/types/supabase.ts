@@ -677,11 +677,11 @@ export type Database = {
           color: string
           created_at: string
           deleted_at: string | null
-          end_date: string
+          end_date: string | null
           id: string
           season_code: string
           season_name: string
-          start_date: string
+          start_date: string | null
           status: Database["public"]["Enums"]["season_status"]
           updated_at: string
         }
@@ -689,11 +689,11 @@ export type Database = {
           color?: string
           created_at?: string
           deleted_at?: string | null
-          end_date: string
+          end_date?: string | null
           id?: string
           season_code: string
           season_name: string
-          start_date: string
+          start_date?: string | null
           status?: Database["public"]["Enums"]["season_status"]
           updated_at?: string
         }
@@ -701,11 +701,11 @@ export type Database = {
           color?: string
           created_at?: string
           deleted_at?: string | null
-          end_date?: string
+          end_date?: string | null
           id?: string
           season_code?: string
           season_name?: string
-          start_date?: string
+          start_date?: string | null
           status?: Database["public"]["Enums"]["season_status"]
           updated_at?: string
         }

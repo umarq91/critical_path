@@ -586,6 +586,11 @@ Never read `season_name` from app code. Dropping it means changing the API first
 interval containing that season's tasks (min/max of Working Timeline start/end and DUE DATE).
 `status` is computed against the seed date, not stored in the sheet — it's a snapshot.
 
+**`planning` is retired from the app, not the DB.** The `season_status` enum (and the column
+default) still contain it, but `seasonStatusValues` / `SEASON_STATUS_CONFIG` don't, so it's never
+offered in the form, inline edit or filter, and the create form defaults to `upcoming`. A leftover
+`planning` row still renders (badge falls back to the raw value) but isn't counted in the stat cards.
+
 **Key stage order is not preserved and the Timeline is wrong because of it.** `key_stages` has no
 `sort_order` column (`0008_key_stages.sql`) and `data/key-stages.ts` orders by `name`, so
 Timeline/Gantt groups stages alphabetically. The real sequence is the insert order in the seed
@@ -1488,6 +1493,13 @@ Vercel) and a Client Component on the browser's, so one instant could show two d
 ---
 
 ## Data tables (`components/data-table/`)
+
+**Searchable filters are a Combobox, not a Select/Menu with an input in it.** `searchable` on
+`FilterSelect`, `MultiFilterSelect`, a `DataTableToolbar` filter or `CalendarMultiSelectFilter`
+swaps in `shared/searchable-filter-select.tsx` (Base UI Combobox, input inside the popup) — a text
+box inside Select/Menu loses keystrokes to their typeahead and focus-on-hover. It also lists
+options A–Z with `compareLabels` (`lib/utils.ts`), because Postgres `order by` follows the DB
+collation, not A–Z. Every season filter uses it.
 
 **A toolbar filter's `columnId` does NOT need to be a real column.** `DataTableToolbar` reads and
 writes every filter (and the search box) through the table's `columnFilters` state, which is what

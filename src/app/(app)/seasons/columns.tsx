@@ -12,12 +12,11 @@ import { dataTableFeatures } from "@/components/data-table/table-features";
 import { SEASON_STATUS_CONFIG } from "@/constants/season-status";
 import { SeasonRowActions } from "@/app/(app)/seasons/season-row-actions";
 import type { Season, SeasonTaskStats } from "@/data/seasons";
-import { formatDate } from "@/lib/dates";
 
 const columnHelper = createColumnHelper<typeof dataTableFeatures, Season>();
 
 const STATUS_OPTIONS = Object.entries(SEASON_STATUS_CONFIG).map(([value, { label }]) => ({ value, label }));
-const EDITABLE_FIELDS = ["status", "start_date", "end_date", "color"] as const;
+const EDITABLE_FIELDS = ["status", "color"] as const;
 
 interface CreateSeasonColumnsOptions {
   canManage: boolean;
@@ -83,44 +82,6 @@ export function createSeasonColumns({
           isEditing={rowEditing.isEditing(row.original.id)}
           draftValue={rowEditing.draft.status}
           onDraftChange={(next) => rowEditing.setDraftField("status", next)}
-        />
-      ),
-    }),
-    columnHelper.accessor("start_date", {
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Start Date" wrap={isResized} />,
-      meta: { label: "Start Date", width: "sm" },
-      size: 130,
-      minSize: 100,
-      sortFn: "datetime",
-      // Doubles as the Year filter's target column — matches the year portion of the date
-      // rather than the raw string, since there's no separate `year` column to filter on.
-      filterFn: (row, _columnId, filterValue) =>
-        new Date(row.original.start_date).getFullYear().toString() === filterValue,
-      cell: ({ row, getValue }) => (
-        <EditableCell
-          value={getValue()}
-          display={formatDate(getValue())}
-          variant="date"
-          isEditing={rowEditing.isEditing(row.original.id)}
-          draftValue={rowEditing.draft.start_date}
-          onDraftChange={(next) => rowEditing.setDraftField("start_date", next)}
-        />
-      ),
-    }),
-    columnHelper.accessor("end_date", {
-      header: "End Date",
-      meta: { label: "End Date", width: "sm" },
-      size: 130,
-      minSize: 100,
-      enableSorting: false,
-      cell: ({ row, getValue }) => (
-        <EditableCell
-          value={getValue()}
-          display={formatDate(getValue())}
-          variant="date"
-          isEditing={rowEditing.isEditing(row.original.id)}
-          draftValue={rowEditing.draft.end_date}
-          onDraftChange={(next) => rowEditing.setDraftField("end_date", next)}
         />
       ),
     }),

@@ -55,6 +55,8 @@ export const DpspFlywheelToolbar = ({
           onValueChange={(value) => setFilters({ seasonId: value })}
           options={seasonOptions}
           allLabel="All seasons"
+          title="Seasons"
+          searchable
         />
         <FilterSelect
           value={state.department || null}

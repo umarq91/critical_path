@@ -18,7 +18,6 @@ interface SeasonsBoardProps {
   seasons: Season[];
   rowCount: number;
   canManage: boolean;
-  yearOptions: string[];
   upcomingSeasons: Awaited<ReturnType<typeof listUpcomingSeasons>>;
   seasonStats: Record<string, SeasonTaskStats>;
 }
@@ -27,7 +26,6 @@ export const SeasonsBoard = ({
   seasons,
   rowCount,
   canManage,
-  yearOptions,
   upcomingSeasons,
   seasonStats,
 }: SeasonsBoardProps) => {
@@ -91,18 +89,10 @@ export const SeasonsBoard = ({
               placeholder: "Season Status",
               options: Object.entries(SEASON_STATUS_CONFIG).map(([value, { label }]) => ({ value, label })),
             },
-            {
-              columnId: "start_date",
-              title: "Year",
-              placeholder: "Year",
-              options: yearOptions.map((year) => ({ label: year, value: year })),
-            },
           ],
           sortOptions: [
             { columnId: "season", desc: false, label: "Season (A-Z)" },
             { columnId: "season", desc: true, label: "Season (Z-A)" },
-            { columnId: "start_date", desc: false, label: "Start Date (Earliest)" },
-            { columnId: "start_date", desc: true, label: "Start Date (Latest)" },
           ],
           searchColumnId: "season",
           searchPlaceholder: "Search seasons...",

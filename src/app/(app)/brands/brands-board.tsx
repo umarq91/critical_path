@@ -62,7 +62,7 @@ export const BrandsBoard = ({ brands, rowCount, canManage, canDelete, seasonOpti
             placeholder: "Status",
             options: Object.entries(BRAND_STATUS_CONFIG).map(([value, { label }]) => ({ value, label })),
           },
-          { columnId: "season_id", title: "Seasons", placeholder: "Season", options: seasonOptions },
+          { columnId: "season_id", title: "Seasons", placeholder: "Season", options: seasonOptions, searchable: true },
         ],
         sortOptions: [
           { columnId: "brand_name", desc: false, label: "Brand Name (A-Z)" },

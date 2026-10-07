@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Form } from "@/components/ui/form";
 import { TextField } from "@/components/form-fields/text-field";
 import { SelectField } from "@/components/form-fields/select-field";
-import { DateField } from "@/components/form-fields/date-field";
 import { ColorField } from "@/components/form-fields/color-field";
 import { seasonSchema, seasonStatusValues, type SeasonInput } from "@/app/(app)/seasons/schema";
 import { createSeason } from "@/app/(app)/seasons/_actions";
@@ -25,9 +24,7 @@ export const SeasonForm = ({ onSuccess }: SeasonFormProps) => {
     resolver: zodResolver(seasonSchema),
     defaultValues: {
       season: "",
-      status: "planning",
-      start_date: "",
-      end_date: "",
+      status: "upcoming",
       color: VIZ_COLORS[0],
     },
   });
@@ -51,10 +48,6 @@ export const SeasonForm = ({ onSuccess }: SeasonFormProps) => {
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4">
         <TextField control={form.control} name="season" label="Season" placeholder="RES H2'26" />
-        <div className="grid grid-cols-2 gap-3">
-          <DateField control={form.control} name="start_date" label="Start Date" />
-          <DateField control={form.control} name="end_date" label="End Date" />
-        </div>
         <SelectField
           control={form.control}
           name="status"

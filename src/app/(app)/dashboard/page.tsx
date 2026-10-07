@@ -109,6 +109,7 @@ export default async function DashboardPage() {
             description="Every task by the season it belongs to"
             allLabel="All Seasons"
             groups={metrics.bySeason}
+            searchTitle="Seasons"
           />
           <BreakdownDonutCard
             title="Task Status Overview"

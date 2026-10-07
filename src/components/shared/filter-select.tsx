@@ -1,5 +1,6 @@
 "use client";
 
+import { SearchableFilterSelect, SELECT_LIKE_TRIGGER_CLASSNAME } from "@/components/shared/searchable-filter-select";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
@@ -16,6 +17,10 @@ interface FilterSelectProps {
   /** The "show everything" entry, e.g. "All Seasons". */
   allLabel: string;
   className?: string;
+  /** Adds a search box and lists options A–Z — for long lists such as seasons. */
+  searchable?: boolean;
+  /** Names the list in the search placeholder ("Search seasons..."). Only used when searchable. */
+  title?: string;
 }
 
 // A sentinel rather than "" — Base UI's Select treats an empty value as "nothing selected",
@@ -25,7 +30,29 @@ const ALL_VALUE = "__all__";
 // The same dropdown <DataTableToolbar> renders for a table column, minus the table: for
 // filter UIs that aren't backed by a @tanstack column — the Dashboard's per-card scopes,
 // which narrow already-loaded data in the browser rather than re-querying.
-export const FilterSelect = ({ value, onValueChange, options, allLabel, className }: FilterSelectProps) => {
+export const FilterSelect = ({
+  value,
+  onValueChange,
+  options,
+  allLabel,
+  className,
+  searchable = false,
+  title = "options",
+}: FilterSelectProps) => {
+  if (searchable) {
+    return (
+      <SearchableFilterSelect
+        selected={value ? [value] : []}
+        onSelectedChange={(next) => onValueChange(next[0] ?? null)}
+        options={options}
+        title={title}
+        allLabel={allLabel}
+        triggerClassName={cn(SELECT_LIKE_TRIGGER_CLASSNAME, "h-8", className)}
+        showChevron
+      />
+    );
+  }
+
   return (
     <Select
       value={value ?? ALL_VALUE}

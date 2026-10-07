@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { MultiFilterSelect } from "@/components/shared/multi-filter-select";
+import { SearchableFilterSelect, SELECT_LIKE_TRIGGER_CLASSNAME } from "@/components/shared/searchable-filter-select";
 import type { dataTableFeatures, DataTableColumnMeta, DataTableFilterOption } from "@/components/data-table/table-features";
 
 export interface DataTableToolbarFilter {
@@ -32,6 +33,8 @@ export interface DataTableToolbarFilter {
    *  filters.ts). Deselecting the last option clears the filter entirely, same as picking "All"
    *  in single-select. */
   multiple?: boolean;
+  /** Adds a search box and lists options A–Z — for long lists such as seasons. */
+  searchable?: boolean;
 }
 
 export interface DataTableToolbarSortOption {
@@ -132,6 +135,23 @@ export const DataTableToolbar = <TData extends Record<string, unknown>>({
               options={filter.options}
               title={filter.title}
               allLabel={allLabel}
+              searchable={filter.searchable}
+            />
+          );
+        }
+
+        if (filter.searchable) {
+          const current = getFilterValue(filter.columnId);
+          return (
+            <SearchableFilterSelect
+              key={filter.columnId}
+              selected={current ? [current] : []}
+              onSelectedChange={(next) => setFilterValue(filter.columnId, next[0])}
+              options={filter.options}
+              title={filter.title}
+              allLabel={allLabel}
+              triggerClassName={cn(SELECT_LIKE_TRIGGER_CLASSNAME, "h-10")}
+              showChevron
             />
           );
         }

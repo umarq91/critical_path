@@ -126,6 +126,7 @@ export function NotifyTaskPickerDialog({
           title="Season"
           allLabel="All Seasons"
           className="h-8"
+          searchable
         />
         <MultiFilterSelect
           value={owner}
