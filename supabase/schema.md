@@ -87,8 +87,8 @@ policy — see `0006_tasks.sql`.
 | `season_code` | text, unique | the season, e.g. `RES H2'26`. The app's only season value, shown everywhere as "Season" (queried as `season:season_code`) |
 | `season_name` | text | **Integration API only.** The app never reads it; `createSeason` sets it equal to `season_code`. Kept because `/integration/v1/*` still returns `season_name` |
 | `status` | `season_status`, default `planning` | |
-| `start_date` | date | |
-| `end_date` | date | must be ≥ `start_date` |
+| `start_date` | date, nullable (`0037`) | no longer set by the app — new seasons write null; older rows keep their dates |
+| `end_date` | date, nullable (`0037`) | same as `start_date`; when both are set, must be ≥ `start_date` |
 | `color` | text, default `#2b6ef6` | season colour-coding across the app |
 | `created_at` / `updated_at` | timestamptz | |
 | `deleted_at` | timestamptz, nullable | soft delete |
@@ -463,6 +463,7 @@ Unique `(task_id, profile_id)`; index on `profile_id`.
 | `0034_task_calendar_events.sql` | `task_calendar_events` (task × profile → Google event id + `content_hash`), unique per pair, RLS as described above; copies every existing `tasks.google_event_id`/`google_calendar_owner_id` link into it. Backs syncing every task to every user's own calendar. The `tasks` sync columns and `0029`'s viewer policy/trigger are left in place but unused. |
 | `0035_drop_season_owner.sql` | Drops `seasons.owner_id` (and its index/FK). Seasons have no owner; nothing in the app or integration API read it. |
 | `0036_task_is_critical.sql` | Adds `tasks.is_critical` (boolean, not null, default false) and a partial index on critical, non-deleted tasks. Covered by the existing tasks RLS; `0029`'s viewer trigger doesn't admit it, so viewers can't flip it. |
+| `0037_season_dates_nullable.sql` | Drops NOT NULL from `seasons.start_date`/`end_date`. The app no longer collects season dates and inserts null; the end ≥ start CHECK stays (it passes on null). |
 
 ## Not built yet
 
