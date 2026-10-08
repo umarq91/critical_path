@@ -619,7 +619,7 @@ interval containing that season's tasks (min/max of Working Timeline start/end a
 `status` is computed against the seed date, not stored in the sheet — it's a snapshot.
 
 **Seasons have no status in the app.** Client decision: no Status field, column, inline edit,
-filter, export column or badge, no Active/Upcoming/Completed stat cards (only Total Seasons), and
+filter, export column or badge, no stat cards at the top of the page (Total Seasons went too), and
 no Upcoming Seasons panel. `seasons.status` is nullable with no default since `0039`, so new seasons
 are null; seeded/older rows keep theirs. Only the integration API still reads it (`/seasons` returns
 `status`, documented as nullable). Don't bring back a status-derived widget without a source of

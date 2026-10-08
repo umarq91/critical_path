@@ -1,10 +1,9 @@
-import { Calendar, Info } from "lucide-react";
+import { Info } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
-import { StatCard } from "@/components/shared/stat-card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { SeasonPageActions } from "@/app/(app)/seasons/season-page-actions";
 import { SeasonsBoard } from "@/app/(app)/seasons/seasons-board";
-import { listSeasonCount, listSeasons, listSeasonTaskStats } from "@/data/seasons";
+import { listSeasons, listSeasonTaskStats } from "@/data/seasons";
 import { getCurrentProfile } from "@/data/profiles";
 import { can } from "@/lib/permissions";
 import { requirePageAccess } from "@/lib/require-page-access";
@@ -21,11 +20,7 @@ export default async function SeasonsPage({
   await requirePageAccess("lookups.view");
   const queryState = await loadDataTableSearchParams(searchParams, SEASONS_QUERY_STATE);
 
-  const [{ data: seasons, rowCount }, totalSeasons, profile] = await Promise.all([
-    listSeasons(queryState),
-    listSeasonCount(),
-    getCurrentProfile(),
-  ]);
+  const [{ data: seasons, rowCount }, profile] = await Promise.all([listSeasons(queryState), getCurrentProfile()]);
   const canManage = !!profile && can(profile.role, "admin.manage_lookups");
   const canExport = !!profile && can(profile.role, "dashboard.export_reports");
   const seasonStats = await listSeasonTaskStats(seasons.map((season) => season.id));
@@ -38,16 +33,6 @@ export default async function SeasonsPage({
         action={<SeasonPageActions canCreateSeason={canManage} canExport={canExport} rowCount={rowCount} />}
       />
       <div className="flex flex-col gap-4 px-6 pb-6">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <StatCard
-            icon={Calendar}
-            iconClassName="bg-primary-tint text-primary"
-            label="Total Seasons"
-            value={totalSeasons}
-            description="All seasons in the system"
-          />
-        </div>
-
         <SeasonsBoard
           seasons={seasons}
           rowCount={rowCount}

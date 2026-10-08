@@ -47,17 +47,6 @@ export async function listSeasonsForExport(params: Omit<ListSeasonsParams, "page
   return { data, rowCount, truncated: rowCount > MAX_LOOKUP_EXPORT_ROWS };
 }
 
-// The "Total Seasons" stat card — the whole dataset, not whatever page listSeasons() has loaded.
-export async function listSeasonCount() {
-  const supabase = await createClient();
-  const { count, error } = await supabase
-    .from("seasons")
-    .select("id", { count: "exact", head: true })
-    .is("deleted_at", null);
-  if (error) throw error;
-  return count ?? 0;
-}
-
 export interface SeasonTaskStats {
   tasksCount: number;
   completedCount: number;
