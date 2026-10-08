@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Select, SelectContent, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DataTable } from "@/components/data-table/data-table";
 import { useDataTableQueryState } from "@/components/data-table/use-data-table-query-state";
 import { useRowEditing } from "@/components/data-table/use-row-editing";
@@ -96,15 +95,6 @@ export const SeasonsBoard = ({
           ],
           searchColumnId: "season",
           searchPlaceholder: "Search seasons...",
-          // Brands aren't built yet — placeholder only, not wired to a real filter.
-          actions: (
-            <Select disabled>
-              <SelectTrigger className="h-10">
-                <SelectValue placeholder="Brand" />
-              </SelectTrigger>
-              <SelectContent />
-            </Select>
-          ),
         }}
       />
       {selectedSeason ? (

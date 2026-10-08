@@ -15,7 +15,7 @@ export default function BrandsLoading() {
         </div>
       </div>
       <div className="flex flex-col gap-4 px-6 pb-6">
-        <DataTableSkeleton filterCount={2} columnCount={8} rowCount={10} />
+        <DataTableSkeleton filterCount={1} columnCount={7} rowCount={10} />
       </div>
     </div>
   );

@@ -6,16 +6,14 @@ import { Button } from "@/components/ui/button";
 import { FormDialog } from "@/components/shared/form-dialog";
 import { BrandForm } from "@/app/(app)/brands/brand-form";
 import { BrandsExportButton } from "@/app/(app)/brands/brands-export-button";
-import type { listSeasonOptions } from "@/data/seasons";
 
 interface BrandPageActionsProps {
   canCreateBrand: boolean;
   canExport: boolean;
   rowCount: number;
-  seasonOptions: Awaited<ReturnType<typeof listSeasonOptions>>;
 }
 
-export const BrandPageActions = ({ canCreateBrand, canExport, rowCount, seasonOptions }: BrandPageActionsProps) => {
+export const BrandPageActions = ({ canCreateBrand, canExport, rowCount }: BrandPageActionsProps) => {
   const [open, setOpen] = useState(false);
 
   return (
@@ -34,7 +32,7 @@ export const BrandPageActions = ({ canCreateBrand, canExport, rowCount, seasonOp
             </Button>
           }
         >
-          <BrandForm onSuccess={() => setOpen(false)} seasonOptions={seasonOptions} />
+          <BrandForm onSuccess={() => setOpen(false)} />
         </FormDialog>
       ) : null}
     </>

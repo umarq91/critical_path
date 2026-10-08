@@ -95,8 +95,8 @@ export async function updateReminderTasks(input: unknown) {
 
   const ruleId = await ensureReminderRuleId(auth.supabase, auth.userId);
 
-  // Replace the whole set rather than diffing add/remove — same pattern brands/_actions.ts
-  // uses for brand_seasons; this is a low-frequency settings edit, not a hot write path.
+  // Replace the whole set rather than diffing add/remove — this is a low-frequency settings
+  // edit, not a hot write path.
   const { error: deleteError } = await auth.supabase.from("reminder_rule_tasks").delete().eq("rule_id", ruleId);
   if (deleteError) return { ok: false as const, error: deleteError.message };
 

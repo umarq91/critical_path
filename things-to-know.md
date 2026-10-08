@@ -608,6 +608,12 @@ API is unchanged: it still returns `brand_code` (null for new brands) and its `b
 only matches brands that still have one. Don't backfill codes from `brand_name` — the column is
 UNIQUE and names aren't guaranteed to be.
 
+**Brands aren't linked to seasons in the app.** Client decision: every brand belongs to every
+season, so the link carries no information. Brands has no Seasons field (create form, table,
+inline edit, filter, export) and Seasons has no Brands count. `brand_seasons` still exists with
+its old rows, but no app code reads or writes it; new brands get no rows there. It only survives
+because `seed-seasons.sql` clears it and its FK restricts deleting a season (see below).
+
 **Seasons have no date range in the source.** `start_date`/`end_date` are derived as the tightest
 interval containing that season's tasks (min/max of Working Timeline start/end and DUE DATE).
 `status` is computed against the seed date, not stored in the sheet — it's a snapshot.

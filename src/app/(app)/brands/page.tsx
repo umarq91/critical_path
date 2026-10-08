@@ -2,7 +2,6 @@ import { PageHeader } from "@/components/shared/page-header";
 import { BrandPageActions } from "@/app/(app)/brands/brand-page-actions";
 import { BrandsBoard } from "@/app/(app)/brands/brands-board";
 import { listBrands } from "@/data/brands";
-import { listSeasonOptions } from "@/data/seasons";
 import { getCurrentProfile } from "@/data/profiles";
 import { can } from "@/lib/permissions";
 import { requirePageAccess } from "@/lib/require-page-access";
@@ -19,23 +18,18 @@ export default async function BrandsPage({
   await requirePageAccess("brand.view");
   const queryState = await loadDataTableSearchParams(searchParams, BRANDS_QUERY_STATE);
 
-  const [{ data: brands, rowCount }, seasons, profile] = await Promise.all([
-    listBrands(queryState),
-    listSeasonOptions(),
-    getCurrentProfile(),
-  ]);
+  const [{ data: brands, rowCount }, profile] = await Promise.all([listBrands(queryState), getCurrentProfile()]);
   const canManage = !!profile && can(profile.role, "brand.manage");
   const canDelete = !!profile && can(profile.role, "brand.delete");
   const canExport = !!profile && can(profile.role, "dashboard.export_reports");
-  const seasonOptions = seasons.map((season) => ({ value: season.id, label: season.season }));
 
   return (
     <div className="flex flex-col">
       <PageHeader
         title="Brands"
-        description="Manage the brands tasks and seasons are organised under."
+        description="Manage the brands tasks are organised under."
         action={
-          <BrandPageActions canCreateBrand={canManage} canExport={canExport} rowCount={rowCount} seasonOptions={seasons} />
+          <BrandPageActions canCreateBrand={canManage} canExport={canExport} rowCount={rowCount} />
         }
       />
       <div className="flex flex-col gap-4 px-6 pb-6">
@@ -44,7 +38,6 @@ export default async function BrandsPage({
           rowCount={rowCount}
           canManage={canManage}
           canDelete={canDelete}
-          seasonOptions={seasonOptions}
         />
       </div>
     </div>

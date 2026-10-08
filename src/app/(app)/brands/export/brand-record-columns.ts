@@ -3,10 +3,6 @@ import { toExportTimestamp } from "@/lib/export/dates";
 import type { ExportColumnGroup } from "@/lib/export/types";
 import type { Brand } from "@/data/brands";
 
-function joinSeasons(seasons: Brand["seasons"]) {
-  return seasons.length > 0 ? seasons.map((season) => season.season).join(", ") : null;
-}
-
 // One row per brand, drawn from the SAME `Brand` shape the admin board already renders —
 // deliberately not a second, export-specific query. Brands is a small lookup table with few
 // fields, so unlike Tasks there's only one column group.
@@ -25,7 +21,6 @@ export const BRAND_RECORD_COLUMN_GROUPS: ExportColumnGroup<Brand>[] = [
         width: 14,
         getValue: (b) => BRAND_STATUS_CONFIG[b.status]?.label ?? b.status,
       },
-      { key: "seasons", label: "Seasons", category: "details", defaultSelected: true, dataType: "string", width: 32, getValue: (b) => joinSeasons(b.seasons) },
       { key: "description", label: "Description", category: "details", defaultSelected: false, dataType: "string", width: 36, getValue: (b) => b.description },
       { key: "color", label: "Colour", category: "details", defaultSelected: false, dataType: "string", width: 10, getValue: (b) => b.color },
       { key: "id", label: "Brand ID", category: "details", defaultSelected: false, dataType: "string", width: 38, getValue: (b) => b.id },
@@ -47,7 +42,6 @@ export const BRAND_RECORD_COLUMN_GROUPS: ExportColumnGroup<Brand>[] = [
 export const BRAND_GRID_COLUMN_ORDER = [
   "brand_name",
   "status",
-  "seasons",
   "created_at",
   "updated_at",
   "description",

@@ -86,14 +86,6 @@ export function createSeasonColumns({
       ),
     }),
     columnHelper.display({
-      id: "brands",
-      header: "Brands",
-      meta: { label: "Brands", width: "xs" },
-      size: 90,
-      minSize: 70,
-      cell: ({ row }) => seasonStats[row.original.id]?.brandsCount ?? 0,
-    }),
-    columnHelper.display({
       id: "tasks",
       header: "Tasks",
       meta: { label: "Tasks", width: "xs" },

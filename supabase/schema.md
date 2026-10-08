@@ -125,7 +125,7 @@ policy — see `0006_tasks.sql`.
 | `season_id` | uuid, FK → `seasons.id`, not null, `on delete restrict` | restrict, not cascade/set null — seasons are soft-deleted, not hard-deleted, matching `brands.season_id`'s original reasoning |
 | `created_at` | timestamptz | |
 
-`unique (brand_id, season_id)` — no duplicate associations. `createBrand`/`updateBrand` (`brands/_actions.ts`) write the full set here in the same request as the `brands` row itself; an edit replaces the whole set rather than diffing add/remove.
+`unique (brand_id, season_id)` — no duplicate associations. **No longer used by the app:** every brand belongs to every season (client decision), so nothing reads or writes this table any more and new brands get no rows. Older rows remain; their `on delete restrict` FK still blocks hard-deleting a season they reference.
 
 **RLS:** same matrix as `brands` and `task_people` — any authenticated user reads; only admin writes (`brand.manage`/`brand.delete`).
 

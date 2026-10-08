@@ -10,17 +10,15 @@ import { updateBrand } from "@/app/(app)/brands/_actions";
 import { BRANDS_QUERY_STATE } from "@/app/(app)/brands/query-state";
 import { BRAND_STATUS_CONFIG } from "@/constants/brand-status";
 import type { Brand } from "@/data/brands";
-import type { DataTableFilterOption } from "@/components/data-table/table-features";
 
 interface BrandsBoardProps {
   brands: Brand[];
   rowCount: number;
   canManage: boolean;
   canDelete: boolean;
-  seasonOptions: DataTableFilterOption[];
 }
 
-export const BrandsBoard = ({ brands, rowCount, canManage, canDelete, seasonOptions }: BrandsBoardProps) => {
+export const BrandsBoard = ({ brands, rowCount, canManage, canDelete }: BrandsBoardProps) => {
   const queryState = useDataTableQueryState(BRANDS_QUERY_STATE);
   const rowEditing = useRowEditing();
   const [isSaving, setIsSaving] = useState(false);
@@ -39,11 +37,11 @@ export const BrandsBoard = ({ brands, rowCount, canManage, canDelete, seasonOpti
   }
 
   const brandColumns = useMemo(
-    () => createBrandColumns({ canManage, canDelete, rowEditing, isSaving, onConfirmEdit: handleConfirmEdit, seasonOptions }),
+    () => createBrandColumns({ canManage, canDelete, rowEditing, isSaving, onConfirmEdit: handleConfirmEdit }),
     // rowEditing's methods are stable across renders (from useState setters); only its
     // values (editingId/draft) actually need to trigger a column rebuild.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [canManage, canDelete, rowEditing.editingId, rowEditing.draft, isSaving, seasonOptions]
+    [canManage, canDelete, rowEditing.editingId, rowEditing.draft, isSaving]
   );
 
   return (
@@ -62,7 +60,6 @@ export const BrandsBoard = ({ brands, rowCount, canManage, canDelete, seasonOpti
             placeholder: "Status",
             options: Object.entries(BRAND_STATUS_CONFIG).map(([value, { label }]) => ({ value, label })),
           },
-          { columnId: "season_id", title: "Seasons", placeholder: "Season", options: seasonOptions, searchable: true },
         ],
         sortOptions: [
           { columnId: "brand_name", desc: false, label: "Brand Name (A-Z)" },

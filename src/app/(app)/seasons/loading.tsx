@@ -25,7 +25,7 @@ export default function SeasonsLoading() {
         </div>
 
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_320px]">
-          <DataTableSkeleton filterCount={2} columnCount={8} rowCount={10} />
+          <DataTableSkeleton filterCount={1} columnCount={7} rowCount={10} />
           <div className="flex flex-col gap-4">
             <Card className="gap-3 px-4">
               <div className="flex items-center justify-between">

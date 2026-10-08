@@ -9,20 +9,17 @@ import { Form } from "@/components/ui/form";
 import { TextField } from "@/components/form-fields/text-field";
 import { TextareaField } from "@/components/form-fields/textarea-field";
 import { SelectField } from "@/components/form-fields/select-field";
-import { MultiSelectField } from "@/components/form-fields/multi-select-field";
 import { ColorField } from "@/components/form-fields/color-field";
 import { brandSchema, brandStatusValues, type BrandInput } from "@/app/(app)/brands/schema";
 import { createBrand } from "@/app/(app)/brands/_actions";
 import { BRAND_STATUS_CONFIG } from "@/constants/brand-status";
 import { VIZ_COLORS } from "@/constants/chart-colors";
-import type { listSeasonOptions } from "@/data/seasons";
 
 interface BrandFormProps {
   onSuccess: () => void;
-  seasonOptions: Awaited<ReturnType<typeof listSeasonOptions>>;
 }
 
-export const BrandForm = ({ onSuccess, seasonOptions }: BrandFormProps) => {
+export const BrandForm = ({ onSuccess }: BrandFormProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const form = useForm<BrandInput>({
     resolver: zodResolver(brandSchema),
@@ -31,7 +28,6 @@ export const BrandForm = ({ onSuccess, seasonOptions }: BrandFormProps) => {
       description: "",
       status: "active",
       color: VIZ_COLORS[0],
-      season_ids: seasonOptions[0] ? [seasonOptions[0].id] : [],
     },
   });
 
@@ -67,12 +63,6 @@ export const BrandForm = ({ onSuccess, seasonOptions }: BrandFormProps) => {
           options={brandStatusValues.map((value) => ({ value, label: BRAND_STATUS_CONFIG[value].label }))}
         />
         <ColorField control={form.control} name="color" label="Colour" />
-        <MultiSelectField
-          control={form.control}
-          name="season_ids"
-          label="Seasons"
-          options={seasonOptions.map((season) => ({ value: season.id, label: season.season }))}
-        />
         <Button type="submit" disabled={isSubmitting} className="mt-2">
           {isSubmitting ? "Creating…" : "Create Brand"}
         </Button>
