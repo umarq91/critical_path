@@ -706,7 +706,7 @@ card — **still 0 requests on interaction**.
     summary-rows.ts`) are always the **whole-table** numbers, never scoped to anything — same
     reasoning as `getDashboardMetrics()` itself, see the note in `summary-rows.ts`. **Task
     Records** is one row per task with a checkbox-configurable column set
-    (`dashboard/export/task-record-columns.ts`) — deliberately excludes `assignee_id`, superseded
+    (`tasks/export/task-record-columns.ts`) — deliberately excludes `assignee_id`, superseded
     by `task_participants` (see Tasks section below).
   - **CSV holds exactly one table** — `lib/export/csv.ts`'s `buildCsv()` takes a single sheet,
     so the route's `resolveSections()` collapses a CSV request down to one section (preferring
@@ -1279,8 +1279,15 @@ checklist, because Task Management has exactly one table to export.
   page's `columns.tsx` left-to-right order by hand, because `columns.tsx` is `"use client"` and
   can't be imported into a Route Handler. **If you reorder, add or remove a table column, update
   that page's list too.** Unticked columns are left out and the rest keep their relative order.
-  Export-only fields go next to their table counterpart, or after the table's columns if they
-  have none. A key missing from the list isn't dropped; it goes last.
+  A key missing from the list isn't dropped; it goes last.
+- **An export offers only what its table shows — no export-only columns.** Client decision: raw
+  ids, descriptions/colours the table doesn't render, created/updated timestamps and Created/Last
+  Edited By were removed from every export, and every remaining column is ticked by default so an
+  untouched dialog exports the table. The only reshaping: Tasks' Working Timeline cell becomes
+  Start Date + Expected Finish, and Critical Task (a row tint on screen) is its own column. Table
+  columns with no data on the row (Brands' placeholder Tasks, Seasons' Tasks/Completion %, which
+  come from a separate stats query) aren't exported. Add a column to the table first, then the
+  export — never the other way round.
 - **The "Season" column exports `season_code`** (the app's single season value, see § Seasons &
   Key Stages). The dialog shows no per-column or per-format descriptions.
   Both changes reach the Dashboard export too, because it uses the same column groups.

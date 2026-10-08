@@ -4,8 +4,9 @@ import type { ExportColumnGroup } from "@/lib/export/types";
 import type { Brand } from "@/data/brands";
 
 // One row per brand, drawn from the SAME `Brand` shape the admin board already renders —
-// deliberately not a second, export-specific query. Brands is a small lookup table with few
-// fields, so unlike Tasks there's only one column group.
+// deliberately not a second, export-specific query. The columns are exactly the board's own
+// (brands/columns.tsx), nothing export-only: Description, Colour and the raw id aren't on the
+// table, so they aren't in the file. The Tasks column is left out because it has no data yet.
 export const BRAND_RECORD_COLUMN_GROUPS: ExportColumnGroup<Brand>[] = [
   {
     key: "details",
@@ -21,30 +22,13 @@ export const BRAND_RECORD_COLUMN_GROUPS: ExportColumnGroup<Brand>[] = [
         width: 14,
         getValue: (b) => BRAND_STATUS_CONFIG[b.status]?.label ?? b.status,
       },
-      { key: "description", label: "Description", category: "details", defaultSelected: false, dataType: "string", width: 36, getValue: (b) => b.description },
-      { key: "color", label: "Colour", category: "details", defaultSelected: false, dataType: "string", width: 10, getValue: (b) => b.color },
-      { key: "id", label: "Brand ID", category: "details", defaultSelected: false, dataType: "string", width: 38, getValue: (b) => b.id },
-    ],
-  },
-  {
-    key: "dates",
-    label: "Dates",
-    columns: [
-      { key: "created_at", label: "Created At (Melbourne time)", category: "dates", defaultSelected: false, dataType: "date", width: 20, getValue: (b) => toExportTimestamp(b.created_at) },
-      { key: "updated_at", label: "Last Updated (Melbourne time)", category: "dates", defaultSelected: false, dataType: "date", width: 20, getValue: (b) => toExportTimestamp(b.updated_at) },
+      // Both writers print a date column day-only, so this is the Melbourne calendar day — what
+      // the board's Created On shows.
+      { key: "created_at", label: "Created On", category: "details", defaultSelected: true, dataType: "date", width: 14, getValue: (b) => toExportTimestamp(b.created_at) },
     ],
   },
 ];
 
 // The file's column order: this page's table, left to right (brands/columns.tsx is "use client",
-// so the export route can't import it — update both together). Export-only fields sit beside
-// their table counterpart or trail after.
-export const BRAND_GRID_COLUMN_ORDER = [
-  "brand_name",
-  "status",
-  "created_at",
-  "updated_at",
-  "description",
-  "color",
-  "id",
-];
+// so the export route can't import it — update both together).
+export const BRAND_GRID_COLUMN_ORDER = ["brand_name", "status", "created_at"];

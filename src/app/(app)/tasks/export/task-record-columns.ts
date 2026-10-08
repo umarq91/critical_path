@@ -2,7 +2,7 @@ import { taskOwners, taskPeopleInvolved } from "@/app/(app)/tasks/task-parties";
 import { TASK_STATUS_CONFIG } from "@/constants/task-status";
 import { TASK_GENDER_CONFIG } from "@/constants/task-gender";
 import { DPSP_CATEGORY_CONFIG } from "@/constants/dpsp-category";
-import { toExportDateOnly, toExportTimestamp } from "@/lib/export/dates";
+import { toExportDateOnly } from "@/lib/export/dates";
 import type { ExportColumnGroup } from "@/lib/export/types";
 import type { Task } from "@/data/tasks";
 
@@ -21,11 +21,12 @@ function partyNames(parties: { name: string }[]) {
 // it in an export would hand out a column that quietly disagrees with the Owners column derived
 // from the current source of truth.
 //
-// Categories and default-on/off follow the same "important vs optional" call the rest of the
-// app already makes for this data: what's on the task grid by default (name, status, season,
-// brand, key stage, due date) stays on; audit-trail and rarely-populated fields (created/updated
-// timestamps, working-timeline dates, the raw id) start off but stay available. Priority is
-// left out entirely: it's hidden everywhere in the UI (client request), so it isn't offered here.
+// The columns are what the Task Management grid shows (tasks/columns.tsx), nothing export-only —
+// no Locked, Task ID, Created/Updated or Created/Last Edited By. Two grid cells map to more than
+// one export column: Working Timeline is split into Start Date / Expected Finish (one range cell
+// isn't sortable in a spreadsheet), and Critical Task is its own column because the grid only
+// shows it as a row tint. Priority is hidden everywhere in the UI (client request), so it isn't
+// offered here.
 export const TASK_RECORD_COLUMN_GROUPS: ExportColumnGroup<Task>[] = [
   {
     key: "basic",
@@ -68,24 +69,6 @@ export const TASK_RECORD_COLUMN_GROUPS: ExportColumnGroup<Task>[] = [
         width: 12,
         getValue: (t) => t.is_critical,
       },
-      {
-        key: "is_locked",
-        label: "Locked",
-        category: "basic",
-        defaultSelected: false,
-        dataType: "boolean",
-        width: 10,
-        getValue: (t) => t.is_locked,
-      },
-      {
-        key: "id",
-        label: "Task ID",
-        category: "basic",
-        defaultSelected: false,
-        dataType: "string",
-        width: 38,
-        getValue: (t) => t.id,
-      },
     ],
   },
   {
@@ -123,7 +106,7 @@ export const TASK_RECORD_COLUMN_GROUPS: ExportColumnGroup<Task>[] = [
         key: "start_date",
         label: "Start Date",
         category: "dates",
-        defaultSelected: false,
+        defaultSelected: true,
         dataType: "date",
         width: 14,
         getValue: (t) => (t.start_date ? toExportDateOnly(t.start_date) : null),
@@ -132,28 +115,10 @@ export const TASK_RECORD_COLUMN_GROUPS: ExportColumnGroup<Task>[] = [
         key: "end_date",
         label: "Expected Finish",
         category: "dates",
-        defaultSelected: false,
+        defaultSelected: true,
         dataType: "date",
         width: 16,
         getValue: (t) => (t.end_date ? toExportDateOnly(t.end_date) : null),
-      },
-      {
-        key: "created_at",
-        label: "Created At (Melbourne time)",
-        category: "dates",
-        defaultSelected: false,
-        dataType: "date",
-        width: 20,
-        getValue: (t) => toExportTimestamp(t.created_at),
-      },
-      {
-        key: "updated_at",
-        label: "Last Updated (Melbourne time)",
-        category: "dates",
-        defaultSelected: false,
-        dataType: "date",
-        width: 20,
-        getValue: (t) => toExportTimestamp(t.updated_at),
       },
     ],
   },
@@ -179,24 +144,6 @@ export const TASK_RECORD_COLUMN_GROUPS: ExportColumnGroup<Task>[] = [
         width: 32,
         getValue: (t) => partyNames(taskPeopleInvolved(t)),
       },
-      {
-        key: "created_by",
-        label: "Created By",
-        category: "people",
-        defaultSelected: false,
-        dataType: "string",
-        width: 24,
-        getValue: (t) => t.created_by_profile?.full_name ?? t.created_by_profile?.email ?? null,
-      },
-      {
-        key: "last_edited_by",
-        label: "Last Edited By",
-        category: "people",
-        defaultSelected: false,
-        dataType: "string",
-        width: 24,
-        getValue: (t) => t.last_edited_by_profile?.full_name ?? t.last_edited_by_profile?.email ?? null,
-      },
     ],
   },
 ];
@@ -204,9 +151,8 @@ export const TASK_RECORD_COLUMN_GROUPS: ExportColumnGroup<Task>[] = [
 // The order columns land in the file: the Task Management grid's left-to-right order
 // (tasks/columns.tsx — kept as a plain list because that module is "use client" and can't be
 // imported into a Route Handler; update both together). The groups above only shape the export
-// dialog's checklist. Export-only fields sit beside their grid counterpart (Start/Expected
-// Finish where Working Timeline is); the rest trail after the grid's
-// own columns.
+// dialog's checklist. Critical Task sits beside Task Name, Start/Expected Finish where Working
+// Timeline is.
 export const TASK_GRID_COLUMN_ORDER = [
   "status",
   "season",
@@ -222,10 +168,4 @@ export const TASK_GRID_COLUMN_ORDER = [
   "gender",
   "dpsp_category",
   "notes",
-  "is_locked",
-  "created_by",
-  "last_edited_by",
-  "created_at",
-  "updated_at",
-  "id",
 ];

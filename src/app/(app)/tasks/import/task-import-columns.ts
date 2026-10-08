@@ -2,8 +2,7 @@ import { TASK_GRID_COLUMN_ORDER, TASK_RECORD_COLUMN_GROUPS } from "@/app/(app)/t
 
 // The export columns a task import reads. Headers are the export's own labels (looked up below,
 // not retyped), so an exported sheet can be edited and uploaded straight back, and the template
-// can never drift from the export. Any other export column (Locked, Task ID, Created At, …) is
-// ignored on upload: those are stamped by the system, not chosen by whoever fills the sheet.
+// can never drift from the export.
 const IMPORT_FIELDS = [
   "task_name",
   "status",
