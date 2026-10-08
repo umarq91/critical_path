@@ -15,7 +15,7 @@ export interface IntegrationSeasonRow {
   id: string;
   season_code: string;
   season_name: string;
-  status: string;
+  status: string | null;
   start_date: string | null;
   end_date: string | null;
   updated_at: string;

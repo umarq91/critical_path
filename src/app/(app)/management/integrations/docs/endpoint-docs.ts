@@ -88,16 +88,16 @@ export const ENDPOINT_DOCS: EndpointDoc[] = [
     status: "live",
     purpose: "Season master data.",
     queryParams: params("cursor", "page_size", "updated_since", "include_deleted"),
-    note: "`version` is always null — this schema has no change-counter column, on seasons or anywhere else.",
+    note: "`version` is always null — this schema has no change-counter column, on seasons or anywhere else. `status`, `start_date` and `end_date` are nullable: the app no longer tracks a season's status or date range, so seasons created since then send null for all three. Older seasons still return the values they were stored with.",
     exampleResponse: {
       data: [
         {
           season_id: "b0455f54-d9dc-4d30-91f4-9cb31f44f745",
           season_code: "RES H2'26",
           season_name: "Winter 2026",
-          status: "active",
-          start_date: "2025-09-01",
-          end_date: "2026-02-28",
+          status: null,
+          start_date: null,
+          end_date: null,
           updated_at: "2026-08-02T08:12:52Z",
           deleted_at: null,
           version: null,

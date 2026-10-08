@@ -289,7 +289,10 @@ Path parameters: `task_id`
 `null`, never a real integer like the `5` in the example below — this schema has no
 change-counter column on `seasons` (or anywhere), and nothing invents one for this field alone.
 Cursor is a real opaque token (`lib/integration/cursor.ts`), not the literal string shown in the
-example — treat it as a black box and resubmit whatever `next_cursor` came back.
+example — treat it as a black box and resubmit whatever `next_cursor` came back. `status`,
+`start_date` and `end_date` are **nullable**: the app no longer tracks a season's status or date
+range, so seasons created since then return `null` for all three (older seasons keep their stored
+values).
 
 Purpose: season master data
 

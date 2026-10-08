@@ -618,10 +618,12 @@ because `seed-seasons.sql` clears it and its FK restricts deleting a season (see
 interval containing that season's tasks (min/max of Working Timeline start/end and DUE DATE).
 `status` is computed against the seed date, not stored in the sheet — it's a snapshot.
 
-**`planning` is retired from the app, not the DB.** The `season_status` enum (and the column
-default) still contain it, but `seasonStatusValues` / `SEASON_STATUS_CONFIG` don't, so it's never
-offered in the form, inline edit or filter, and the create form defaults to `upcoming`. A leftover
-`planning` row still renders (badge falls back to the raw value) but isn't counted in the stat cards.
+**Seasons have no status in the app.** Client decision: no Status field, column, inline edit,
+filter, export column or badge, no Active/Upcoming/Completed stat cards (only Total Seasons), and
+no Upcoming Seasons panel. `seasons.status` is nullable with no default since `0039`, so new seasons
+are null; seeded/older rows keep theirs. Only the integration API still reads it (`/seasons` returns
+`status`, documented as nullable). Don't bring back a status-derived widget without a source of
+truth for it: there's nothing keeping the stored values current.
 
 **Key stage order is not preserved and the Timeline is wrong because of it.** `key_stages` has no
 `sort_order` column (`0008_key_stages.sql`) and `data/key-stages.ts` orders by `name`, so

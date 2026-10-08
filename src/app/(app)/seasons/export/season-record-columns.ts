@@ -1,4 +1,3 @@
-import { SEASON_STATUS_CONFIG } from "@/constants/season-status";
 import { toExportTimestamp } from "@/lib/export/dates";
 import type { ExportColumnGroup } from "@/lib/export/types";
 import type { Season } from "@/data/seasons";
@@ -12,15 +11,6 @@ export const SEASON_RECORD_COLUMN_GROUPS: ExportColumnGroup<Season>[] = [
     label: "Season Details",
     columns: [
       { key: "season", label: "Season", category: "details", defaultSelected: true, dataType: "string", width: 16, getValue: (s) => s.season },
-      {
-        key: "status",
-        label: "Status",
-        category: "details",
-        defaultSelected: true,
-        dataType: "string",
-        width: 14,
-        getValue: (s) => SEASON_STATUS_CONFIG[s.status]?.label ?? s.status,
-      },
       { key: "color", label: "Colour", category: "details", defaultSelected: false, dataType: "string", width: 10, getValue: (s) => s.color },
       { key: "id", label: "Season ID", category: "details", defaultSelected: false, dataType: "string", width: 38, getValue: (s) => s.id },
     ],
@@ -41,7 +31,6 @@ export const SEASON_RECORD_COLUMN_GROUPS: ExportColumnGroup<Season>[] = [
 export const SEASON_GRID_COLUMN_ORDER = [
   "season",
   "color",
-  "status",
   "created_at",
   "updated_at",
   "id",

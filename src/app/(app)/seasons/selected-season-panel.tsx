@@ -2,8 +2,6 @@ import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { StatusBadge } from "@/components/shared/status-badge";
-import { SEASON_STATUS_CONFIG } from "@/constants/season-status";
 import type { Season } from "@/data/seasons";
 import { formatTimestampDate } from "@/lib/dates";
 
@@ -26,10 +24,7 @@ export const SelectedSeasonPanel = ({ season }: { season: Season }) => {
 
   return (
     <Card className="gap-3 px-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold text-foreground">Selected Season</p>
-        <StatusBadge value={season.status} config={SEASON_STATUS_CONFIG} />
-      </div>
+      <p className="text-sm font-semibold text-foreground">Selected Season</p>
       <p className="text-lg font-semibold text-foreground">{season.season}</p>
       <div className="divide-y divide-border">
         <DetailRow label="Last Updated" value={formatTimestampDate(season.updated_at)} />

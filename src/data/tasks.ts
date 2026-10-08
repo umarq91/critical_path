@@ -428,7 +428,7 @@ export async function listTasksForFlywheel(filters: Record<string, string> = {})
 }
 
 // The My Tasks page's one query — a thin preset over listTasks(), same shape as
-// listUpcomingSeasons/listUpcomingBrands elsewhere: still fully paginated/sorted/filterable
+// listUpcomingTasks: still fully paginated/sorted/filterable
 // (search, season/brand/status/priority/due-range all layer on top via `params.filters`), just
 // with one fixed constraint the caller can't relax: scoped to this person's own tasks (see
 // scopeToProfileId). Deliberately no due_date floor — created/owned/involved tasks show up

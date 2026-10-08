@@ -2,7 +2,6 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { compareLabels } from "@/lib/utils";
 import { MAX_LOOKUP_EXPORT_ROWS } from "@/lib/export/types";
-import { seasonStatusValues, type SeasonInput } from "@/app/(app)/seasons/schema";
 
 export interface ListSeasonsParams {
   page?: number;
@@ -15,12 +14,8 @@ export interface ListSeasonsParams {
 // `season` is the app's name for the `season_code` column; `season_name` is never read here
 // (it only exists for the integration API).
 const SEASON_SELECT =
-  "id, season:season_code, status, color, created_at, updated_at, deleted_at";
-const SORT_COLUMNS: Record<string, string> = { season: "season_code", status: "status" };
-
-function isSeasonStatus(value: string | undefined): value is SeasonInput["status"] {
-  return !!value && (seasonStatusValues as readonly string[]).includes(value);
-}
+  "id, season:season_code, color, created_at, updated_at, deleted_at";
+const SORT_COLUMNS: Record<string, string> = { season: "season_code" };
 
 export async function listSeasons({ page = 1, pageSize = 10, sortBy, sortDir, filters = {} }: ListSeasonsParams = {}) {
   const supabase = await createClient();
@@ -30,9 +25,6 @@ export async function listSeasons({ page = 1, pageSize = 10, sortBy, sortDir, fi
     .is("deleted_at", null);
 
   if (filters.season) query = query.ilike("season_code", `%${filters.season}%`);
-  // Validated against the real enum, not just cast — an arbitrary string from the URL would
-  // otherwise error the query outright (Postgres enum comparison, not a loose text match).
-  if (isSeasonStatus(filters.status)) query = query.eq("status", filters.status);
   const orderColumn = (sortBy && SORT_COLUMNS[sortBy]) ?? "season_code";
   query = query.order(orderColumn, { ascending: sortDir !== "desc" });
 
@@ -55,46 +47,15 @@ export async function listSeasonsForExport(params: Omit<ListSeasonsParams, "page
   return { data, rowCount, truncated: rowCount > MAX_LOOKUP_EXPORT_ROWS };
 }
 
-// Aggregates for the stat cards + toolbar filter dropdowns — these must reflect the whole
-// dataset, not whatever page listSeasons() currently has loaded, so they're a separate,
-// narrow-column query rather than derived from the paginated result.
-export async function listSeasonSummary() {
+// The "Total Seasons" stat card — the whole dataset, not whatever page listSeasons() has loaded.
+export async function listSeasonCount() {
   const supabase = await createClient();
-  const { data, error } = await supabase
+  const { count, error } = await supabase
     .from("seasons")
-    .select("status")
+    .select("id", { count: "exact", head: true })
     .is("deleted_at", null);
   if (error) throw error;
-
-  const rows = data ?? [];
-  const statusCounts = Object.fromEntries(seasonStatusValues.map((status) => [status, 0])) as Record<
-    (typeof seasonStatusValues)[number],
-    number
-  >;
-
-  for (const row of rows) {
-    if (isSeasonStatus(row.status)) statusCounts[row.status]++;
-  }
-
-  return {
-    total: rows.length,
-    statusCounts,
-  };
-}
-
-// The "Upcoming Seasons" side panel — independent of the main paginated/sorted/filtered
-// view (an upcoming season may not even be on the current page).
-export async function listUpcomingSeasons(limit = 4) {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("seasons")
-    .select("id, season:season_code")
-    .is("deleted_at", null)
-    .eq("status", "upcoming")
-    .order("season_code", { ascending: true })
-    .limit(limit);
-  if (error) throw error;
-  return data ?? [];
+  return count ?? 0;
 }
 
 export interface SeasonTaskStats {

@@ -4,7 +4,7 @@ import { StatCard } from "@/components/shared/stat-card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { SeasonPageActions } from "@/app/(app)/seasons/season-page-actions";
 import { SeasonsBoard } from "@/app/(app)/seasons/seasons-board";
-import { listSeasons, listSeasonSummary, listSeasonTaskStats, listUpcomingSeasons } from "@/data/seasons";
+import { listSeasonCount, listSeasons, listSeasonTaskStats } from "@/data/seasons";
 import { getCurrentProfile } from "@/data/profiles";
 import { can } from "@/lib/permissions";
 import { requirePageAccess } from "@/lib/require-page-access";
@@ -21,10 +21,9 @@ export default async function SeasonsPage({
   await requirePageAccess("lookups.view");
   const queryState = await loadDataTableSearchParams(searchParams, SEASONS_QUERY_STATE);
 
-  const [{ data: seasons, rowCount }, summary, upcomingSeasons, profile] = await Promise.all([
+  const [{ data: seasons, rowCount }, totalSeasons, profile] = await Promise.all([
     listSeasons(queryState),
-    listSeasonSummary(),
-    listUpcomingSeasons(4),
+    listSeasonCount(),
     getCurrentProfile(),
   ]);
   const canManage = !!profile && can(profile.role, "admin.manage_lookups");
@@ -35,7 +34,7 @@ export default async function SeasonsPage({
     <div className="flex flex-col">
       <PageHeader
         title="Seasons"
-        description="Manage and organise all active and upcoming seasons."
+        description="Manage and organise seasons."
         action={<SeasonPageActions canCreateSeason={canManage} canExport={canExport} rowCount={rowCount} />}
       />
       <div className="flex flex-col gap-4 px-6 pb-6">
@@ -44,29 +43,8 @@ export default async function SeasonsPage({
             icon={Calendar}
             iconClassName="bg-primary-tint text-primary"
             label="Total Seasons"
-            value={summary.total}
+            value={totalSeasons}
             description="All seasons in the system"
-          />
-          <StatCard
-            icon={Calendar}
-            iconClassName="bg-status-complete-soft text-status-complete-text"
-            label="Active Seasons"
-            value={summary.statusCounts.active}
-            description="Currently active"
-          />
-          <StatCard
-            icon={Calendar}
-            iconClassName="bg-status-progress-soft text-status-progress-text"
-            label="Upcoming Seasons"
-            value={summary.statusCounts.upcoming}
-            description="Starting in future"
-          />
-          <StatCard
-            icon={Calendar}
-            iconClassName="bg-prio-med-soft text-prio-med"
-            label="Completed Seasons"
-            value={summary.statusCounts.completed}
-            description="Finished seasons"
           />
         </div>
 
@@ -74,7 +52,6 @@ export default async function SeasonsPage({
           seasons={seasons}
           rowCount={rowCount}
           canManage={canManage}
-          upcomingSeasons={upcomingSeasons}
           seasonStats={seasonStats}
         />
 

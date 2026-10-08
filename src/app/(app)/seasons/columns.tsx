@@ -2,21 +2,18 @@
 
 import { createColumnHelper } from "@tanstack/react-table";
 import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header";
-import { StatusBadge } from "@/components/shared/status-badge";
 import { EditableCell } from "@/components/shared/editable-cell";
 import { RowEditToggle } from "@/components/shared/row-edit-toggle";
 import { Progress as ProgressPrimitive } from "@base-ui/react/progress";
 import { ProgressTrack, ProgressIndicator } from "@/components/ui/progress";
 import type { RowEditingState } from "@/components/data-table/use-row-editing";
 import { dataTableFeatures } from "@/components/data-table/table-features";
-import { SEASON_STATUS_CONFIG } from "@/constants/season-status";
 import { SeasonRowActions } from "@/app/(app)/seasons/season-row-actions";
 import type { Season, SeasonTaskStats } from "@/data/seasons";
 
 const columnHelper = createColumnHelper<typeof dataTableFeatures, Season>();
 
-const STATUS_OPTIONS = Object.entries(SEASON_STATUS_CONFIG).map(([value, { label }]) => ({ value, label }));
-const EDITABLE_FIELDS = ["status", "color"] as const;
+const EDITABLE_FIELDS = ["color"] as const;
 
 interface CreateSeasonColumnsOptions {
   canManage: boolean;
@@ -64,24 +61,6 @@ export function createSeasonColumns({
           isEditing={rowEditing.isEditing(row.original.id)}
           draftValue={rowEditing.draft.color}
           onDraftChange={(next) => rowEditing.setDraftField("color", next)}
-        />
-      ),
-    }),
-    columnHelper.accessor("status", {
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Status" wrap={isResized} />,
-      meta: { label: "Status", width: "sm" },
-      size: 130,
-      minSize: 90,
-      filterFn: "weakEquals",
-      cell: ({ row, getValue }) => (
-        <EditableCell
-          value={getValue()}
-          display={<StatusBadge value={getValue()} config={SEASON_STATUS_CONFIG} />}
-          variant="select"
-          options={STATUS_OPTIONS}
-          isEditing={rowEditing.isEditing(row.original.id)}
-          draftValue={rowEditing.draft.status}
-          onDraftChange={(next) => rowEditing.setDraftField("status", next)}
         />
       ),
     }),

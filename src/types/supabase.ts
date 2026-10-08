@@ -682,7 +682,7 @@ export type Database = {
           season_code: string
           season_name: string
           start_date: string | null
-          status: Database["public"]["Enums"]["season_status"]
+          status: Database["public"]["Enums"]["season_status"] | null
           updated_at: string
         }
         Insert: {
@@ -694,7 +694,7 @@ export type Database = {
           season_code: string
           season_name: string
           start_date?: string | null
-          status?: Database["public"]["Enums"]["season_status"]
+          status?: Database["public"]["Enums"]["season_status"] | null
           updated_at?: string
         }
         Update: {
@@ -706,7 +706,7 @@ export type Database = {
           season_code?: string
           season_name?: string
           start_date?: string | null
-          status?: Database["public"]["Enums"]["season_status"]
+          status?: Database["public"]["Enums"]["season_status"] | null
           updated_at?: string
         }
         Relationships: []

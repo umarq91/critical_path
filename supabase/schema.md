@@ -33,7 +33,7 @@ policy — see `0006_tasks.sql`.
 | Enum | Values | Used by |
 |---|---|---|
 | `user_role` | `admin`, `standard_user`, `viewer`, `external` | `profiles.role`. `external` (`0017`) = a platform user who is **not** in the client's Google Workspace: created by an admin, signs in with email + password, never through Google. Role and account type are one and the same thing — there is no separate `auth_provider` column, deliberately, so the two can't disagree |
-| `season_status` | `planning`, `upcoming`, `active`, `completed` | `seasons.status` |
+| `season_status` | `planning`, `upcoming`, `active`, `completed` | `seasons.status` (nullable since `0039`; the app no longer uses it) |
 | `brand_status` | `active`, `inactive` | `brands.status` |
 | `task_gender` | `guys`, `girls`, `unisex` | `tasks.gender`. Renamed from `men`/`women` in `0026_task_gender_rename.sql` (`ALTER TYPE ... RENAME VALUE`, so every existing row kept its data). `unisex` is retired — still a legal enum value for old rows, but no longer offered anywhere in the app (`taskGenderValues` in `tasks/schema.ts` is just `guys`/`girls`); see things-to-know.md's Tasks section |
 | `task_status` | `not_started`, `in_progress`, `completed`, `overdue` | `tasks.status` |
@@ -86,7 +86,7 @@ policy — see `0006_tasks.sql`.
 | `id` | uuid, PK | |
 | `season_code` | text, unique | the season, e.g. `RES H2'26`. The app's only season value, shown everywhere as "Season" (queried as `season:season_code`) |
 | `season_name` | text | **Integration API only.** The app never reads it; `createSeason` sets it equal to `season_code`. Kept because `/integration/v1/*` still returns `season_name` |
-| `status` | `season_status`, default `planning` | |
+| `status` | `season_status`, nullable, no default (`0039`) | no longer set or shown by the app — new seasons write null; older rows keep their status. Still returned by the integration API |
 | `start_date` | date, nullable (`0037`) | no longer set by the app — new seasons write null; older rows keep their dates |
 | `end_date` | date, nullable (`0037`) | same as `start_date`; when both are set, must be ≥ `start_date` |
 | `color` | text, default `#2b6ef6` | season colour-coding across the app |
@@ -465,6 +465,7 @@ Unique `(task_id, profile_id)`; index on `profile_id`.
 | `0036_task_is_critical.sql` | Adds `tasks.is_critical` (boolean, not null, default false) and a partial index on critical, non-deleted tasks. Covered by the existing tasks RLS; `0029`'s viewer trigger doesn't admit it, so viewers can't flip it. |
 | `0037_season_dates_nullable.sql` | Drops NOT NULL from `seasons.start_date`/`end_date`. The app no longer collects season dates and inserts null; the end ≥ start CHECK stays (it passes on null). |
 | `0038_brand_code_nullable.sql` | Drops NOT NULL from `brands.brand_code`. The app no longer collects a brand code and inserts null; UNIQUE stays (nulls are distinct). |
+| `0039_season_status_nullable.sql` | Drops NOT NULL and the `planning` default from `seasons.status`. The app no longer uses season status and inserts null; the enum stays for older rows. |
 
 ## Not built yet
 

@@ -7,11 +7,9 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Form } from "@/components/ui/form";
 import { TextField } from "@/components/form-fields/text-field";
-import { SelectField } from "@/components/form-fields/select-field";
 import { ColorField } from "@/components/form-fields/color-field";
-import { seasonSchema, seasonStatusValues, type SeasonInput } from "@/app/(app)/seasons/schema";
+import { seasonSchema, type SeasonInput } from "@/app/(app)/seasons/schema";
 import { createSeason } from "@/app/(app)/seasons/_actions";
-import { SEASON_STATUS_CONFIG } from "@/constants/season-status";
 import { VIZ_COLORS } from "@/constants/chart-colors";
 
 interface SeasonFormProps {
@@ -24,7 +22,6 @@ export const SeasonForm = ({ onSuccess }: SeasonFormProps) => {
     resolver: zodResolver(seasonSchema),
     defaultValues: {
       season: "",
-      status: "upcoming",
       color: VIZ_COLORS[0],
     },
   });
@@ -48,12 +45,6 @@ export const SeasonForm = ({ onSuccess }: SeasonFormProps) => {
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4">
         <TextField control={form.control} name="season" label="Season" placeholder="RES H2'26" />
-        <SelectField
-          control={form.control}
-          name="status"
-          label="Status"
-          options={seasonStatusValues.map((value) => ({ value, label: SEASON_STATUS_CONFIG[value].label }))}
-        />
         <ColorField control={form.control} name="color" label="Colour" />
         <Button type="submit" disabled={isSubmitting} className="mt-2">
           {isSubmitting ? "Creating…" : "Create Season"}

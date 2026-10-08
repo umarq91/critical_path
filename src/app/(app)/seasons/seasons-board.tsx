@@ -8,16 +8,13 @@ import { useRowEditing } from "@/components/data-table/use-row-editing";
 import { createSeasonColumns } from "@/app/(app)/seasons/columns";
 import { updateSeason } from "@/app/(app)/seasons/_actions";
 import { SelectedSeasonPanel } from "@/app/(app)/seasons/selected-season-panel";
-import { UpcomingSeasonsPanel } from "@/app/(app)/seasons/upcoming-seasons-panel";
 import { SEASONS_QUERY_STATE } from "@/app/(app)/seasons/query-state";
-import { SEASON_STATUS_CONFIG } from "@/constants/season-status";
-import type { Season, SeasonTaskStats, listUpcomingSeasons } from "@/data/seasons";
+import type { Season, SeasonTaskStats } from "@/data/seasons";
 
 interface SeasonsBoardProps {
   seasons: Season[];
   rowCount: number;
   canManage: boolean;
-  upcomingSeasons: Awaited<ReturnType<typeof listUpcomingSeasons>>;
   seasonStats: Record<string, SeasonTaskStats>;
 }
 
@@ -25,7 +22,6 @@ export const SeasonsBoard = ({
   seasons,
   rowCount,
   canManage,
-  upcomingSeasons,
   seasonStats,
 }: SeasonsBoardProps) => {
   const queryState = useDataTableQueryState(SEASONS_QUERY_STATE);
@@ -81,14 +77,6 @@ export const SeasonsBoard = ({
         onResizedChange={setIsColumnsResized}
         paginationLabel="seasons"
         toolbar={{
-          filters: [
-            {
-              columnId: "status",
-              title: "Season Status",
-              placeholder: "Season Status",
-              options: Object.entries(SEASON_STATUS_CONFIG).map(([value, { label }]) => ({ value, label })),
-            },
-          ],
           sortOptions: [
             { columnId: "season", desc: false, label: "Season (A-Z)" },
             { columnId: "season", desc: true, label: "Season (Z-A)" },
@@ -100,7 +88,6 @@ export const SeasonsBoard = ({
       {selectedSeason ? (
         <div className="flex flex-col gap-4">
           <SelectedSeasonPanel season={selectedSeason} />
-          <UpcomingSeasonsPanel seasons={upcomingSeasons} />
         </div>
       ) : null}
     </div>

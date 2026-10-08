@@ -1,7 +1,7 @@
 import type { StatusBadgeConfig } from "@/components/shared/status-badge";
 
-// Matches supabase/schema.md's brand_status enum exactly. Same soft-fill + border + text
-// treatment as SEASON_STATUS_CONFIG — each pulled from an existing globals.css token trio.
+// Matches supabase/schema.md's brand_status enum exactly. Soft fill + border + text, each
+// pulled from an existing globals.css token trio.
 export const BRAND_STATUS_CONFIG: StatusBadgeConfig = {
   active: {
     label: "Active",
