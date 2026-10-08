@@ -21,7 +21,7 @@ export interface ListTasksByBrandForIntegrationParams {
 
 export interface IntegrationBrandGroupRow extends GroupCounts {
   brand_id: string;
-  brand_code: string;
+  brand_code: string | null;
   brand_name: string;
 }
 

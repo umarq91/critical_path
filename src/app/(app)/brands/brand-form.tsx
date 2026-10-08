@@ -27,7 +27,6 @@ export const BrandForm = ({ onSuccess, seasonOptions }: BrandFormProps) => {
   const form = useForm<BrandInput>({
     resolver: zodResolver(brandSchema),
     defaultValues: {
-      brand_code: "",
       brand_name: "",
       description: "",
       status: "active",
@@ -55,7 +54,6 @@ export const BrandForm = ({ onSuccess, seasonOptions }: BrandFormProps) => {
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4">
         <TextField control={form.control} name="brand_name" label="Brand Name" placeholder="Brand A" />
-        <TextField control={form.control} name="brand_code" label="Code" placeholder="BR-A" />
         <TextareaField
           control={form.control}
           name="description"

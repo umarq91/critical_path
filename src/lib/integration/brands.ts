@@ -13,7 +13,7 @@ const BRAND_SELECT = "id, brand_code, brand_name, description, status, updated_a
 
 export interface IntegrationBrandRow {
   id: string;
-  brand_code: string;
+  brand_code: string | null;
   brand_name: string;
   description: string | null;
   status: string;

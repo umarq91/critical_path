@@ -103,7 +103,7 @@ policy — see `0006_tasks.sql`.
 | Column | Type | Notes |
 |---|---|---|
 | `id` | uuid, PK | |
-| `brand_code` | text, unique | stable short code, e.g. `BR-A` |
+| `brand_code` | text, unique, nullable (`0038`) | no longer set by the app — new brands write null; older rows keep their code (the integration API still returns it and filters on it) |
 | `brand_name` | text | display name, e.g. `Brand A` |
 | `description` | text, nullable | |
 | `status` | `brand_status`, default `active` | |
@@ -464,6 +464,7 @@ Unique `(task_id, profile_id)`; index on `profile_id`.
 | `0035_drop_season_owner.sql` | Drops `seasons.owner_id` (and its index/FK). Seasons have no owner; nothing in the app or integration API read it. |
 | `0036_task_is_critical.sql` | Adds `tasks.is_critical` (boolean, not null, default false) and a partial index on critical, non-deleted tasks. Covered by the existing tasks RLS; `0029`'s viewer trigger doesn't admit it, so viewers can't flip it. |
 | `0037_season_dates_nullable.sql` | Drops NOT NULL from `seasons.start_date`/`end_date`. The app no longer collects season dates and inserts null; the end ≥ start CHECK stays (it passes on null). |
+| `0038_brand_code_nullable.sql` | Drops NOT NULL from `brands.brand_code`. The app no longer collects a brand code and inserts null; UNIQUE stays (nulls are distinct). |
 
 ## Not built yet
 

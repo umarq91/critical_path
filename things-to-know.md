@@ -601,6 +601,13 @@ sees `season`; `data/seasons.ts` maps the `season` sort/filter id back to `seaso
 identical code/name from the API; seeded seasons keep their old expanded `season_name` there.
 Never read `season_name` from app code. Dropping it means changing the API first.
 
+**A brand has no code in the app either.** Same client decision: Brand Code is gone from the
+create form, the Brands export and the sort list; `createBrand` doesn't write it, so new brands
+have `brand_code = null` (nullable since `0038`). Seeded brands keep their codes. The integration
+API is unchanged: it still returns `brand_code` (null for new brands) and its `brand_code` filter
+only matches brands that still have one. Don't backfill codes from `brand_name` — the column is
+UNIQUE and names aren't guaranteed to be.
+
 **Seasons have no date range in the source.** `start_date`/`end_date` are derived as the tightest
 interval containing that season's tasks (min/max of Working Timeline start/end and DUE DATE).
 `status` is computed against the seed date, not stored in the sheet — it's a snapshot.

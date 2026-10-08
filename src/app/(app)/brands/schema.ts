@@ -3,7 +3,6 @@ import { z } from "zod";
 export const brandStatusValues = ["active", "inactive"] as const;
 
 export const brandSchema = z.object({
-  brand_code: z.string().min(1, "Brand code is required").max(50),
   brand_name: z.string().min(1, "Brand name is required").max(100),
   description: z.string().max(500).optional(),
   status: z.enum(brandStatusValues),

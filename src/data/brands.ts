@@ -11,7 +11,7 @@ export interface ListBrandsParams {
   filters?: Record<string, string>;
 }
 
-const SORTABLE_COLUMNS = new Set(["brand_name", "brand_code", "status", "created_at"]);
+const SORTABLE_COLUMNS = new Set(["brand_name", "status", "created_at"]);
 
 function isBrandStatus(value: string | undefined): value is BrandInput["status"] {
   return !!value && (brandStatusValues as readonly string[]).includes(value);

@@ -15,7 +15,6 @@ export const BRAND_RECORD_COLUMN_GROUPS: ExportColumnGroup<Brand>[] = [
     key: "details",
     label: "Brand Details",
     columns: [
-      { key: "brand_code", label: "Brand Code", category: "details", defaultSelected: true, dataType: "string", width: 16, getValue: (b) => b.brand_code },
       { key: "brand_name", label: "Brand Name", category: "details", defaultSelected: true, dataType: "string", width: 28, getValue: (b) => b.brand_name },
       {
         key: "status",
@@ -45,10 +44,8 @@ export const BRAND_RECORD_COLUMN_GROUPS: ExportColumnGroup<Brand>[] = [
 // The file's column order: this page's table, left to right (brands/columns.tsx is "use client",
 // so the export route can't import it — update both together). Export-only fields sit beside
 // their table counterpart or trail after.
-// Brand Code isn't on the table, so it sits beside Brand Name.
 export const BRAND_GRID_COLUMN_ORDER = [
   "brand_name",
-  "brand_code",
   "status",
   "seasons",
   "created_at",

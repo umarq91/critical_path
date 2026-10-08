@@ -154,7 +154,7 @@ export type Database = {
       }
       brands: {
         Row: {
-          brand_code: string
+          brand_code: string | null
           brand_name: string
           color: string
           created_at: string
@@ -165,7 +165,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          brand_code: string
+          brand_code?: string | null
           brand_name: string
           color?: string
           created_at?: string
@@ -176,7 +176,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          brand_code?: string
+          brand_code?: string | null
           brand_name?: string
           color?: string
           created_at?: string

@@ -17,7 +17,7 @@ export interface TaskGroupFact {
   status: string;
   due_date: string | null;
   season: { id: string; season_code: string; season_name: string } | null;
-  brand: { id: string; brand_code: string; brand_name: string } | null;
+  brand: { id: string; brand_code: string | null; brand_name: string } | null;
 }
 
 export interface TaskGroupFiltersInput {

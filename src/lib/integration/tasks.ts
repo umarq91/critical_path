@@ -54,7 +54,7 @@ interface TaskRow {
   updated_at: string;
   deleted_at: string | null;
   season: { season_code: string; season_name: string } | null;
-  brand: { brand_code: string; brand_name: string } | null;
+  brand: { brand_code: string | null; brand_name: string } | null;
   key_stage: { name: string } | null;
 }
 
