@@ -1,6 +1,4 @@
-import { dataTableSearchParamsHref } from "@/components/data-table/data-table-search-params";
 import { TASKS_QUERY_STATE } from "@/app/(app)/tasks/query-state";
-import { SAVED_VIEW_PARAM } from "@/constants/routes";
 import type { SavedView } from "@/data/saved-views";
 
 export interface GridViewState {
@@ -30,14 +28,4 @@ export function resolveActiveView(savedViews: SavedView[], viewParam: string | n
   const view = savedViews.find((candidate) => candidate.id === viewParam);
   if (!view) return null;
   return { view, isModified: !sameState(view, current) };
-}
-
-export function savedViewHref(view: SavedView) {
-  const href = dataTableSearchParamsHref(
-    "/tasks",
-    { filters: view.filters, sortBy: view.sortBy ?? undefined, sortDir: view.sortDir ?? undefined },
-    TASKS_QUERY_STATE
-  );
-  const separator = href.includes("?") ? "&" : "?";
-  return `${href}${separator}${SAVED_VIEW_PARAM}=${encodeURIComponent(view.id)}`;
 }

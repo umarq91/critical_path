@@ -11,7 +11,7 @@ export interface SavedView {
 
 // The Tasks grid's saved filter/sort presets — one row per (profile, name), in the exact
 // {filters, sortBy, sortDir} shape data-table-search-params.ts already owns, so applying one is
-// a plain navigation (dataTableSearchParamsHref) with no translation step. RLS already scopes
+// a straight write back into the grid's URL state with no translation step. RLS already scopes
 // `saved_views` to `profile_id = auth.uid()`; the explicit .eq() here matches every other
 // per-profile read in this codebase (see data/reminders.ts) rather than relying on RLS alone.
 export async function listSavedViews(profileId: string): Promise<SavedView[]> {

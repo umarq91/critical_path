@@ -74,11 +74,24 @@ export function useDataTableQueryState(options: DataTableSearchParamsOptions = {
     [pagination, setUrlState]
   );
 
+  // Swaps filters and sort in one URL update (e.g. applying a saved view), back to page 1.
+  const replaceFiltersAndSort = useCallback(
+    (next: { filters: Record<string, string>; sortBy?: string | null; sortDir?: string | null }) =>
+      setUrlState({
+        filters: Object.keys(next.filters).length ? next.filters : null,
+        sortBy: next.sortBy ?? null,
+        sortDir: next.sortDir ?? null,
+        page: 1,
+      }),
+    [setUrlState]
+  );
+
   return {
     state: { sorting, columnFilters, pagination },
     onSortingChange,
     onColumnFiltersChange,
     onPaginationChange,
+    replaceFiltersAndSort,
     isPending,
     // Same {page, pageSize, sortBy, sortDir, filters} shape every data/*.ts listX() takes
     // (see ListTasksParams etc.) — lets a board's "Refresh" button re-run the exact same

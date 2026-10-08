@@ -1340,9 +1340,9 @@ checklist, because Task Management has exactly one table to export.
 
 **A saved view is a verbatim snapshot of the URL, not a re-resolved query.** `createSavedView`
 stores exactly `filters`/`sort_by`/`sort_dir` as the toolbar produced them — season/brand/owner
-ids and all — and applying one later is a plain `Link` built by `dataTableSearchParamsHref`, the
-same helper the Dashboard's Overdue tile uses. There is no second "apply a view" code path to
-keep in sync with ordinary filtering, but the flip side is that **nothing re-validates a saved
+ids and all — and applying one later writes them straight back into the grid's nuqs state
+(`replaceFiltersAndSort`). There is no second "apply a view" code path to keep in sync with
+ordinary filtering, but the flip side is that **nothing re-validates a saved
 view's contents when it's applied.** If a season/brand/key-stage/owner referenced by an old saved
 view is later deleted, applying that view just filters to zero matching rows — same as
 hand-editing the URL to reference a stale id — rather than erroring or dropping the dead filter.
@@ -1366,12 +1366,20 @@ bookmark of the grid the viewer already has open, same reasoning as `reminder_ru
 on `profile.update_own` rather than an admin action — every role that can see `/tasks` at all
 (including `external`, scoped by RLS to their own tasks) can save and re-apply their own views.
 
-**Which view is selected lives in the URL as `?view=<id>` (`SAVED_VIEW_PARAM`).** Applying a
-view's link adds it; listTasks never reads it. nuqs leaves keys it doesn't own alone, so the param
+**Which view is selected lives in the URL as `?view=<id>` (`SAVED_VIEW_PARAM`).** Selecting a
+view sets it; listTasks never reads it. nuqs leaves keys it doesn't own alone, so the param
 survives filter/sort/page changes. That's how the menu keeps naming the view and shows "(edited)"
 once the grid drifts from what the view stored (`saved-view-match.ts`). Selection is **only** the
 param, never inferred from matching filters, or deselecting wouldn't stick. Deselecting (✕, or
-re-clicking the selected view) and Reset Filters (via the toolbar's `onResetFilters`) both clear it.
+re-clicking the selected view), Reset Filters, and clearing the last filter by hand all clear it
+(`use-saved-view-selection.ts` wraps the grid's `onColumnFiltersChange`).
+
+**Selecting, deselecting and reverting a view are nuqs writes, never `<Link>`s.** The view param
+and the grid's filters/sort go out in the same tick, so nuqs merges them into one URL update
+inside the table's transition: toolbar, view name and the dimmed table change together, with no
+`loading.tsx` flash. A `<Link>` is a separate router navigation that nuqs and `isPending` don't
+see. With one, the toolbar and view name kept their old values until the server answered, then
+jumped all at once.
 The edited check fills in the grid's default sort on both sides, because a view saved without a
 sort lands on `due_date asc`.
 
