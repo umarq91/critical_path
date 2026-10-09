@@ -15,7 +15,24 @@ import { formatDate } from "@/lib/dates";
 const columnHelper = createColumnHelper<typeof dataTableFeatures, Brand>();
 
 const STATUS_OPTIONS = Object.entries(BRAND_STATUS_CONFIG).map(([value, { label }]) => ({ value, label }));
-const EDITABLE_FIELDS = ["brand_name", "status"] as const;
+const EDITABLE_FIELDS = ["brand_name", "color", "status"] as const;
+
+const colorColumn = (rowEditing: RowEditingState) =>
+  columnHelper.accessor("color", {
+    header: "Colour",
+    meta: { label: "Colour", width: "xs" },
+    enableSorting: false,
+    cell: ({ row, getValue }) => (
+      <EditableCell
+        value={getValue()}
+        display={<span className="inline-block size-5 rounded-full" style={{ backgroundColor: getValue() }} />}
+        variant="color"
+        isEditing={rowEditing.isEditing(row.original.id)}
+        draftValue={rowEditing.draft.color}
+        onDraftChange={(next) => rowEditing.setDraftField("color", next)}
+      />
+    ),
+  });
 
 interface CreateBrandColumnsOptions {
   canManage: boolean;
@@ -59,6 +76,8 @@ export function createBrandColumns({
         />
       ),
     }),
+    // Only while a row is in edit mode: read-only, the brand name's avatar already shows the colour.
+    ...(rowEditing.editingId ? [colorColumn(rowEditing)] : []),
     columnHelper.accessor("status", {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
       meta: { label: "Status", width: "sm" },
