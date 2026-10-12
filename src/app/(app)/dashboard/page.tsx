@@ -23,6 +23,8 @@ import { can } from "@/lib/permissions";
 import { ROUTES } from "@/constants/routes";
 import { dataTableSearchParamsHref } from "@/components/data-table/data-table-search-params";
 import { TASKS_QUERY_STATE } from "@/app/(app)/tasks/query-state";
+import { TASK_FIELD_VISIBILITY } from "@/constants/task-field-visibility";
+import { cn } from "@/lib/utils";
 
 // The tasks grid already filters by status; the tile just links into it pre-filtered rather
 // than the page growing a second, overdue-only list.
@@ -54,12 +56,16 @@ export default async function DashboardPage() {
   const [metrics, timelineTasks, overdueTasks] = await Promise.all([
     getDashboardMetrics(),
     listTasksForTimeline({ from: toQueryDate(band.start), to: toQueryDate(band.end) }),
-    listOverdueTasks(),
+    TASK_FIELD_VISIBILITY.overdue ? listOverdueTasks() : Promise.resolve([]),
   ]);
 
   const completionRate = percentOf(metrics.statusCounts.completed, metrics.total);
   const shareOfTotal = (count: number) => `${formatPercent(percentOf(count, metrics.total))} of total`;
   const canExport = !!profile && can(profile.role, "dashboard.export_reports");
+  // Status, Brand and Gender are hidden for now (TASK_FIELD_VISIBILITY), and every card below
+  // that's built from one of them goes with it. With all three off, what's left is Tasks by
+  // Season and the Gantt card, each full width.
+  const { status: showStatus, brand: showBrand, gender: showGender } = TASK_FIELD_VISIBILITY;
 
   return (
     <div className="flex flex-col">
@@ -70,40 +76,42 @@ export default async function DashboardPage() {
       />
 
       <div className="flex flex-col gap-4 px-6 pb-6">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <StatCard
-            icon={ListChecks}
-            iconClassName="bg-primary-tint text-primary"
-            label="Total Tasks"
-            value={metrics.total.toLocaleString()}
-            description="All tasks"
-          />
-          <StatCard
-            icon={CircleCheckBig}
-            iconClassName="bg-status-complete-soft text-status-complete-text"
-            label="Completed"
-            value={metrics.statusCounts.completed.toLocaleString()}
-            description={shareOfTotal(metrics.statusCounts.completed)}
-          />
-          <StatCard
-            icon={Clock}
-            iconClassName="bg-status-progress-soft text-status-progress-text"
-            label="In Progress"
-            value={metrics.statusCounts.in_progress.toLocaleString()}
-            description={shareOfTotal(metrics.statusCounts.in_progress)}
-          />
-          <StatCard
-            icon={TriangleAlert}
-            iconClassName="bg-status-overdue-soft text-status-overdue-text"
-            label="Overdue"
-            value={metrics.statusCounts.overdue.toLocaleString()}
-            description={shareOfTotal(metrics.statusCounts.overdue)}
-            href={OVERDUE_TASKS_HREF}
-            linkLabel="View overdue tasks"
-          />
-        </div>
+        {showStatus ? (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <StatCard
+              icon={ListChecks}
+              iconClassName="bg-primary-tint text-primary"
+              label="Total Tasks"
+              value={metrics.total.toLocaleString()}
+              description="All tasks"
+            />
+            <StatCard
+              icon={CircleCheckBig}
+              iconClassName="bg-status-complete-soft text-status-complete-text"
+              label="Completed"
+              value={metrics.statusCounts.completed.toLocaleString()}
+              description={shareOfTotal(metrics.statusCounts.completed)}
+            />
+            <StatCard
+              icon={Clock}
+              iconClassName="bg-status-progress-soft text-status-progress-text"
+              label="In Progress"
+              value={metrics.statusCounts.in_progress.toLocaleString()}
+              description={shareOfTotal(metrics.statusCounts.in_progress)}
+            />
+            <StatCard
+              icon={TriangleAlert}
+              iconClassName="bg-status-overdue-soft text-status-overdue-text"
+              label="Overdue"
+              value={metrics.statusCounts.overdue.toLocaleString()}
+              description={shareOfTotal(metrics.statusCounts.overdue)}
+              href={OVERDUE_TASKS_HREF}
+              linkLabel="View overdue tasks"
+            />
+          </div>
+        ) : null}
 
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className={cn("grid grid-cols-1 gap-4", showStatus && "lg:grid-cols-2")}>
           <BreakdownDonutCard
             title="Tasks by Season"
             description="Every task by the season it belongs to"
@@ -111,27 +119,34 @@ export default async function DashboardPage() {
             groups={metrics.bySeason}
             searchTitle="Seasons"
           />
-          <BreakdownDonutCard
-            title="Task Status Overview"
-            description="Every task by its current status"
-            allLabel="All Status"
-            groups={toStatusGroups(metrics.statusCounts)}
-            centerRate={completionRate}
-          />
+          {showStatus ? (
+            <BreakdownDonutCard
+              title="Task Status Overview"
+              description="Every task by its current status"
+              allLabel="All Status"
+              groups={toStatusGroups(metrics.statusCounts)}
+              centerRate={completionRate}
+            />
+          ) : null}
         </div>
 
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
-          <CompletionRateCard completed={metrics.statusCounts.completed} total={metrics.total} />
-          <TasksByBrandCard groups={metrics.byBrand} className="lg:col-span-2" />
-          <BreakdownDonutCard
-            title="Tasks by Gender"
-            description="Range split across guys and girls"
-            allLabel="All Gender"
-            groups={toGenderGroups(metrics.byGender)}
-          />
-        </div>
+        {/* Built for all three on or all three off; restoring only some leaves gaps in this row. */}
+        {showStatus || showBrand || showGender ? (
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
+            {showStatus ? <CompletionRateCard completed={metrics.statusCounts.completed} total={metrics.total} /> : null}
+            {showBrand ? <TasksByBrandCard groups={metrics.byBrand} className="lg:col-span-2" /> : null}
+            {showGender ? (
+              <BreakdownDonutCard
+                title="Tasks by Gender"
+                description="Range split across guys and girls"
+                allLabel="All Gender"
+                groups={toGenderGroups(metrics.byGender)}
+              />
+            ) : null}
+          </div>
+        ) : null}
 
-        <TaskCompletionCard monthly={metrics.monthly} weekly={metrics.weekly} />
+        {showStatus ? <TaskCompletionCard monthly={metrics.monthly} weekly={metrics.weekly} /> : null}
 
         <TimelineGanttCard
           tasks={timelineTasks.data}

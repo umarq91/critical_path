@@ -7,6 +7,7 @@ import { listBrandOptions } from "@/data/brands";
 import { listKeyStageOptions } from "@/data/key-stages";
 import { getCurrentProfile } from "@/data/profiles";
 import { can } from "@/lib/permissions";
+import { withoutHiddenTaskFilters } from "@/lib/hidden-task-filters";
 import { loadDataTableSearchParams } from "@/components/data-table/data-table-search-params";
 import { redirect } from "next/navigation";
 import { ROUTES, TASK_LINK_PARAM } from "@/constants/routes";
@@ -32,7 +33,9 @@ export default async function MyTasksPage({
   // No signed-in profile shouldn't happen here — (app)/layout.tsx already guards auth for the
   // whole authenticated shell — but without one there's no "me" to scope this page to.
   const [{ data: tasks, rowCount }, seasons, brands, keyStages, linkedTask] = await Promise.all([
-    profile ? listTasksForProfile(profile.id, queryState) : Promise.resolve({ data: [], rowCount: 0 }),
+    profile
+      ? listTasksForProfile(profile.id, { ...queryState, filters: withoutHiddenTaskFilters(queryState.filters) })
+      : Promise.resolve({ data: [], rowCount: 0 }),
     listSeasonOptions(),
     listBrandOptions(),
     listKeyStageOptions(),

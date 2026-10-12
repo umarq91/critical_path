@@ -2,6 +2,7 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { upsertCalendarEvent, deleteCalendarEvent } from "@/lib/google/calendar";
 import { TASK_GENDER_CONFIG } from "@/constants/task-gender";
+import { TASK_FIELD_VISIBILITY } from "@/constants/task-field-visibility";
 import { getVizColorForId } from "@/constants/chart-colors";
 import { googleEventColorId } from "@/lib/google/event-color";
 import type { ParticipantRole } from "@/lib/party";
@@ -25,7 +26,7 @@ export interface SyncableTask {
   due_date: string;
   season: { season: string; color: string } | null;
   brand: { brand_name: string } | null;
-  gender: string;
+  gender: string | null;
   participants: SyncableTaskParticipant[];
 }
 
@@ -51,12 +52,20 @@ function formatEventTitle(task: Pick<SyncableTask, "task_name" | "season">): str
 // comma-joined. Always all four, even when a value is empty (brand is optional on a task) — a
 // consistently-shaped description is easier to scan across many events than one that silently
 // drops a line. A legacy gender with no config entry (`unisex`, see 0026) shows its raw value.
+// BRAND/GENDER are left out while those fields are hidden (TASK_FIELD_VISIBILITY).
 function formatEventDescription(task: Pick<SyncableTask, "brand" | "gender" | "participants">): string {
   const brand = task.brand?.brand_name ?? "";
-  const gender = TASK_GENDER_CONFIG[task.gender]?.label ?? task.gender;
+  const gender = task.gender ? (TASK_GENDER_CONFIG[task.gender]?.label ?? task.gender) : "";
   const owners = participantNames(task.participants, "owner").join(", ");
   const involved = participantNames(task.participants, "involved").join(", ");
-  return `BRAND: ${brand}\nGENDER: ${gender}\nOWNER: ${owners}\nPEOPLE INVOLVED: ${involved}`;
+  return [
+    TASK_FIELD_VISIBILITY.brand ? `BRAND: ${brand}` : null,
+    TASK_FIELD_VISIBILITY.gender ? `GENDER: ${gender}` : null,
+    `OWNER: ${owners}`,
+    `PEOPLE INVOLVED: ${involved}`,
+  ]
+    .filter((line) => line !== null)
+    .join("\n");
 }
 
 // The columns pushTaskToGoogleCalendar needs, for callers that load a task themselves.

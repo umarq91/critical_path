@@ -807,7 +807,7 @@ export type Database = {
           dpsp_category: Database["public"]["Enums"]["task_dpsp_category"] | null
           due_date: string | null
           end_date: string | null
-          gender: Database["public"]["Enums"]["task_gender"]
+          gender: Database["public"]["Enums"]["task_gender"] | null
           google_calendar_owner_id: string | null
           google_event_id: string | null
           google_synced_at: string | null
@@ -836,7 +836,7 @@ export type Database = {
           dpsp_category?: Database["public"]["Enums"]["task_dpsp_category"] | null
           due_date?: string | null
           end_date?: string | null
-          gender: Database["public"]["Enums"]["task_gender"]
+          gender?: Database["public"]["Enums"]["task_gender"] | null
           google_calendar_owner_id?: string | null
           google_event_id?: string | null
           google_synced_at?: string | null
@@ -865,7 +865,7 @@ export type Database = {
           dpsp_category?: Database["public"]["Enums"]["task_dpsp_category"] | null
           due_date?: string | null
           end_date?: string | null
-          gender?: Database["public"]["Enums"]["task_gender"]
+          gender?: Database["public"]["Enums"]["task_gender"] | null
           google_calendar_owner_id?: string | null
           google_event_id?: string | null
           google_synced_at?: string | null

@@ -13,6 +13,7 @@ import { dataTableFeatures, type DataTableFilterOption } from "@/components/data
 import { TASK_STATUS_CONFIG } from "@/constants/task-status";
 import { TASK_GENDER_CONFIG } from "@/constants/task-gender";
 import { DPSP_CATEGORY_CONFIG } from "@/constants/dpsp-category";
+import { TASK_FIELD_VISIBILITY } from "@/constants/task-field-visibility";
 import { cn } from "@/lib/utils";
 import { TaskRowActions } from "@/app/(app)/tasks/task-row-actions";
 import { PartyNames } from "@/app/(app)/tasks/party-names";
@@ -20,7 +21,7 @@ import { PartyCellEditor } from "@/app/(app)/tasks/party-cell-editor";
 import { taskOwners, taskPeopleInvolved } from "@/app/(app)/tasks/task-parties";
 import type { ParticipantList, RowParticipantsState } from "@/app/(app)/tasks/use-row-participants";
 import type { Task } from "@/data/tasks";
-import { formatDate } from "@/lib/dates";
+import { formatDate, isPastDue } from "@/lib/dates";
 
 const columnHelper = createColumnHelper<typeof dataTableFeatures, Task>();
 
@@ -40,6 +41,14 @@ const EDITABLE_FIELDS = [
   "status",
   "notes",
 ] as const;
+// Hidden fields stay out of the row draft too, so a pencil edit never resubmits a value the
+// person couldn't see (and a task with no gender doesn't fail the enum on save).
+const HIDDEN_EDIT_FIELDS = new Set<string>([
+  ...(TASK_FIELD_VISIBILITY.status ? [] : ["status"]),
+  ...(TASK_FIELD_VISIBILITY.brand ? [] : ["brand_id"]),
+  ...(TASK_FIELD_VISIBILITY.gender ? [] : ["gender"]),
+]);
+const VISIBLE_EDITABLE_FIELDS = EDITABLE_FIELDS.filter((field) => !HIDDEN_EDIT_FIELDS.has(field));
 
 interface CreateTaskColumnsOptions {
   canManage: boolean;
@@ -99,24 +108,28 @@ export function createTaskColumns({
   };
 
   return [
-    columnHelper.accessor("status", {
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Status" wrap={isResized} />,
-      meta: { label: "Status", width: "sm" },
-      size: 140,
-      minSize: 90,
-      filterFn: "weakEquals",
-      cell: ({ row, getValue }) => (
-        <EditableCell
-          value={getValue()}
-          display={<StatusBadge value={getValue()} config={TASK_STATUS_CONFIG} />}
-          variant="select"
-          options={STATUS_OPTIONS}
-          isEditing={rowEditing.isEditing(row.original.id)}
-          draftValue={rowEditing.draft.status}
-          onDraftChange={(next) => rowEditing.setDraftField("status", next)}
-        />
-      ),
-    }),
+    ...(TASK_FIELD_VISIBILITY.status
+      ? [
+          columnHelper.accessor("status", {
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Status" wrap={isResized} />,
+            meta: { label: "Status", width: "sm" },
+            size: 140,
+            minSize: 90,
+            filterFn: "weakEquals",
+            cell: ({ row, getValue }) => (
+              <EditableCell
+                value={getValue()}
+                display={<StatusBadge value={getValue()} config={TASK_STATUS_CONFIG} />}
+                variant="select"
+                options={STATUS_OPTIONS}
+                isEditing={rowEditing.isEditing(row.original.id)}
+                draftValue={rowEditing.draft.status}
+                onDraftChange={(next) => rowEditing.setDraftField("status", next)}
+              />
+            ),
+          }),
+        ]
+      : []),
     columnHelper.accessor("season_id", {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Season" wrap={isResized} />,
       meta: { label: "Season", width: "md" },
@@ -222,7 +235,13 @@ export function createTaskColumns({
           value={getValue() ?? ""}
           display={
             getValue() ? (
-              <span className={cn(row.original.status === "overdue" && "font-medium text-status-overdue-text")}>
+              <span
+                className={cn(
+                  row.original.status !== "completed" &&
+                    isPastDue(getValue()!) &&
+                    "font-medium text-status-overdue-text"
+                )}
+              >
                 {formatDate(getValue()!)}
               </span>
             ) : (
@@ -236,42 +255,50 @@ export function createTaskColumns({
         />
       ),
     }),
-    columnHelper.accessor("brand_id", {
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Brand" wrap={isResized} />,
-      meta: { label: "Brand", width: "xs" },
-      size: 130,
-      minSize: 80,
-      filterFn: "weakEquals",
-      cell: ({ row }) => (
-        <EditableCell
-          value={row.original.brand_id ?? "none"}
-          display={row.original.brand?.brand_name ?? <span className="text-muted-foreground">—</span>}
-          variant="select"
-          options={brandEditOptions}
-          isEditing={rowEditing.isEditing(row.original.id)}
-          draftValue={rowEditing.draft.brand_id}
-          onDraftChange={(next) => rowEditing.setDraftField("brand_id", next)}
-        />
-      ),
-    }),
-    columnHelper.accessor("gender", {
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Gender" wrap={isResized} />,
-      meta: { label: "Gender", width: "xs" },
-      size: 110,
-      minSize: 80,
-      filterFn: "weakEquals",
-      cell: ({ row, getValue }) => (
-        <EditableCell
-          value={getValue()}
-          display={<StatusBadge value={getValue()} config={TASK_GENDER_CONFIG} />}
-          variant="select"
-          options={GENDER_OPTIONS}
-          isEditing={rowEditing.isEditing(row.original.id)}
-          draftValue={rowEditing.draft.gender}
-          onDraftChange={(next) => rowEditing.setDraftField("gender", next)}
-        />
-      ),
-    }),
+    ...(TASK_FIELD_VISIBILITY.brand
+      ? [
+          columnHelper.accessor("brand_id", {
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Brand" wrap={isResized} />,
+            meta: { label: "Brand", width: "xs" },
+            size: 130,
+            minSize: 80,
+            filterFn: "weakEquals",
+            cell: ({ row }) => (
+              <EditableCell
+                value={row.original.brand_id ?? "none"}
+                display={row.original.brand?.brand_name ?? <span className="text-muted-foreground">—</span>}
+                variant="select"
+                options={brandEditOptions}
+                isEditing={rowEditing.isEditing(row.original.id)}
+                draftValue={rowEditing.draft.brand_id}
+                onDraftChange={(next) => rowEditing.setDraftField("brand_id", next)}
+              />
+            ),
+          }),
+        ]
+      : []),
+    ...(TASK_FIELD_VISIBILITY.gender
+      ? [
+          columnHelper.accessor("gender", {
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Gender" wrap={isResized} />,
+            meta: { label: "Gender", width: "xs" },
+            size: 110,
+            minSize: 80,
+            filterFn: "weakEquals",
+            cell: ({ row, getValue }) => (
+              <EditableCell
+                value={getValue() ?? ""}
+                display={<StatusBadge value={getValue() ?? ""} config={TASK_GENDER_CONFIG} />}
+                variant="select"
+                options={GENDER_OPTIONS}
+                isEditing={rowEditing.isEditing(row.original.id)}
+                draftValue={rowEditing.draft.gender}
+                onDraftChange={(next) => rowEditing.setDraftField("gender", next)}
+              />
+            ),
+          }),
+        ]
+      : []),
     columnHelper.accessor("dpsp_category", {
       header: ({ column }) => <DataTableColumnHeader column={column} title="DPSP Category" wrap={isResized} />,
       meta: { label: "DPSP Category", width: "xs" },
@@ -343,7 +370,7 @@ export function createTaskColumns({
                   isSaving={editing && isSaving}
                   onEdit={() => {
                     const initialDraft = Object.fromEntries(
-                      EDITABLE_FIELDS.map((field) => [
+                      VISIBLE_EDITABLE_FIELDS.map((field) => [
                         field,
                         // key_stage_id/dpsp_category's "not set" sentinel is "none", not "" —
                         // see keyStageEditOptions/dpspCategoryEditOptions above.

@@ -9,6 +9,7 @@ import { DPSP_CATEGORY_CONFIG, DPSP_CATEGORY_SOLID_CLASSNAME } from "@/constants
 import { dpspCategoryValues } from "@/app/(app)/tasks/schema";
 import { cn } from "@/lib/utils";
 import type { DpspFlywheelQueryState } from "@/app/(app)/dpsp-flywheel/dpsp-flywheel-query-state";
+import { TASK_FIELD_VISIBILITY } from "@/constants/task-field-visibility";
 
 interface DpspFlywheelToolbarProps {
   queryState: DpspFlywheelQueryState;
@@ -42,7 +43,11 @@ export const DpspFlywheelToolbar = ({
           <Input
             value={state.q}
             onChange={(event) => setFilters({ q: event.target.value || null })}
-            placeholder="Search tasks, seasons, brands, departments, owners or people..."
+            placeholder={
+              TASK_FIELD_VISIBILITY.brand
+                ? "Search tasks, seasons, brands, departments, owners or people..."
+                : "Search tasks, seasons, departments, owners or people..."
+            }
             aria-label="Search tasks"
             className="h-8 w-72 pl-8"
           />

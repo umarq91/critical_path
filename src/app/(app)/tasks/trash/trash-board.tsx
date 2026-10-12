@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { createTrashColumns } from "@/app/(app)/tasks/trash/columns";
 import type { DeletedTask } from "@/data/tasks";
 import type { DataTableFilterOption } from "@/components/data-table/table-features";
+import { TASK_FIELD_VISIBILITY } from "@/constants/task-field-visibility";
 
 interface TrashBoardProps {
   tasks: DeletedTask[];
@@ -40,7 +41,9 @@ export const TrashBoard = ({ tasks, rowCount, canRestore, seasonOptions, brandOp
       toolbar={{
         filters: [
           { columnId: "season_id", title: "Season", placeholder: "All Seasons", options: seasonOptions, searchable: true },
-          { columnId: "brand_id", title: "Brand", placeholder: "All Brands", options: brandOptions },
+          ...(TASK_FIELD_VISIBILITY.brand
+            ? [{ columnId: "brand_id", title: "Brand", placeholder: "All Brands", options: brandOptions }]
+            : []),
         ],
         sortOptions: [
           { columnId: "deleted_at", desc: true, label: "Recently Deleted" },

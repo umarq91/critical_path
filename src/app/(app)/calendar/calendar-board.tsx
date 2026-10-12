@@ -79,7 +79,7 @@ export const CalendarBoard = ({
       {showEmptyState ? (
         <div className="flex flex-col items-center gap-1 rounded-lg border border-dashed border-border bg-muted/20 px-6 py-8 text-center">
           <p className="text-body-strong text-foreground">No tasks match your filters</p>
-          <p className="text-body text-muted-foreground">Try a different season, brand, or status — or clear filters above.</p>
+          <p className="text-body text-muted-foreground">Try a different season or owner — or clear filters above.</p>
         </div>
       ) : null}
       <div className="relative">

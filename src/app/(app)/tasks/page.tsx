@@ -10,6 +10,7 @@ import { getCurrentProfile } from "@/data/profiles";
 import { listPartyOptions } from "@/data/parties";
 import { listSavedViews } from "@/data/saved-views";
 import { can } from "@/lib/permissions";
+import { withoutHiddenTaskFilters } from "@/lib/hidden-task-filters";
 import { loadDataTableSearchParams } from "@/components/data-table/data-table-search-params";
 import { TASKS_QUERY_STATE } from "@/app/(app)/tasks/query-state";
 import { TASK_LINK_PARAM } from "@/constants/routes";
@@ -27,7 +28,7 @@ export default async function TasksPage({
 
   const linkedTaskId = z.string().uuid().safeParse((await searchParams)[TASK_LINK_PARAM]);
   const [{ data: tasks, rowCount }, seasons, brands, keyStages, partyOptions, savedViews, linkedTask] = await Promise.all([
-    listTasks(queryState),
+    listTasks({ ...queryState, filters: withoutHiddenTaskFilters(queryState.filters) }),
     listSeasonOptions(),
     listBrandOptions(),
     listKeyStageOptions(),
@@ -50,7 +51,7 @@ export default async function TasksPage({
     <div className="flex flex-col">
       <PageHeader
         title="Task Management"
-        description="Manage and track all tasks across seasons, brands and teams"
+        description="Manage and track all tasks across seasons and teams"
         action={
           <TaskPageActions
             canCreateTask={canCreateTask}

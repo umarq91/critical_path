@@ -5,6 +5,7 @@ import { listSeasonOptions } from "@/data/seasons";
 import { listBrandOptions } from "@/data/brands";
 import { requirePageAccess } from "@/lib/require-page-access";
 import { loadDataTableSearchParams } from "@/components/data-table/data-table-search-params";
+import { withoutHiddenTaskFilters } from "@/lib/hidden-task-filters";
 
 const QUERY_STATE_OPTIONS = { defaultPageSize: 15, defaultSort: { id: "deleted_at", desc: true } };
 
@@ -20,7 +21,7 @@ export default async function TasksTrashPage({
   const queryState = await loadDataTableSearchParams(searchParams, QUERY_STATE_OPTIONS);
 
   const [{ data: tasks, rowCount }, seasons, brands] = await Promise.all([
-    listDeletedTasks(queryState),
+    listDeletedTasks({ ...queryState, filters: withoutHiddenTaskFilters(queryState.filters) }),
     listSeasonOptions(),
     listBrandOptions(),
   ]);

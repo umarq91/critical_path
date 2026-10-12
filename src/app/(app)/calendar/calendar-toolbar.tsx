@@ -15,6 +15,7 @@ import { CalendarSyncButton } from "@/app/(app)/calendar/calendar-sync-button";
 import type { CalendarQueryState } from "@/app/(app)/calendar/calendar-query-state";
 import type { DataTableFilterOption } from "@/components/data-table/table-features";
 import { cn } from "@/lib/utils";
+import { TASK_FIELD_VISIBILITY } from "@/constants/task-field-visibility";
 
 const VIEW_LABELS: Record<CalendarView, string> = { day: "Day", week: "Week", month: "Month" };
 
@@ -80,9 +81,9 @@ export const CalendarToolbar = ({
   };
   const activeFilterLines = [
     filterLine("Season", state.seasonId, seasonOptions),
-    filterLine("Brand", state.brandId, brandOptions),
-    filterLine("Status", state.status, statusOptions),
-    filterLine("Gender", state.gender, genderOptions),
+    TASK_FIELD_VISIBILITY.brand ? filterLine("Brand", state.brandId, brandOptions) : null,
+    TASK_FIELD_VISIBILITY.status ? filterLine("Status", state.status, statusOptions) : null,
+    TASK_FIELD_VISIBILITY.gender ? filterLine("Gender", state.gender, genderOptions) : null,
     filterLine("Owner", state.owner, partyOptions),
     filterLine("People Involved", state.involved, partyOptions),
     filterLine("Holiday country", state.countries, holidayCountryOptions),
@@ -155,27 +156,33 @@ export const CalendarToolbar = ({
           onChange={(next) => void setState({ seasonId: next.length > 0 ? next : null })}
           searchable
         />
-        <CalendarMultiSelectFilter
-          title="Brand"
-          allLabel="All Brands"
-          selected={state.brandId}
-          options={brandOptions}
-          onChange={(next) => void setState({ brandId: next.length > 0 ? next : null })}
-        />
-        <CalendarMultiSelectFilter
-          title="Status"
-          allLabel="All Status"
-          selected={state.status}
-          options={statusOptions}
-          onChange={(next) => void setState({ status: next.length > 0 ? next : null })}
-        />
-        <CalendarMultiSelectFilter
-          title="Gender"
-          allLabel="All Genders"
-          selected={state.gender}
-          options={genderOptions}
-          onChange={(next) => void setState({ gender: next.length > 0 ? next : null })}
-        />
+        {TASK_FIELD_VISIBILITY.brand ? (
+          <CalendarMultiSelectFilter
+            title="Brand"
+            allLabel="All Brands"
+            selected={state.brandId}
+            options={brandOptions}
+            onChange={(next) => void setState({ brandId: next.length > 0 ? next : null })}
+          />
+        ) : null}
+        {TASK_FIELD_VISIBILITY.status ? (
+          <CalendarMultiSelectFilter
+            title="Status"
+            allLabel="All Status"
+            selected={state.status}
+            options={statusOptions}
+            onChange={(next) => void setState({ status: next.length > 0 ? next : null })}
+          />
+        ) : null}
+        {TASK_FIELD_VISIBILITY.gender ? (
+          <CalendarMultiSelectFilter
+            title="Gender"
+            allLabel="All Genders"
+            selected={state.gender}
+            options={genderOptions}
+            onChange={(next) => void setState({ gender: next.length > 0 ? next : null })}
+          />
+        ) : null}
         <CalendarMultiSelectFilter
           title="Owner"
           allLabel="All Owners"

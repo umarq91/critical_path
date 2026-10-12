@@ -7,9 +7,14 @@ import { PaginationControls } from "@/components/shared/pagination-controls";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { BULK_IMPORT_STATUS_CONFIG } from "@/constants/bulk-import-status";
 import { cn } from "@/lib/utils";
-import { importFieldLabel, type TaskImportField, type TaskImportRow } from "@/app/(app)/tasks/import/task-import-columns";
+import {
+  importFieldLabel,
+  isVisibleImportField,
+  type TaskImportField,
+  type TaskImportRow,
+} from "@/app/(app)/tasks/import/task-import-columns";
 
-const CELL_FIELDS: TaskImportField[] = [
+const ALL_CELL_FIELDS: TaskImportField[] = [
   "task_name",
   "season",
   "brand",
@@ -21,6 +26,7 @@ const CELL_FIELDS: TaskImportField[] = [
   "due_date",
   "is_critical",
 ];
+const CELL_FIELDS = ALL_CELL_FIELDS.filter(isVisibleImportField);
 
 type Filter = "all" | TaskImportRow["status"];
 

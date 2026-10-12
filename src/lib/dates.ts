@@ -79,8 +79,18 @@ const WEEK_STARTS_ON_MONDAY = { weekStartsOn: 1 } as const;
 
 // Today's calendar date in Melbourne, not the runtime's: the server is a UTC host, so its own
 // "today" is still yesterday for the first 10–11 hours of a Melbourne day.
+function orgTodayIso() {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: ORG_TIMEZONE }).format(new Date());
+}
+
 function orgToday() {
-  return parseDateOnly(new Intl.DateTimeFormat("en-CA", { timeZone: ORG_TIMEZONE }).format(new Date()));
+  return parseDateOnly(orgTodayIso());
+}
+
+// A due date strictly before today's Melbourne date. Computed from the date itself rather than
+// trusting `status = 'overdue'`, which nothing stamps automatically.
+export function isPastDue(dueDate: string) {
+  return dueDate.slice(0, 10) < orgTodayIso();
 }
 
 // Inclusive yyyy-MM-dd bounds for the Tasks "Due" filter. Weeks run Monday to Sunday.

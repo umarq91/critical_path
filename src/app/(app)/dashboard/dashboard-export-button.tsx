@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { allColumnKeys, defaultColumnKeys } from "@/lib/export/types";
 import { TASK_RECORD_COLUMN_GROUPS } from "@/app/(app)/tasks/export/task-record-columns";
 import type { DashboardMetrics } from "@/data/dashboard";
+import { TASK_FIELD_VISIBILITY } from "@/constants/task-field-visibility";
 
 type ExportFormat = "xlsx" | "csv";
 type ExportSection = "summary" | "trend" | "records";
@@ -21,11 +22,21 @@ const FORMAT_OPTIONS: { value: ExportFormat; label: string; description: string 
   { value: "csv", label: "CSV (.csv)", description: "A single flat table — Task Records only" },
 ];
 
-const SECTION_OPTIONS: { id: ExportSection; label: string; description: string }[] = [
-  { id: "summary", label: "Dashboard Summary", description: "Status, Season, Brand and Gender breakdowns" },
+// Completion Trend is all status figures, so it's not offered while status is hidden, and the
+// summary only names the breakdowns it still contains (TASK_FIELD_VISIBILITY).
+const SUMMARY_DIMENSIONS = [
+  TASK_FIELD_VISIBILITY.status ? "Status" : null,
+  "Season",
+  TASK_FIELD_VISIBILITY.brand ? "Brand" : null,
+  TASK_FIELD_VISIBILITY.gender ? "Gender" : null,
+].filter((dimension) => dimension !== null);
+
+const ALL_SECTION_OPTIONS: { id: ExportSection; label: string; description: string }[] = [
+  { id: "summary", label: "Dashboard Summary", description: `${SUMMARY_DIMENSIONS.join(", ")} breakdowns` },
   { id: "trend", label: "Completion Trend", description: "Monthly and weekly completed-vs-overdue figures" },
   { id: "records", label: "Task Records", description: "One row per task, with the columns you choose below" },
 ];
+const SECTION_OPTIONS = ALL_SECTION_OPTIONS.filter((section) => section.id !== "trend" || TASK_FIELD_VISIBILITY.status);
 
 const DEFAULT_COLUMN_KEYS = defaultColumnKeys(TASK_RECORD_COLUMN_GROUPS);
 const ALL_COLUMN_KEYS = allColumnKeys(TASK_RECORD_COLUMN_GROUPS);
@@ -42,7 +53,9 @@ function filenameFromDisposition(disposition: string | null, format: ExportForma
 export const DashboardExportButton = ({ metrics }: { metrics: DashboardMetrics }) => {
   const [open, setOpen] = useState(false);
   const [format, setFormat] = useState<ExportFormat>("xlsx");
-  const [sections, setSections] = useState<Set<ExportSection>>(new Set<ExportSection>(["summary", "trend", "records"]));
+  const [sections, setSections] = useState<Set<ExportSection>>(
+    () => new Set(SECTION_OPTIONS.map((section) => section.id))
+  );
   const [columns, setColumns] = useState<Set<string>>(new Set(DEFAULT_COLUMN_KEYS));
   const [isExporting, setIsExporting] = useState(false);
 

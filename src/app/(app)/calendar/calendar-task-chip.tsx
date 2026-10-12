@@ -3,6 +3,7 @@ import { taskSeasonColor } from "@/app/(app)/tasks/task-season-color";
 import { PartyStack } from "@/app/(app)/tasks/party-stack";
 import { taskOwners } from "@/app/(app)/tasks/task-parties";
 import type { Task } from "@/data/tasks";
+import { TASK_FIELD_VISIBILITY } from "@/constants/task-field-visibility";
 
 interface CalendarTaskChipProps {
   task: Task;
@@ -44,7 +45,9 @@ export const CalendarTaskChip = ({ task, onSelect, variant = "compact" }: Calend
       </span>
       <div className="flex min-w-0 flex-wrap items-center gap-2">
         {task.season ? <ColorTag label={task.season.season} color={task.season.color} /> : null}
-        {task.brand ? <ColorTag label={task.brand.brand_name} color={task.brand.color} /> : null}
+        {TASK_FIELD_VISIBILITY.brand && task.brand ? (
+          <ColorTag label={task.brand.brand_name} color={task.brand.color} />
+        ) : null}
         {owners.length > 0 ? (
           <span className="flex min-w-0 max-w-full items-center gap-2 text-sm text-muted-foreground">
             <PartyStack parties={owners} maxVisible={2} showSoleName />

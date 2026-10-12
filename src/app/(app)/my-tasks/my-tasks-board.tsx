@@ -17,6 +17,7 @@ import { refreshMyTasks } from "@/app/(app)/my-tasks/_actions";
 import { useLinkedTask } from "@/app/(app)/tasks/use-linked-task";
 import { TaskDetailDrawer } from "@/app/(app)/tasks/task-detail-drawer";
 import { TASK_STATUS_CONFIG } from "@/constants/task-status";
+import { TASK_FIELD_VISIBILITY } from "@/constants/task-field-visibility";
 import type { Task } from "@/data/tasks";
 import type { DataTableFilterOption } from "@/components/data-table/table-features";
 
@@ -172,7 +173,7 @@ export const MyTasksBoard = ({
             <EmptyState
               icon={CalendarClock}
               title="No tasks match your filters"
-              description="Try a different season, brand, status, or due-date range — or clear filters above."
+              description="Try a different season or due-date range — or clear filters above."
             />
           ) : (
             <EmptyState
@@ -185,13 +186,19 @@ export const MyTasksBoard = ({
         toolbar={{
           filters: [
             { columnId: "season_id", title: "Season", placeholder: "All Seasons", options: seasonOptions, searchable: true },
-            { columnId: "brand_id", title: "Brand", placeholder: "All Brands", options: brandOptions },
-            {
-              columnId: "status",
-              title: "Status",
-              placeholder: "All Status",
-              options: Object.entries(TASK_STATUS_CONFIG).map(([value, { label }]) => ({ value, label })),
-            },
+            ...(TASK_FIELD_VISIBILITY.brand
+              ? [{ columnId: "brand_id", title: "Brand", placeholder: "All Brands", options: brandOptions }]
+              : []),
+            ...(TASK_FIELD_VISIBILITY.status
+              ? [
+                  {
+                    columnId: "status",
+                    title: "Status",
+                    placeholder: "All Status",
+                    options: Object.entries(TASK_STATUS_CONFIG).map(([value, { label }]) => ({ value, label })),
+                  },
+                ]
+              : []),
             { columnId: "due_date", title: "Due", placeholder: "Any Due Date", options: DUE_OPTIONS },
           ],
           sortOptions: [

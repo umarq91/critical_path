@@ -24,12 +24,10 @@ export function normaliseDpspCategory(value: string | undefined): (typeof dpspCa
     : null;
 }
 
-// gender has no "none" sentinel — it's a required, not-null column — so unlike
-// normaliseDpspCategory this only narrows the type. taskCreateSchema's own refine already
-// guarantees `value` is a real taskGenderValues member before this ever runs; the loose string
-// type on that field exists purely so the create form can start unselected (see schema.ts).
-function narrowGender(value: string): (typeof taskGenderValues)[number] {
-  return value as (typeof taskGenderValues)[number];
+// gender is optional at creation (nullable since 0040): "" (not chosen) becomes null. Any other
+// value has already passed taskCreateSchema's refine, so this only narrows the type.
+function normaliseGender(value: string | undefined): (typeof taskGenderValues)[number] | null {
+  return value ? (value as (typeof taskGenderValues)[number]) : null;
 }
 
 // due_date/start_date/end_date are all optional `date` columns, but DateField submits an unset
@@ -48,7 +46,7 @@ function taskRow(actor: AuditActor, taskColumns: TaskColumns, owners: string[]) 
     brand_id: normaliseOptionalId(taskColumns.brand_id),
     key_stage_id: normaliseOptionalId(taskColumns.key_stage_id),
     dpsp_category: normaliseDpspCategory(taskColumns.dpsp_category),
-    gender: narrowGender(taskColumns.gender),
+    gender: normaliseGender(taskColumns.gender),
     due_date: normaliseDate(taskColumns.due_date),
     start_date: normaliseDate(taskColumns.start_date),
     end_date: normaliseDate(taskColumns.end_date),

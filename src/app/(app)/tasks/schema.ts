@@ -71,20 +71,21 @@ export const taskSchema = z.object({
 // them here to be mandatory instead of loosening the shared base schema for everyone.
 export const taskCreateSchema = taskSchema.merge(taskParticipantsSchema).extend({
   owners: z.array(departmentKeySchema).min(1, "At least one owner is required"),
-  brand_id: z.string().uuid("Brand is required"),
+  // Brand and Gender were required here too until they were hidden (TASK_FIELD_VISIBILITY); the
+  // create form still offers both, but either may be left empty ("" is "not chosen").
+  brand_id: z.union([z.literal(""), z.string().uuid("Choose a valid brand")]).optional(),
   key_stage_id: z.string().uuid("Key Stage is required"),
   dpsp_category: z
     .string()
     .min(1, "DPSP Category is required")
     .refine((value) => (dpspCategoryValues as readonly string[]).includes(value), "DPSP Category is required"),
-  // Loose string, not the base z.enum(taskGenderValues) — same reason as dpsp_category above:
-  // the create form starts this unselected (no silently-inherited default) rather than
-  // defaulting to whichever gender sorts first, so it needs a "" starting value the enum type
-  // can't hold, validated back to a real choice here.
+  // Loose string, not the base z.enum(taskGenderValues): the create form starts this unselected
+  // ("") rather than defaulting to whichever gender sorts first. Optional since 0040 made the
+  // column nullable; "" is stored as null.
   gender: z
     .string()
-    .min(1, "Gender is required")
-    .refine((value) => (taskGenderValues as readonly string[]).includes(value), "Gender is required"),
+    .refine((value) => value === "" || (taskGenderValues as readonly string[]).includes(value), "Choose a valid gender")
+    .optional(),
   people_involved: z.array(departmentKeySchema).min(1, "At least one person involved is required"),
 });
 

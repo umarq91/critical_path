@@ -1,6 +1,7 @@
 "use client";
 
 import { TASK_STATUS_CONFIG } from "@/constants/task-status";
+import { TASK_FIELD_VISIBILITY } from "@/constants/task-field-visibility";
 import { formatDate } from "@/lib/dates";
 import { taskSeasonColor } from "@/app/(app)/tasks/task-season-color";
 import type { BarGeometry } from "@/app/(app)/timeline/timeline-utils";
@@ -19,10 +20,10 @@ interface TimelineTaskBarProps {
 }
 
 export const TimelineTaskBar = ({ task, geometry, onSelect }: TimelineTaskBarProps) => {
-  // Season colour, not status (client request) — status stays in the tooltip below.
+  // Season colour, not status (client request) — status stays in the tooltip below while shown.
   const color = taskSeasonColor(task);
   const seasonLabel = task.season?.season ?? "No season";
-  const statusLabel = TASK_STATUS_CONFIG[task.status]?.label ?? task.status;
+  const statusLabel = TASK_FIELD_VISIBILITY.status ? (TASK_STATUS_CONFIG[task.status]?.label ?? task.status) : null;
   // A task reaching the timeline has at least one of start_date/end_date/due_date set (see
   // timelineOverlapFilter in data/tasks.ts), so these fallbacks never all miss in practice.
   const dueLabel = task.due_date ? formatDate(task.due_date) : "no due date";
@@ -34,8 +35,8 @@ export const TimelineTaskBar = ({ task, geometry, onSelect }: TimelineTaskBarPro
     <button
       type="button"
       onClick={() => onSelect(task)}
-      title={`${task.task_name} · ${seasonLabel} · ${statusLabel} · ${schedule}`}
-      aria-label={`${task.task_name}, ${seasonLabel}, ${statusLabel}, ${schedule}`}
+      title={[task.task_name, seasonLabel, statusLabel, schedule].filter(Boolean).join(" · ")}
+      aria-label={[task.task_name, seasonLabel, statusLabel, schedule].filter(Boolean).join(", ")}
       style={{
         left: geometry.left,
         width: geometry.width,

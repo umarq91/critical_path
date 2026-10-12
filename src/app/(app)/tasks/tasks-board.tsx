@@ -20,6 +20,7 @@ import { TASK_STATUS_CONFIG } from "@/constants/task-status";
 import { CRITICAL_FILTER_OPTIONS } from "@/constants/critical-filter";
 import { DUE_WEEK_OPTIONS } from "@/constants/due-week-filter";
 import { TASK_GENDER_CONFIG } from "@/constants/task-gender";
+import { TASK_FIELD_VISIBILITY } from "@/constants/task-field-visibility";
 import { TASK_PAGE_SIZE_OPTIONS } from "@/constants/task-page-size";
 import { DPSP_CATEGORY_CONFIG } from "@/constants/dpsp-category";
 import type { Task } from "@/data/tasks";
@@ -161,7 +162,9 @@ export const TasksBoard = ({
         toolbar={{
           filters: [
             { columnId: "season_id", title: "Season", placeholder: "All Seasons", options: seasonOptions, multiple: true, searchable: true },
-            { columnId: "brand_id", title: "Brand", placeholder: "All Brands", options: brandOptions, multiple: true },
+            ...(TASK_FIELD_VISIBILITY.brand
+              ? [{ columnId: "brand_id", title: "Brand", placeholder: "All Brands", options: brandOptions, multiple: true }]
+              : []),
             {
               columnId: "key_stage_id",
               title: "Key Stage",
@@ -176,20 +179,28 @@ export const TasksBoard = ({
               options: Object.entries(DPSP_CATEGORY_CONFIG).map(([value, { label }]) => ({ value, label })),
               multiple: true,
             },
-            {
-              columnId: "gender",
-              title: "Gender",
-              placeholder: "All Genders",
-              options: Object.entries(TASK_GENDER_CONFIG).map(([value, { label }]) => ({ value, label })),
-              multiple: true,
-            },
-            {
-              columnId: "status",
-              title: "Status",
-              placeholder: "All Status",
-              options: Object.entries(TASK_STATUS_CONFIG).map(([value, { label }]) => ({ value, label })),
-              multiple: true,
-            },
+            ...(TASK_FIELD_VISIBILITY.gender
+              ? [
+                  {
+                    columnId: "gender",
+                    title: "Gender",
+                    placeholder: "All Genders",
+                    options: Object.entries(TASK_GENDER_CONFIG).map(([value, { label }]) => ({ value, label })),
+                    multiple: true,
+                  },
+                ]
+              : []),
+            ...(TASK_FIELD_VISIBILITY.status
+              ? [
+                  {
+                    columnId: "status",
+                    title: "Status",
+                    placeholder: "All Status",
+                    options: Object.entries(TASK_STATUS_CONFIG).map(([value, { label }]) => ({ value, label })),
+                    multiple: true,
+                  },
+                ]
+              : []),
             { columnId: "owner", title: "Owner", placeholder: "All Owners", options: partyOptions, multiple: true },
             {
               columnId: "involved",
@@ -206,9 +217,12 @@ export const TasksBoard = ({
             { columnId: "due_date", desc: true, label: "Due Date (Latest)" },
           ],
           // Not a column id: `search` is interpreted by listTasks as one term across the task
-          // name, its season, brand and key stage, and its owners and people involved.
+          // name, its season, brand and key stage, and its owners and people involved. The
+          // placeholder leaves brand out while it's hidden (TASK_FIELD_VISIBILITY).
           searchColumnId: "search",
-          searchPlaceholder: "Search tasks, season, brand, key stage, people...",
+          searchPlaceholder: TASK_FIELD_VISIBILITY.brand
+            ? "Search tasks, season, brand, key stage, people..."
+            : "Search tasks, season, key stage, people...",
           actions: (
             <SavedViewsMenu
               savedViews={savedViews}

@@ -8,12 +8,17 @@ import { buildExportFilename } from "@/lib/export/filename";
 import { defaultColumnKeys, selectColumns, type ExportSheet } from "@/lib/export/types";
 import { BREAKDOWN_COLUMNS, TREND_COLUMNS, buildBreakdownRows, buildTrendRows } from "@/app/(app)/dashboard/export/summary-rows";
 import { TASK_GRID_COLUMN_ORDER, TASK_RECORD_COLUMN_GROUPS } from "@/app/(app)/tasks/export/task-record-columns";
+import { TASK_FIELD_VISIBILITY } from "@/constants/task-field-visibility";
 
 type ExportFormat = "xlsx" | "csv";
 type ExportSection = "summary" | "trend" | "records";
 
 const VALID_FORMATS: readonly ExportFormat[] = ["xlsx", "csv"];
-const VALID_SECTIONS: readonly ExportSection[] = ["summary", "trend", "records"];
+// Completion Trend is completed-vs-overdue throughout, so it can't be exported while status is
+// hidden (TASK_FIELD_VISIBILITY) — the same reason its dashboard card is hidden.
+const VALID_SECTIONS: readonly ExportSection[] = TASK_FIELD_VISIBILITY.status
+  ? ["summary", "trend", "records"]
+  : ["summary", "records"];
 
 function errorResponse(status: number, error: string) {
   return NextResponse.json({ error }, { status });

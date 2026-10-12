@@ -12,6 +12,7 @@ import { getVizColorForId } from "@/constants/chart-colors";
 import { formatDateTime } from "@/lib/dates";
 import { initials } from "@/lib/utils";
 import type { DeletedTask } from "@/data/tasks";
+import { TASK_FIELD_VISIBILITY } from "@/constants/task-field-visibility";
 
 const columnHelper = createColumnHelper<typeof dataTableFeatures, DeletedTask>();
 
@@ -36,18 +37,26 @@ export function createTrashColumns({ canRestore }: CreateTrashColumnsOptions) {
         return season ? <ColorTag label={season.season} color={season.color} /> : "—";
       },
     }),
-    columnHelper.accessor("brand_id", {
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Brand" />,
-      meta: { label: "Brand", width: "md" },
-      filterFn: "weakEquals",
-      cell: ({ row }) => row.original.brand?.brand_name ?? <span className="text-muted-foreground">—</span>,
-    }),
-    columnHelper.accessor("status", {
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
-      meta: { label: "Status", width: "sm" },
-      enableSorting: false,
-      cell: ({ getValue }) => <StatusBadge value={getValue()} config={TASK_STATUS_CONFIG} />,
-    }),
+    ...(TASK_FIELD_VISIBILITY.brand
+      ? [
+          columnHelper.accessor("brand_id", {
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Brand" />,
+            meta: { label: "Brand", width: "md" },
+            filterFn: "weakEquals",
+            cell: ({ row }) => row.original.brand?.brand_name ?? <span className="text-muted-foreground">—</span>,
+          }),
+        ]
+      : []),
+    ...(TASK_FIELD_VISIBILITY.status
+      ? [
+          columnHelper.accessor("status", {
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
+            meta: { label: "Status", width: "sm" },
+            enableSorting: false,
+            cell: ({ getValue }) => <StatusBadge value={getValue()} config={TASK_STATUS_CONFIG} />,
+          }),
+        ]
+      : []),
     // Not an accessor on deleted_by (the raw uuid) — the toolbar has no filter on this column,
     // and the cell renders entirely from the embedded profile, same reasoning as columns.tsx's
     // owners/people display columns.

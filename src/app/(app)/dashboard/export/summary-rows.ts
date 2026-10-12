@@ -4,6 +4,7 @@ import { TASK_GENDER_CONFIG } from "@/constants/task-gender";
 import { percentOf } from "@/app/(app)/dashboard/metrics-projection";
 import type { ExportColumn } from "@/lib/export/types";
 import type { DashboardMetrics, TaskStatusCounts } from "@/data/dashboard";
+import { TASK_FIELD_VISIBILITY } from "@/constants/task-field-visibility";
 
 // The "Dashboard Summary" dataset: the same aggregate numbers the Status/Season/Brand/Gender
 // donut cards and the Task Completion trend chart already render, reshaped into two flat
@@ -91,7 +92,13 @@ export function buildBreakdownRows(metrics: DashboardMetrics): BreakdownRow[] {
     )
   );
 
-  return [...statusRows, ...seasonRows, ...brandRows, ...genderRows];
+  // Hidden dimensions (TASK_FIELD_VISIBILITY) leave the sheet along with their dashboard cards.
+  return [
+    ...(TASK_FIELD_VISIBILITY.status ? statusRows : []),
+    ...seasonRows,
+    ...(TASK_FIELD_VISIBILITY.brand ? brandRows : []),
+    ...(TASK_FIELD_VISIBILITY.gender ? genderRows : []),
+  ];
 }
 
 export function buildTrendRows(metrics: DashboardMetrics): TrendRow[] {
@@ -111,7 +118,7 @@ export function buildTrendRows(metrics: DashboardMetrics): TrendRow[] {
 // this file's header note). `completionRate`/`shareOfTotal` are plain 0–100 NUMBERS, not
 // pre-formatted "42.0%" strings: requirement is numbers stay numbers, so the percentage sign
 // lives in the column label instead of inside the value.
-export const BREAKDOWN_COLUMNS: ExportColumn<BreakdownRow>[] = [
+const ALL_BREAKDOWN_COLUMNS: ExportColumn<BreakdownRow>[] = [
   { key: "dimension", label: "Dimension", category: "summary", defaultSelected: true, dataType: "string", width: 12, getValue: (r) => r.dimension },
   { key: "label", label: "Label", category: "summary", defaultSelected: true, dataType: "string", width: 24, getValue: (r) => r.label },
   { key: "total", label: "Total Tasks", category: "summary", defaultSelected: true, dataType: "number", width: 12, getValue: (r) => r.total },
@@ -122,6 +129,14 @@ export const BREAKDOWN_COLUMNS: ExportColumn<BreakdownRow>[] = [
   { key: "completion_rate", label: "Completion Rate (%)", category: "summary", defaultSelected: true, dataType: "number", width: 16, getValue: (r) => Number(r.completionRate.toFixed(1)) },
   { key: "share_of_total", label: "Share of All Tasks (%)", category: "summary", defaultSelected: true, dataType: "number", width: 18, getValue: (r) => Number(r.shareOfTotal.toFixed(1)) },
 ];
+
+// The per-status split and completion rate are status figures, so they go while status is hidden;
+// what's left is each season's task count and share.
+const STATUS_BREAKDOWN_KEYS = new Set(["not_started", "in_progress", "completed", "overdue", "completion_rate"]);
+
+export const BREAKDOWN_COLUMNS = TASK_FIELD_VISIBILITY.status
+  ? ALL_BREAKDOWN_COLUMNS
+  : ALL_BREAKDOWN_COLUMNS.filter((column) => !STATUS_BREAKDOWN_KEYS.has(column.key));
 
 export const TREND_COLUMNS: ExportColumn<TrendRow>[] = [
   { key: "period_type", label: "Period Type", category: "summary", defaultSelected: true, dataType: "string", width: 12, getValue: (r) => r.periodType },

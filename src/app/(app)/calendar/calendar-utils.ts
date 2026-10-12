@@ -13,6 +13,7 @@ import {
 } from "date-fns";
 import { encodeMultiFilterValue } from "@/constants/data-table-filters";
 import type { CalendarView } from "@/app/(app)/calendar/calendar-search-params";
+import { withoutHiddenTaskFilters } from "@/lib/hidden-task-filters";
 
 // Tasks only carry a due_date (date, no time-of-day) — so unlike a real Google Calendar,
 // "day" and "week" views are agenda-style date groupings, not hour grids. There is no
@@ -70,12 +71,13 @@ export interface CalendarTaskFilterState {
 }
 
 export function hasActiveTaskFilters(state: CalendarTaskFilterState) {
-  return Object.values(state).some((values) => values.length > 0);
+  return Object.keys(toTaskRangeFilters(state)).length > 0;
 }
 
 // The one translation from the Calendar's URL state to listTasksByDueDateRange's `filters`
 // vocabulary. Shared by the page (what the grid shows) and the Sync action (what gets pushed),
-// so "what you see is what syncs" can't drift between the two.
+// so "what you see is what syncs" can't drift between the two. A filter on a hidden field
+// (TASK_FIELD_VISIBILITY) is dropped, since there's no control on screen to show or clear it.
 export function toTaskRangeFilters(state: CalendarTaskFilterState): Record<string, string> {
   const entries: [string, string | undefined][] = [
     ["season_id", encodeMultiFilterValue(state.seasonId)],
@@ -85,5 +87,7 @@ export function toTaskRangeFilters(state: CalendarTaskFilterState): Record<strin
     ["owner", encodeMultiFilterValue(state.owner)],
     ["involved", encodeMultiFilterValue(state.involved)],
   ];
-  return Object.fromEntries(entries.filter((entry): entry is [string, string] => entry[1] !== undefined));
+  return withoutHiddenTaskFilters(
+    Object.fromEntries(entries.filter((entry): entry is [string, string] => entry[1] !== undefined))
+  );
 }

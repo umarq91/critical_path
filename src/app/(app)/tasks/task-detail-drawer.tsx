@@ -35,6 +35,7 @@ import { PartyStack } from "@/app/(app)/tasks/party-stack";
 import { taskOwners, taskPeopleInvolved } from "@/app/(app)/tasks/task-parties";
 import { TASK_STATUS_CONFIG } from "@/constants/task-status";
 import { TASK_GENDER_CONFIG } from "@/constants/task-gender";
+import { TASK_FIELD_VISIBILITY } from "@/constants/task-field-visibility";
 import { DPSP_CATEGORY_CONFIG } from "@/constants/dpsp-category";
 import { formatDate, formatTimestampDate } from "@/lib/dates";
 import type { Task } from "@/data/tasks";
@@ -118,7 +119,7 @@ export const TaskDetailDrawer = ({
             <div className="flex min-w-0 flex-col gap-2">
               <SheetTitle className="truncate text-base font-semibold">{task.task_name}</SheetTitle>
               <div className="flex flex-wrap items-center gap-2">
-                <StatusBadge value={task.status} config={TASK_STATUS_CONFIG} />
+                {TASK_FIELD_VISIBILITY.status ? <StatusBadge value={task.status} config={TASK_STATUS_CONFIG} /> : null}
                 {draft.savedIsCritical ? (
                   <Badge
                     variant="outline"
@@ -146,9 +147,11 @@ export const TaskDetailDrawer = ({
             <div className="flex flex-col gap-4">
               <SectionHeading icon={ClipboardList} title="Task Overview" />
               <div className="grid grid-cols-2 gap-x-4 gap-y-5">
-                <OverviewField icon={Tag} label="Brand">
-                  {task.brand?.brand_name ?? "—"}
-                </OverviewField>
+                {TASK_FIELD_VISIBILITY.brand ? (
+                  <OverviewField icon={Tag} label="Brand">
+                    {task.brand?.brand_name ?? "—"}
+                  </OverviewField>
+                ) : null}
                 <OverviewField icon={CalendarRange} label="Season">
                   {task.season ? <ColorTag label={task.season.season} color={task.season.color} /> : "—"}
                 </OverviewField>
@@ -180,18 +183,22 @@ export const TaskDetailDrawer = ({
                     <span className="text-muted-foreground">Not set</span>
                   )}
                 </OverviewField>
-                <OverviewField icon={CircleDot} label="Status">
-                  <StatusBadge value={task.status} config={TASK_STATUS_CONFIG} />
-                {task.is_critical ? (
-                  <Badge
-                    variant="outline"
-                    className="gap-1 border-status-overdue-base bg-status-overdue-soft text-status-overdue-text"
-                  >
-                    <Flag className="size-3" />
-                    Critical
-                  </Badge>
+                {/* With status hidden this whole field goes: its Critical badge would only repeat
+                    the Critical Task field above and the header badge. */}
+                {TASK_FIELD_VISIBILITY.status ? (
+                  <OverviewField icon={CircleDot} label="Status">
+                    <StatusBadge value={task.status} config={TASK_STATUS_CONFIG} />
+                    {task.is_critical ? (
+                      <Badge
+                        variant="outline"
+                        className="gap-1 border-status-overdue-base bg-status-overdue-soft text-status-overdue-text"
+                      >
+                        <Flag className="size-3" />
+                        Critical
+                      </Badge>
+                    ) : null}
+                  </OverviewField>
                 ) : null}
-                </OverviewField>
                 <OverviewField icon={CalendarClock} label="Due Date">
                   {task.due_date ? formatDate(task.due_date) : <span className="text-muted-foreground">Not set</span>}
                 </OverviewField>
@@ -248,9 +255,15 @@ export const TaskDetailDrawer = ({
             <div className="flex flex-col gap-4">
               <SectionHeading icon={CalendarRange} title="Additional Information" />
               <div className="grid grid-cols-2 gap-x-4 gap-y-5">
-                <OverviewField icon={UserRound} label="Gender">
-                  <StatusBadge value={task.gender} config={TASK_GENDER_CONFIG} />
-                </OverviewField>
+                {TASK_FIELD_VISIBILITY.gender ? (
+                  <OverviewField icon={UserRound} label="Gender">
+                    {task.gender ? (
+                      <StatusBadge value={task.gender} config={TASK_GENDER_CONFIG} />
+                    ) : (
+                      <span className="text-muted-foreground">Not set</span>
+                    )}
+                  </OverviewField>
+                ) : null}
                 <OverviewField icon={CalendarRange} label="Start Date">
                   {task.start_date ? (
                     formatDate(task.start_date)

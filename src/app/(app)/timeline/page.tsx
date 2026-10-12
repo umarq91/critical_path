@@ -12,6 +12,7 @@ import { decodeMultiFilterValue } from "@/constants/data-table-filters";
 import { getCurrentProfile } from "@/data/profiles";
 import { can } from "@/lib/permissions";
 import { holidayCountryLabel } from "@/constants/holiday-country";
+import { TASK_FIELD_VISIBILITY } from "@/constants/task-field-visibility";
 
 export default async function TimelinePage({
   searchParams,
@@ -23,7 +24,8 @@ export default async function TimelinePage({
   const range = getTimelineRange(view, resolveAnchorDate(date));
   const filters = {
     season_id: seasonId,
-    brand_id: brandId,
+    // A hidden field's URL filter would narrow the board with no control to clear it.
+    brand_id: TASK_FIELD_VISIBILITY.brand ? brandId : "",
     key_stage_id: keyStageId,
     owner,
     involved,
@@ -40,7 +42,7 @@ export default async function TimelinePage({
     listTasksForTimeline({ from, to, filters, page, pageSize }),
     // The Overdue panel answers "what is late" for the whole board, so it takes the dropdown
     // filters but not the search term — a term typed to find one task shouldn't re-scope it.
-    listOverdueTasks({ filters }),
+    TASK_FIELD_VISIBILITY.overdue ? listOverdueTasks({ filters }) : Promise.resolve([]),
     listSeasonOptions(),
     listBrandOptions(),
     listKeyStageOptions(),

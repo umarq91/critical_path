@@ -2,6 +2,7 @@ import { taskOwners, taskPeopleInvolved } from "@/app/(app)/tasks/task-parties";
 import { TASK_STATUS_CONFIG } from "@/constants/task-status";
 import { TASK_GENDER_CONFIG } from "@/constants/task-gender";
 import { DPSP_CATEGORY_CONFIG } from "@/constants/dpsp-category";
+import { TASK_FIELD_VISIBILITY } from "@/constants/task-field-visibility";
 import { toExportDateOnly } from "@/lib/export/dates";
 import type { ExportColumnGroup } from "@/lib/export/types";
 import type { Task } from "@/data/tasks";
@@ -27,7 +28,7 @@ function partyNames(parties: { name: string }[]) {
 // isn't sortable in a spreadsheet), and Critical Task is its own column because the grid only
 // shows it as a row tint. Priority is hidden everywhere in the UI (client request), so it isn't
 // offered here.
-export const TASK_RECORD_COLUMN_GROUPS: ExportColumnGroup<Task>[] = [
+const ALL_TASK_RECORD_COLUMN_GROUPS: ExportColumnGroup<Task>[] = [
   {
     key: "basic",
     label: "Task Details",
@@ -49,7 +50,7 @@ export const TASK_RECORD_COLUMN_GROUPS: ExportColumnGroup<Task>[] = [
         defaultSelected: true,
         dataType: "string",
         width: 12,
-        getValue: (t) => TASK_GENDER_CONFIG[t.gender]?.label ?? t.gender,
+        getValue: (t) => (t.gender ? (TASK_GENDER_CONFIG[t.gender]?.label ?? t.gender) : null),
       },
       {
         key: "notes",
@@ -148,12 +149,25 @@ export const TASK_RECORD_COLUMN_GROUPS: ExportColumnGroup<Task>[] = [
   },
 ];
 
+// Status, Brand and Gender are hidden across the app for now (TASK_FIELD_VISIBILITY), so they
+// leave the export dialogs, the exported files and the import template together.
+const HIDDEN_COLUMN_KEYS = new Set<string>([
+  ...(TASK_FIELD_VISIBILITY.status ? [] : ["status"]),
+  ...(TASK_FIELD_VISIBILITY.brand ? [] : ["brand"]),
+  ...(TASK_FIELD_VISIBILITY.gender ? [] : ["gender"]),
+]);
+
+export const TASK_RECORD_COLUMN_GROUPS: ExportColumnGroup<Task>[] = ALL_TASK_RECORD_COLUMN_GROUPS.map((group) => ({
+  ...group,
+  columns: group.columns.filter((column) => !HIDDEN_COLUMN_KEYS.has(column.key)),
+})).filter((group) => group.columns.length > 0);
+
 // The order columns land in the file: the Task Management grid's left-to-right order
 // (tasks/columns.tsx — kept as a plain list because that module is "use client" and can't be
 // imported into a Route Handler; update both together). The groups above only shape the export
 // dialog's checklist. Critical Task sits beside Task Name, Start/Expected Finish where Working
 // Timeline is.
-export const TASK_GRID_COLUMN_ORDER = [
+const ALL_TASK_GRID_COLUMN_ORDER = [
   "status",
   "season",
   "key_stage",
@@ -169,3 +183,5 @@ export const TASK_GRID_COLUMN_ORDER = [
   "dpsp_category",
   "notes",
 ];
+
+export const TASK_GRID_COLUMN_ORDER = ALL_TASK_GRID_COLUMN_ORDER.filter((key) => !HIDDEN_COLUMN_KEYS.has(key));

@@ -11,6 +11,7 @@ import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { listMyReminderCandidateTasks } from "@/app/(app)/settings/notifications/_reminder-actions";
 import { formatDate } from "@/lib/dates";
 import type { ReminderRuleTask } from "@/data/reminders";
+import { TASK_FIELD_VISIBILITY } from "@/constants/task-field-visibility";
 
 const SEARCH_DEBOUNCE_MS = 300;
 /** Bounded fetch — a personally-scoped candidate list (see listMyReminderCandidateTasks) is
@@ -144,22 +145,26 @@ export function NotifyTaskPickerDialog({
           allLabel="All People Involved"
           className="h-8"
         />
-        <MultiFilterSelect
-          value={brandId}
-          onValueChange={setBrandId}
-          options={brandOptions}
-          title="Brand"
-          allLabel="All Brands"
-          className="h-8"
-        />
-        <MultiFilterSelect
-          value={gender}
-          onValueChange={setGender}
-          options={genderOptions}
-          title="Gender"
-          allLabel="All Genders"
-          className="h-8"
-        />
+        {TASK_FIELD_VISIBILITY.brand ? (
+          <MultiFilterSelect
+            value={brandId}
+            onValueChange={setBrandId}
+            options={brandOptions}
+            title="Brand"
+            allLabel="All Brands"
+            className="h-8"
+          />
+        ) : null}
+        {TASK_FIELD_VISIBILITY.gender ? (
+          <MultiFilterSelect
+            value={gender}
+            onValueChange={setGender}
+            options={genderOptions}
+            title="Gender"
+            allLabel="All Genders"
+            className="h-8"
+          />
+        ) : null}
         {seasonId || owner || involved || brandId || gender || search ? (
           <Button
             type="button"

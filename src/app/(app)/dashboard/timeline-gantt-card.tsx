@@ -23,6 +23,8 @@ import {
 import { decodeMultiFilterValue } from "@/constants/data-table-filters";
 import type { FilterSelectOption } from "@/components/shared/filter-select";
 import type { Task } from "@/data/tasks";
+import { TASK_FIELD_VISIBILITY } from "@/constants/task-field-visibility";
+import { cn } from "@/lib/utils";
 
 const TIMELINE_HREF = "/timeline";
 
@@ -136,7 +138,9 @@ export const TimelineGanttCard = ({
 
   return (
     <>
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
+      <div
+        className={cn("grid grid-cols-1 gap-4", TASK_FIELD_VISIBILITY.overdue && "xl:grid-cols-[minmax(0,1fr)_300px]")}
+      >
         <ChartCard
           title="GANTT Chart / Timeline View"
           description="Track your project timeline and task progress"
@@ -171,12 +175,14 @@ export const TimelineGanttCard = ({
           </div>
         </ChartCard>
 
-        <TimelineOverduePanel
-          tasks={overdue}
-          onSelectTask={setSelectedTask}
-          viewAllHref={timelineHref}
-          maxListHeight={TIMELINE_PREVIEW_OVERDUE_HEIGHT}
-        />
+        {TASK_FIELD_VISIBILITY.overdue ? (
+          <TimelineOverduePanel
+            tasks={overdue}
+            onSelectTask={setSelectedTask}
+            viewAllHref={timelineHref}
+            maxListHeight={TIMELINE_PREVIEW_OVERDUE_HEIGHT}
+          />
+        ) : null}
       </div>
 
       {selectedTask ? (

@@ -583,6 +583,58 @@ historical data has no known due date; forcing one would mean fabricating data. 
 
 ---
 
+## Brand, Status, Gender & Overdue (hidden)
+
+**Hidden by client request and meant to come back, so every change is a flag, not a deletion.**
+`TASK_FIELD_VISIBILITY` (`src/constants/task-field-visibility.ts`) has one flag each for
+`brand`, `status`, `gender` and `overdue`, all `false`. Flip one to `true` to restore that
+field everywhere below. The columns, enums, data, `listTasks` filters, audit log and the
+integration API (`/integration/v1/*`, an external contract) are untouched.
+
+Where each flag is checked:
+- **Dashboard** (`dashboard/page.tsx` and `loading.tsx`, which must match): `status` gates the
+  stat tiles, Task Status Overview, Completion Rate and Task Completion; `brand` gates Tasks by
+  Brand; `gender` gates Tasks by Gender. With all three off, only Tasks by Season and the Gantt
+  card are left, each full width. The middle row was built for all three on or all three off.
+  Restore only one or two and that row has gaps, so fix the layout if that happens.
+- **Overdue panels** (`overdue`): `/timeline` (`timeline-workspace.tsx`, `loading.tsx`) and the
+  dashboard Gantt card. While the flag is off, `listOverdueTasks` isn't called at all.
+- **Grids**: Status/Brand/Gender columns in the shared `tasks/columns.tsx`, which means Tasks,
+  My Tasks and the Email Notifications scheduled table; Brand/Status in Trash. Hidden fields are
+  also left out of the pencil-edit draft (`VISIBLE_EDITABLE_FIELDS`), so a save never resubmits
+  them. Toolbar filters live in `tasks-board.tsx`, `my-tasks-board.tsx` and `trash-board.tsx`.
+- **Overdue row tint** (`task-row-class-name.ts`) is gated on `overdue`. The critical tint stays.
+  The Due Date's red text no longer reads `status`: it's `isPastDue(due_date)` (`lib/dates.ts`,
+  Melbourne's today) and not completed. That change stays even after the flags come back.
+- **Task drawer**: the header status badge, the Brand field and the Gender field are hidden. The
+  whole Status field is hidden too, because its Critical badge only repeated the Critical Task
+  field and the header badge. Both of those Critical indicators stay.
+- **Filters elsewhere**: Calendar (Brand/Status/Gender), Timeline and Gantt card (Brand, in the
+  shared `timeline-toolbar.tsx`) and the Notifications task picker (Brand/Gender).
+- **Hidden filters still in a URL or saved view are dropped server-side** by
+  `withoutHiddenTaskFilters` (`lib/hidden-task-filters.ts`): Tasks, My Tasks, Trash, Calendar
+  (in `toTaskRangeFilters`, so Google sync matches the grid) and Timeline's `brand_id`. With no
+  control on screen to clear them, they would otherwise narrow lists invisibly. Saved views
+  themselves aren't rewritten.
+- **Export/import**: `task-record-columns.ts` filters the hidden keys out of
+  `TASK_RECORD_COLUMN_GROUPS`/`TASK_GRID_COLUMN_ORDER`, so they disappear from both export
+  dialogs, the exported files and the import template. The Dashboard export also drops Completion
+  Trend and the status-derived summary columns, and the summary rows for hidden dimensions.
+  Import ignores a sheet's Status/Brand/Gender columns, the same way it handles Priority: every
+  task gets `not_started` and no brand or gender. While brand is hidden, duplicate detection
+  matches on name + season only (`analyse-import.ts`). Otherwise a re-uploaded export would
+  re-create every branded task.
+- **Google Calendar event descriptions** leave out the BRAND/GENDER lines. That changes the
+  content hash, so every synced task re-pushes once on the next Sync.
+- Search placeholders (Tasks, DPSP Flywheel) drop "brand". Search still matches brand names.
+
+**Creation**: Brand and Gender stay in the Add Task form and are now optional
+(`taskCreateSchema`, and no longer in `REQUIRED_IMPORT_FIELDS`). This stays even once they're
+visible again. Gender needs `0040_task_gender_nullable.sql` applied before deploy, or a task
+created without one fails the insert.
+
+---
+
 ## Seasons & Key Stages
 
 **Both are seeded from client data, not invented.** `supabase/seed-seasons.sql` (28 rows) and
@@ -645,6 +697,9 @@ UUIDs.
 ---
 
 ## Dashboard (`/dashboard`)
+
+> Most of the cards below are currently hidden behind `TASK_FIELD_VISIBILITY`. See § "Brand,
+> Status, Gender & Overdue (hidden)". The notes still describe them as built.
 
 **Cost: 3 Supabase calls for the page** (6 per load; the other 3 are the authenticated shell —
 proxy `getUser`, layout `getUser` + profiles SELECT — and every route pays them). All 3 are

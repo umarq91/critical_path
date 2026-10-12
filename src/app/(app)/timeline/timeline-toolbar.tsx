@@ -17,6 +17,7 @@ import {
 } from "@/app/(app)/timeline/timeline-utils";
 import type { FilterSelectOption } from "@/components/shared/filter-select";
 import { cn } from "@/lib/utils";
+import { TASK_FIELD_VISIBILITY } from "@/constants/task-field-visibility";
 
 const VIEW_LABELS: Record<TimelineView, string> = {
   week: "Week",
@@ -197,14 +198,16 @@ export const TimelineToolbar = ({
           className="h-8"
           searchable
         />
-        <MultiFilterSelect
-          value={state.brandId}
-          onValueChange={(value) => setState({ brandId: value ?? null })}
-          options={brandOptions}
-          title="Brand"
-          allLabel="All Brands"
-          className="h-8"
-        />
+        {TASK_FIELD_VISIBILITY.brand ? (
+          <MultiFilterSelect
+            value={state.brandId}
+            onValueChange={(value) => setState({ brandId: value ?? null })}
+            options={brandOptions}
+            title="Brand"
+            allLabel="All Brands"
+            className="h-8"
+          />
+        ) : null}
         {keyStageOptions ? (
           <MultiFilterSelect
             value={state.keyStageId}

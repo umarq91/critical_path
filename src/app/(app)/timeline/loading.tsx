@@ -1,6 +1,8 @@
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TIMELINE_PAGE_SIZE } from "@/app/(app)/timeline/timeline-search-params";
+import { TASK_FIELD_VISIBILITY } from "@/constants/task-field-visibility";
+import { cn } from "@/lib/utils";
 
 // A full page of rows, so the skeleton is the height the real chart lands at.
 const ROW_COUNT = TIMELINE_PAGE_SIZE;
@@ -26,13 +28,15 @@ export default function TimelineLoading() {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Skeleton className="h-8 w-80" />
-            {Array.from({ length: 6 }).map((_, index) => (
+            {Array.from({ length: TASK_FIELD_VISIBILITY.brand ? 6 : 5 }).map((_, index) => (
               <Skeleton key={index} className="h-8 w-32" />
             ))}
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
+        <div
+          className={cn("grid grid-cols-1 gap-4", TASK_FIELD_VISIBILITY.overdue && "xl:grid-cols-[minmax(0,1fr)_300px]")}
+        >
           <div className="flex flex-col gap-3">
             {/* Mirrors TimelineGrid: a two-band header, then one row per task. */}
             <div className="overflow-hidden rounded-lg border border-border">
@@ -59,16 +63,18 @@ export default function TimelineLoading() {
             </div>
           </div>
 
-          <Card className="gap-3">
-            <div className="px-4">
-              <Skeleton className="h-6 w-36" />
-            </div>
-            <div className="flex flex-col gap-3 px-4">
-              {Array.from({ length: 5 }).map((_, index) => (
-                <Skeleton key={index} className="h-10 w-full" />
-              ))}
-            </div>
-          </Card>
+          {TASK_FIELD_VISIBILITY.overdue ? (
+            <Card className="gap-3">
+              <div className="px-4">
+                <Skeleton className="h-6 w-36" />
+              </div>
+              <div className="flex flex-col gap-3 px-4">
+                {Array.from({ length: 5 }).map((_, index) => (
+                  <Skeleton key={index} className="h-10 w-full" />
+                ))}
+              </div>
+            </Card>
+          ) : null}
         </div>
       </div>
     </div>

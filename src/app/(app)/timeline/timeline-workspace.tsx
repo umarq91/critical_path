@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { CRITICAL_FILTER_OPTIONS } from "@/constants/critical-filter";
 import type { Task } from "@/data/tasks";
 import type { Holiday } from "@/data/holidays";
+import { TASK_FIELD_VISIBILITY } from "@/constants/task-field-visibility";
 
 interface TimelineWorkspaceProps {
   /** One page of the window's matching tasks, already searched, sorted and sliced server-side. */
@@ -87,7 +88,9 @@ export const TimelineWorkspace = ({
         taskCount={rowCount}
       />
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
+      <div
+        className={cn("grid grid-cols-1 gap-4", TASK_FIELD_VISIBILITY.overdue && "xl:grid-cols-[minmax(0,1fr)_300px]")}
+      >
         <div className={cn("relative flex flex-col gap-3 transition-opacity duration-200", queryState.isPending && "opacity-60")}>
           {queryState.isPending ? (
             <div className="pointer-events-none absolute inset-0 z-40 flex items-start justify-center pt-24">
@@ -120,7 +123,9 @@ export const TimelineWorkspace = ({
           <TimelineSeasonLegend tasks={tasks} />
         </div>
 
-        <TimelineOverduePanel tasks={overdueTasks} onSelectTask={setSelectedTask} />
+        {TASK_FIELD_VISIBILITY.overdue ? (
+          <TimelineOverduePanel tasks={overdueTasks} onSelectTask={setSelectedTask} />
+        ) : null}
       </div>
 
       {/* The shared drawer — same component the Tasks grid, Calendar and Upcoming pages open,
