@@ -28,7 +28,7 @@ function partyNames(parties: { name: string }[]) {
 // isn't sortable in a spreadsheet), and Critical Task is its own column because the grid only
 // shows it as a row tint. Priority is hidden everywhere in the UI (client request), so it isn't
 // offered here.
-const ALL_TASK_RECORD_COLUMN_GROUPS: ExportColumnGroup<Task>[] = [
+export const ALL_TASK_RECORD_COLUMN_GROUPS: ExportColumnGroup<Task>[] = [
   {
     key: "basic",
     label: "Task Details",
@@ -50,7 +50,7 @@ const ALL_TASK_RECORD_COLUMN_GROUPS: ExportColumnGroup<Task>[] = [
         defaultSelected: true,
         dataType: "string",
         width: 12,
-        getValue: (t) => (t.gender ? (TASK_GENDER_CONFIG[t.gender]?.label ?? t.gender) : null),
+        getValue: (t) => TASK_GENDER_CONFIG[t.gender]?.label ?? t.gender,
       },
       {
         key: "notes",
@@ -150,7 +150,8 @@ const ALL_TASK_RECORD_COLUMN_GROUPS: ExportColumnGroup<Task>[] = [
 ];
 
 // Status, Brand and Gender are hidden across the app for now (TASK_FIELD_VISIBILITY), so they
-// leave the export dialogs, the exported files and the import template together.
+// leave the export dialogs and the exported files. The import template reads the ALL_ lists
+// instead: Brand and Gender are still required when a task is created.
 const HIDDEN_COLUMN_KEYS = new Set<string>([
   ...(TASK_FIELD_VISIBILITY.status ? [] : ["status"]),
   ...(TASK_FIELD_VISIBILITY.brand ? [] : ["brand"]),
@@ -167,7 +168,7 @@ export const TASK_RECORD_COLUMN_GROUPS: ExportColumnGroup<Task>[] = ALL_TASK_REC
 // imported into a Route Handler; update both together). The groups above only shape the export
 // dialog's checklist. Critical Task sits beside Task Name, Start/Expected Finish where Working
 // Timeline is.
-const ALL_TASK_GRID_COLUMN_ORDER = [
+export const ALL_TASK_GRID_COLUMN_ORDER = [
   "status",
   "season",
   "key_stage",

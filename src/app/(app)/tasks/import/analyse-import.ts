@@ -5,16 +5,11 @@ import { MAX_TASK_IMPORT_ROWS, type TaskImportRow } from "@/app/(app)/tasks/impo
 import { loadTaskImportLookups } from "@/data/task-import-lookups";
 import { listTaskIdentities } from "@/data/tasks";
 import type { TaskCreateInput } from "@/app/(app)/tasks/schema";
-import { TASK_FIELD_VISIBILITY } from "@/constants/task-field-visibility";
 
 export type AnalysedImportRow = TaskImportRow & { input?: TaskCreateInput };
 
-// While brand is hidden (TASK_FIELD_VISIBILITY) a sheet's Brand column is ignored, so every
-// imported row has no brand; matching on it would let a re-uploaded export through as copies of
-// every branded task. Name + season alone decide it until brand is back.
 function identityKey(taskName: string, seasonId: string, brandId: string | null | undefined) {
-  const brandPart = TASK_FIELD_VISIBILITY.brand ? (brandId ?? "") : "";
-  return `${taskName.trim()}|${seasonId}|${brandPart}`;
+  return `${taskName.trim()}|${seasonId}|${brandId ?? ""}`;
 }
 
 // The whole check an uploaded sheet goes through, without writing anything: parse, resolve every
@@ -49,10 +44,7 @@ export async function analyseTaskImport(
 
     const key = identityKey(result.input.task_name, result.input.season_id, result.input.brand_id);
     if (existing.has(key)) {
-      const error = TASK_FIELD_VISIBILITY.brand
-        ? "A task with this name, season and brand already exists"
-        : "A task with this name and season already exists";
-      return { ...base, status: "duplicate", error };
+      return { ...base, status: "duplicate", error: "A task with this name, season and brand already exists" };
     }
     if (seenInFile.has(key)) return { ...base, status: "duplicate", error: "Repeats an earlier row in this file" };
     seenInFile.add(key);

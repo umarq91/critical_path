@@ -616,22 +616,22 @@ Where each flag is checked:
   (in `toTaskRangeFilters`, so Google sync matches the grid) and Timeline's `brand_id`. With no
   control on screen to clear them, they would otherwise narrow lists invisibly. Saved views
   themselves aren't rewritten.
-- **Export/import**: `task-record-columns.ts` filters the hidden keys out of
+- **Export**: `task-record-columns.ts` filters the hidden keys out of
   `TASK_RECORD_COLUMN_GROUPS`/`TASK_GRID_COLUMN_ORDER`, so they disappear from both export
-  dialogs, the exported files and the import template. The Dashboard export also drops Completion
-  Trend and the status-derived summary columns, and the summary rows for hidden dimensions.
-  Import ignores a sheet's Status/Brand/Gender columns, the same way it handles Priority: every
-  task gets `not_started` and no brand or gender. While brand is hidden, duplicate detection
-  matches on name + season only (`analyse-import.ts`). Otherwise a re-uploaded export would
-  re-create every branded task.
+  dialogs and the exported files. The Dashboard export also drops Completion Trend and the
+  status-derived summary columns, and the summary rows for hidden dimensions.
+- **Import** reads the unfiltered `ALL_TASK_RECORD_COLUMN_GROUPS`/`ALL_TASK_GRID_COLUMN_ORDER`:
+  Brand and Gender stay required template columns (see Creation below). Only Status is left out
+  of the template and ignored in a sheet, the same way Priority is: every task gets
+  `not_started`. A hidden-field export therefore can't be re-uploaded as-is; use the template.
 - **Google Calendar event descriptions** leave out the BRAND/GENDER lines. That changes the
   content hash, so every synced task re-pushes once on the next Sync.
 - Search placeholders (Tasks, DPSP Flywheel) drop "brand". Search still matches brand names.
 
-**Creation**: Brand and Gender stay in the Add Task form and are now optional
-(`taskCreateSchema`, and no longer in `REQUIRED_IMPORT_FIELDS`). This stays even once they're
-visible again. Gender needs `0040_task_gender_nullable.sql` applied before deploy, or a task
-created without one fails the insert.
+**Creation is not hidden.** Brand and Gender are shown and required in the Add Task form
+(`taskCreateSchema`) and in import (`REQUIRED_IMPORT_FIELDS`), and `tasks.gender` stays
+not null. Only the places that display a task hide them, so every task keeps real values for
+the day the flags come back.
 
 ---
 

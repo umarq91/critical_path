@@ -1,4 +1,4 @@
-import { TASK_GRID_COLUMN_ORDER, TASK_RECORD_COLUMN_GROUPS } from "@/app/(app)/tasks/export/task-record-columns";
+import { ALL_TASK_GRID_COLUMN_ORDER, ALL_TASK_RECORD_COLUMN_GROUPS } from "@/app/(app)/tasks/export/task-record-columns";
 import { TASK_FIELD_VISIBILITY } from "@/constants/task-field-visibility";
 
 // The export columns a task import reads. Headers are the export's own labels (looked up below,
@@ -23,16 +23,13 @@ const IMPORT_FIELDS = [
 
 export type TaskImportField = (typeof IMPORT_FIELDS)[number];
 
-// Status, Brand and Gender are hidden across the app for now (TASK_FIELD_VISIBILITY). Their
-// headers are left out of the template and a sheet's column for them is ignored, the same way
-// Priority is: every imported task gets "not_started" and no brand or gender.
-const HIDDEN_IMPORT_FIELDS = new Set<TaskImportField>([
-  ...(TASK_FIELD_VISIBILITY.status ? [] : (["status"] as const)),
-  ...(TASK_FIELD_VISIBILITY.brand ? [] : (["brand"] as const)),
-  ...(TASK_FIELD_VISIBILITY.gender ? [] : (["gender"] as const)),
-]);
+// Status is hidden across the app for now (TASK_FIELD_VISIBILITY). Its header is left out of the
+// template and a sheet's Status column is ignored, the same way Priority is: every imported task
+// gets "not_started". Brand and Gender are hidden too, but stay here because creation still
+// requires them.
+const HIDDEN_IMPORT_FIELDS = new Set<TaskImportField>(TASK_FIELD_VISIBILITY.status ? [] : ["status"]);
 
-export function isVisibleImportField(field: TaskImportField) {
+function isVisibleImportField(field: TaskImportField) {
   return !HIDDEN_IMPORT_FIELDS.has(field);
 }
 
@@ -40,19 +37,20 @@ const DATE_FIELDS: ReadonlySet<TaskImportField> = new Set(["due_date", "start_da
 
 // A whole-file error when any of these is absent from the header row, rather than every row
 // failing with the same message. Status, Comments, Critical Task and the dates may be
-// left out. Brand and Gender are no longer required (optional at creation since they were
-// hidden), even once they're visible again.
+// left out.
 export const REQUIRED_IMPORT_FIELDS: TaskImportField[] = [
   "task_name",
   "season",
+  "brand",
   "key_stage",
   "dpsp_category",
+  "gender",
   "owners",
   "people_involved",
 ];
 
 const LABEL_BY_KEY = new Map(
-  TASK_RECORD_COLUMN_GROUPS.flatMap((group) => group.columns).map((column) => [column.key, column.label])
+  ALL_TASK_RECORD_COLUMN_GROUPS.flatMap((group) => group.columns).map((column) => [column.key, column.label])
 );
 
 export function importFieldLabel(field: TaskImportField) {
@@ -78,9 +76,9 @@ export const IMPORT_FIELD_BY_HEADER: ReadonlyMap<string, TaskImportField> = new 
 
 // Template headers in the export's own left-to-right order. Date columns carry the format hint,
 // since the template has no sample row to show it.
-export const TASK_IMPORT_TEMPLATE_HEADERS = TASK_GRID_COLUMN_ORDER.flatMap((key) => {
+export const TASK_IMPORT_TEMPLATE_HEADERS = ALL_TASK_GRID_COLUMN_ORDER.flatMap((key) => {
   const field = IMPORT_FIELDS.find((candidate) => candidate === key);
-  if (!field) return [];
+  if (!field || !isVisibleImportField(field)) return [];
   const label = importFieldLabel(field);
   return [DATE_FIELDS.has(field) ? `${label} (DD-MM-YYYY)` : label];
 });
