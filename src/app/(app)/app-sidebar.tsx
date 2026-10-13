@@ -30,14 +30,14 @@ export function AppSidebar({ role }: { role: Role }) {
             src="/icons/logo.jpeg"
             alt="Threebyone"
             width={1600}
-            height={328}
+            height={329}
             priority
             className="h-10 w-auto object-contain"
           />
           {/* text-overline's size/tracking doubled just for this wordmark, not the shared utility other labels still use.
-              #3B3D3F and font-light are a deliberate close match to the logo's own ink and weight, not --foreground.
+              text-foreground is a close match to the logo's near-black ink; font-light matches its weight.
               font-serif matches the logo's serif typeface (Tailwind's default stack, e.g. Georgia — the app body text stays font-sans). */}
-          <span className="text-[22px] font-light uppercase tracking-[0.02em] text-[#3B3D3F] font-serif">Critical Path</span>
+          <span className="text-[22px] font-light uppercase tracking-[0.02em] text-foreground font-serif">Critical Path</span>
         </div>
       </SidebarHeader>
       <SidebarContent className="gap-6 px-1 py-2">
