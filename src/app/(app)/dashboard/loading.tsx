@@ -34,10 +34,7 @@ export default function DashboardLoading() {
           </div>
         ) : null}
 
-        <div className={cn("grid grid-cols-1 gap-4", showStatus && "lg:grid-cols-2")}>
-          <ChartCardSkeleton bodyClassName={DONUT_BODY_CLASS} />
-          {showStatus ? <ChartCardSkeleton bodyClassName={DONUT_BODY_CLASS} /> : null}
-        </div>
+        {showStatus ? <ChartCardSkeleton bodyClassName={DONUT_BODY_CLASS} /> : null}
 
         {showStatus || showBrand || showGender ? (
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">

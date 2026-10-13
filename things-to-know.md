@@ -726,7 +726,7 @@ card — **still 0 requests on interaction**.
 | Card | Basis |
 |---|---|
 | Stat tiles | All-time counts + share of total |
-| Tasks by Season | Ranked by task count, **top 6**, tail folded into one "Other (N)" slice |
+| ~~Tasks by Season~~ | **Removed from the dashboard** at the client's request. `metrics.bySeason` is still computed — the Gantt's season dropdown and the export's Season breakdown use it |
 | Task Status Overview | All 4 enum statuses, enum order, never folded |
 | Completion Rate | Completed vs. everything else |
 | Tasks by Brand | Ranked by task count, **top 5**, tail truncated with an "N more" hint |

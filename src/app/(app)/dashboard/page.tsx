@@ -24,7 +24,6 @@ import { ROUTES } from "@/constants/routes";
 import { dataTableSearchParamsHref } from "@/components/data-table/data-table-search-params";
 import { TASKS_QUERY_STATE } from "@/app/(app)/tasks/query-state";
 import { TASK_FIELD_VISIBILITY } from "@/constants/task-field-visibility";
-import { cn } from "@/lib/utils";
 
 // The tasks grid already filters by status; the tile just links into it pre-filtered rather
 // than the page growing a second, overdue-only list.
@@ -111,24 +110,15 @@ export default async function DashboardPage() {
           </div>
         ) : null}
 
-        <div className={cn("grid grid-cols-1 gap-4", showStatus && "lg:grid-cols-2")}>
+        {showStatus ? (
           <BreakdownDonutCard
-            title="Tasks by Season"
-            description="Every task by the season it belongs to"
-            allLabel="All Seasons"
-            groups={metrics.bySeason}
-            searchTitle="Seasons"
+            title="Task Status Overview"
+            description="Every task by its current status"
+            allLabel="All Status"
+            groups={toStatusGroups(metrics.statusCounts)}
+            centerRate={completionRate}
           />
-          {showStatus ? (
-            <BreakdownDonutCard
-              title="Task Status Overview"
-              description="Every task by its current status"
-              allLabel="All Status"
-              groups={toStatusGroups(metrics.statusCounts)}
-              centerRate={completionRate}
-            />
-          ) : null}
-        </div>
+        ) : null}
 
         {/* Built for all three on or all three off; restoring only some leaves gaps in this row. */}
         {showStatus || showBrand || showGender ? (

@@ -36,9 +36,9 @@ interface BreakdownDonutCardProps {
   className?: string;
 }
 
-// Tasks by Season, Task Status Overview and Tasks by Gender are the same card three times over
+// Task Status Overview and Tasks by Gender (and formerly Tasks by Season) are the same card
 // — a ring split by one dimension, a scope dropdown, and a completion rate in the middle. Only
-// the groups differ, so they're one component with different props rather than three files.
+// the groups differ, so they're one component with different props rather than separate files.
 export const BreakdownDonutCard = ({
   title,
   description,
