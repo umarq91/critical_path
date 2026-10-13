@@ -1,5 +1,5 @@
 import { addWeeks, endOfWeek, format, parseISO, startOfWeek, subDays } from "date-fns";
-import type { DueWeekPreset } from "@/constants/due-week-filter";
+import type { DueRangePreset } from "@/constants/due-week-filter";
 
 const DATE_LOCALE = "en-AU";
 
@@ -98,7 +98,7 @@ export function isPastDue(dueDate: string) {
 // alone, whatever the status, so between them they cover every dated task. Weeks run Monday to
 // Sunday. "Next 2 Weeks" is the two full weeks after this one (next Monday to the Sunday after
 // next), so it never overlaps "This Week".
-export function dueFilterRange(preset: DueWeekPreset): { from?: string; to?: string } {
+export function dueFilterRange(preset: DueRangePreset): { from?: string; to?: string } {
   if (preset === "today_onwards") return { from: orgTodayIso() };
   if (preset === "overdue") return { to: format(subDays(orgToday(), 1), "yyyy-MM-dd") };
   const thisMonday = startOfWeek(orgToday(), WEEK_STARTS_ON_MONDAY);

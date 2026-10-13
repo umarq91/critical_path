@@ -500,7 +500,9 @@ today, by date alone — completed tasks included, `status` isn't consulted), Th
 Next 2 Weeks (`constants/due-week-filter.ts`), resolved by `dueFilterRange` (`lib/dates.ts`) on
 Melbourne's date, never the UTC server's, which is a day behind for the first 10–11 hours of a
 Melbourne day. Several presets are a union, one `.or()` of ranges. "Next 2 Weeks" is the two full
-weeks after this one, so it never overlaps This Week. Undated tasks never match any preset. The key
+weeks after this one, so it never overlaps This Week. Undated tasks match only "No Due Date"
+(`due_date.is.null`); "All Due Dates (incl. No Due Date)" applies no due-date clause at all, so
+it shows every task and wins over anything else selected with it. The key
 is still called `due_week` so older saved views keep loading.
 
 **The grid opens on Today & Upcoming Due Dates** (`defaultFilters` in `tasks/query-state.ts`, client

@@ -2,7 +2,7 @@ import "server-only";
 import { addDays, format } from "date-fns";
 import { createClient } from "@/lib/supabase/server";
 import { decodeMultiFilterValue } from "@/constants/data-table-filters";
-import { decodeDueWeekPresets } from "@/constants/due-week-filter";
+import { decodeDueWeekPresets, type DueWeekPreset } from "@/constants/due-week-filter";
 import { clampTaskPageSize } from "@/constants/task-page-size";
 import { dueFilterRange } from "@/lib/dates";
 import { isUuid } from "@/lib/utils";
@@ -80,6 +80,10 @@ function dueRangeClause({ from, to }: { from?: string; to?: string }) {
   return bounds.length === 1 ? bounds[0] : `and(${bounds.join(",")})`;
 }
 
+function duePresetClause(preset: Exclude<DueWeekPreset, "all">) {
+  return preset === "no_due_date" ? "due_date.is.null" : dueRangeClause(dueFilterRange(preset));
+}
+
 function applyCriticalFilter<Q extends { eq: (column: string, value: boolean) => Q }>(query: Q, value: string | undefined): Q {
   if (value === "yes") return query.eq("is_critical", true);
   if (value === "no") return query.eq("is_critical", false);
@@ -145,9 +149,13 @@ function taskScope(
     }
   }
   // "Due" toolbar filter (Tasks) — one or more presets, matched as a union. Undated tasks
-  // never match.
-  const dueRanges = decodeDueWeekPresets(filters.due_week).map(dueFilterRange);
-  if (dueRanges.length > 0) query = query.or(dueRanges.map(dueRangeClause).join(","));
+  // match only "No Due Date"; "All" (or nothing selected) applies no due-date clause at all.
+  const duePresets = decodeDueWeekPresets(filters.due_week);
+  if (duePresets.length > 0 && !duePresets.includes("all")) {
+    query = query.or(
+      duePresets.flatMap((preset) => (preset === "all" ? [] : [duePresetClause(preset)])).join(",")
+    );
+  }
 
   const orderColumn = sortBy && SORTABLE_COLUMNS.has(sortBy) ? sortBy : "due_date";
   // `id` is the tiebreaker and is NOT decorative: due dates (and statuses, and priorities)
