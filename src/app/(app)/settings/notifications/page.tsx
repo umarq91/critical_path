@@ -8,7 +8,7 @@ import { loadDataTableSearchParams } from "@/components/data-table/data-table-se
 import { listSeasonOptions } from "@/data/seasons";
 import { listBrandOptions } from "@/data/brands";
 import { listPartyOptions } from "@/data/parties";
-import { taskGenderValues } from "@/app/(app)/tasks/schema";
+import { storedTaskGenderValues } from "@/app/(app)/tasks/schema";
 import { TASK_GENDER_CONFIG } from "@/constants/task-gender";
 import { requirePageAccess } from "@/lib/require-page-access";
 
@@ -39,7 +39,7 @@ export default async function SettingsNotificationsPage({
 
   const seasonOptions = seasons.map((season) => ({ value: season.id, label: season.season }));
   const brandOptions = brands.map((brand) => ({ value: brand.id, label: brand.brand_name }));
-  const genderOptions = taskGenderValues.map((value) => ({ value, label: TASK_GENDER_CONFIG[value].label }));
+  const genderOptions = storedTaskGenderValues.map((value) => ({ value, label: TASK_GENDER_CONFIG[value].label }));
 
   return (
     <div className="flex flex-col">

@@ -12,6 +12,7 @@ import type { RowEditingState } from "@/components/data-table/use-row-editing";
 import { dataTableFeatures, type DataTableFilterOption } from "@/components/data-table/table-features";
 import { TASK_STATUS_CONFIG } from "@/constants/task-status";
 import { TASK_GENDER_CONFIG } from "@/constants/task-gender";
+import { taskGenderValues } from "@/app/(app)/tasks/schema";
 import { DPSP_CATEGORY_CONFIG } from "@/constants/dpsp-category";
 import { TASK_FIELD_VISIBILITY } from "@/constants/task-field-visibility";
 import { cn } from "@/lib/utils";
@@ -26,7 +27,7 @@ import { formatDate, isPastDue } from "@/lib/dates";
 const columnHelper = createColumnHelper<typeof dataTableFeatures, Task>();
 
 const STATUS_OPTIONS = Object.entries(TASK_STATUS_CONFIG).map(([value, { label }]) => ({ value, label }));
-const GENDER_OPTIONS = Object.entries(TASK_GENDER_CONFIG).map(([value, { label }]) => ({ value, label }));
+const GENDER_OPTIONS = taskGenderValues.map((value) => ({ value, label: TASK_GENDER_CONFIG[value].label }));
 const DPSP_CATEGORY_OPTIONS = Object.entries(DPSP_CATEGORY_CONFIG).map(([value, { label }]) => ({ value, label }));
 // Priority is temporarily hidden across the Tasks module (grid, form, filters, detail drawer)
 // per client request — the column and its data stay in the DB, this is UI-only.

@@ -1,10 +1,13 @@
 import type { StatusBadgeConfig } from "@/components/shared/status-badge";
 
-// Matches taskGenderValues (schema.ts) — Guys/Girls only, since 0026_task_gender_rename.sql. No
-// "unisex" entry: it's retired from selection everywhere, so a legacy task that still has it
-// (see that migration's comment) falls back to StatusBadge's raw-value display rather than a
-// styled badge, which is the accepted trade-off for a value nothing here offers anymore.
+// Labels for every stored value (storedTaskGenderValues), so existing guys/girls rows still
+// render. What can be *selected* is taskGenderValues (schema.ts) — derive options from that,
+// not from this map.
 export const TASK_GENDER_CONFIG: StatusBadgeConfig = {
+  unisex: {
+    label: "Unisex",
+    className: "border border-border bg-muted text-muted-foreground",
+  },
   guys: {
     label: "Guys",
     className: "border border-gender-guys-base bg-gender-guys-soft text-gender-guys-text",

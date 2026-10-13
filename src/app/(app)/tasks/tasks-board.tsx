@@ -175,7 +175,7 @@ export const TasksBoard = ({
             {
               columnId: "dpsp_category",
               title: "DPSP Category",
-              placeholder: "All DPSP Categories",
+              placeholder: "DPSP Categories",
               options: Object.entries(DPSP_CATEGORY_CONFIG).map(([value, { label }]) => ({ value, label })),
               multiple: true,
             },

@@ -1,4 +1,5 @@
 import { PageHeader } from "@/components/shared/page-header";
+import { DEFAULT_TASK_PAGE_SIZE } from "@/constants/task-page-size";
 import { MyTasksBoard } from "@/app/(app)/my-tasks/my-tasks-board";
 import { z } from "zod";
 import { getTaskById, listTasksForProfile } from "@/data/tasks";
@@ -12,7 +13,7 @@ import { loadDataTableSearchParams } from "@/components/data-table/data-table-se
 import { redirect } from "next/navigation";
 import { ROUTES, TASK_LINK_PARAM } from "@/constants/routes";
 
-const QUERY_STATE_OPTIONS = { defaultPageSize: 15, defaultSort: { id: "due_date", desc: false } };
+const QUERY_STATE_OPTIONS = { defaultPageSize: DEFAULT_TASK_PAGE_SIZE, defaultSort: { id: "due_date", desc: false } };
 
 export default async function MyTasksPage({
   searchParams,

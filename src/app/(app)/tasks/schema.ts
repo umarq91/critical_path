@@ -1,11 +1,12 @@
 import { z } from "zod";
 import { parsePartyKey } from "@/lib/party";
 
-// "unisex" is deliberately not offered here — client decision (0026_task_gender_rename.sql):
-// only Guys/Girls going forward. The DB enum still permits "unisex" for the historical/seeded
-// tasks that already have it (Postgres can't cleanly drop an enum value, and the client said not
-// to worry about migrating existing data); it just can't be picked here for a new or edited task.
-export const taskGenderValues = ["guys", "girls"] as const;
+// What a new or edited task may be given. Temporarily Unisex only (client request) — Guys/Girls
+// come back in v2, by re-adding them here. Rows that already hold guys/girls keep them; those
+// values just can't be picked. storedTaskGenderValues is everything the task_gender enum holds,
+// for reads (filters, dashboard counts) that must still see existing rows.
+export const taskGenderValues = ["unisex"] as const;
+export const storedTaskGenderValues = ["unisex", "guys", "girls"] as const;
 export const taskStatusValues = ["not_started", "in_progress", "completed", "overdue"] as const;
 export const taskPriorityValues = ["high", "med", "low"] as const;
 export const dpspCategoryValues = ["demand", "product", "sales", "profit"] as const;

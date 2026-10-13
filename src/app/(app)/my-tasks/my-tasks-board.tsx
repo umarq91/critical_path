@@ -1,5 +1,6 @@
 "use client";
 
+import { DEFAULT_TASK_PAGE_SIZE } from "@/constants/task-page-size";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { CalendarClock } from "lucide-react";
@@ -61,7 +62,7 @@ export const MyTasksBoard = ({
   keyStageOptions,
   linkedTask,
 }: MyTasksBoardProps) => {
-  const queryState = useDataTableQueryState({ defaultPageSize: 15, defaultSort: { id: "due_date", desc: false } });
+  const queryState = useDataTableQueryState({ defaultPageSize: DEFAULT_TASK_PAGE_SIZE, defaultSort: { id: "due_date", desc: false } });
   const rowEditing = useRowEditing();
   const rowParticipants = useRowParticipants();
   const [isSaving, setIsSaving] = useState(false);

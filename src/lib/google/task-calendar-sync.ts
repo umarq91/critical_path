@@ -51,7 +51,7 @@ function formatEventTitle(task: Pick<SyncableTask, "task_name" | "season">): str
 // Client-requested format: four labelled lines (BRAND, GENDER, OWNER, PEOPLE INVOLVED), lists
 // comma-joined. Always all four, even when a value is empty (brand is optional on a task) — a
 // consistently-shaped description is easier to scan across many events than one that silently
-// drops a line. A legacy gender with no config entry (`unisex`, see 0026) shows its raw value.
+// drops a line.
 // BRAND/GENDER are left out while those fields are hidden (TASK_FIELD_VISIBILITY).
 function formatEventDescription(task: Pick<SyncableTask, "brand" | "gender" | "participants">): string {
   const brand = task.brand?.brand_name ?? "";

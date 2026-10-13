@@ -3,6 +3,8 @@
 // ask for more than the size selector offers.
 export const MAX_TASK_PAGE_SIZE = 300;
 
+// Client request: Tasks and My Tasks open at 100 rows per page.
+export const DEFAULT_TASK_PAGE_SIZE = 100;
 export const TASK_PAGE_SIZE_OPTIONS = [15, 25, 50, 100, 200, MAX_TASK_PAGE_SIZE];
 
 export function clampTaskPageSize(pageSize: number) {

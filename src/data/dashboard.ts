@@ -1,10 +1,10 @@
 import "server-only";
 import { eachMonthOfInterval, format, startOfMonth, startOfWeek, subMonths } from "date-fns";
 import { createClient } from "@/lib/supabase/server";
-import { taskGenderValues, taskStatusValues, type TaskInput } from "@/app/(app)/tasks/schema";
+import { storedTaskGenderValues, taskStatusValues, type TaskInput } from "@/app/(app)/tasks/schema";
 
 type TaskStatus = TaskInput["status"];
-type TaskGender = TaskInput["gender"];
+type TaskGender = (typeof storedTaskGenderValues)[number];
 
 export type TaskStatusCounts = Record<TaskStatus, number>;
 
@@ -227,7 +227,7 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
 
   const statusCounts = emptyStatusCounts();
   const genderGroups = new Map<TaskGender, TaskBreakdownGroup>(
-    taskGenderValues.map((gender) => [gender, emptyGroup(gender, gender, null)])
+    storedTaskGenderValues.map((gender) => [gender, emptyGroup(gender, gender, null)])
   );
 
   for (const fact of facts) {

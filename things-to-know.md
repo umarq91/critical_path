@@ -481,14 +481,12 @@ existing `task_name`/`season_id`/`owners` requirements. `taskUpdateSchema` (inli
 cleared back to null/empty, since the DB columns stay nullable and older/seeded tasks (see
 below — seeded `brand_id` is null for every row) predate this rule.
 
-**`gender` is `not null` at the DB layer but starts unselected on the create form**, same
-treatment as `dpsp_category`: `taskSchema`'s base `gender` is still `z.enum(taskGenderValues)`
-(used as-is by `taskUpdateSchema`/inline-edit, where the field is optional-by-`.partial()` but
-must be a real enum value when it *is* patched), while `taskCreateSchema` overrides it to a loose
-string + `.refine()` membership check so `task-form.tsx` can default it to `""` instead of
-silently pre-selecting "Guys". `_actions.ts`'s `narrowGender()` casts the refined string back to
-the enum literal before the insert — mirrors `normaliseDpspCategory`, minus the "none" → `null`
-step, since gender has no such sentinel (it's required, never cleared, at creation).
+**`gender` is `not null` at the DB layer and pre-filled with Unisex on the create form**
+(the only selectable value for now — see below). `taskSchema`'s base `gender` is still
+`z.enum(taskGenderValues)` (used as-is by `taskUpdateSchema`/inline-edit), while
+`taskCreateSchema` overrides it to a loose string + `.refine()` membership check — kept so the
+form can start unselected again once there's more than one choice. `_actions.ts`'s
+`narrowGender()` casts the refined string back to the enum literal before the insert.
 
 **Filtering by a participant costs an extra round trip.** PostgREST can't express
 `id in (select task_id from …)` inline, so `listTasks` resolves the id set first — via
@@ -542,24 +540,19 @@ future-dated tasks carry it, 63 past-due tasks don't), so it's ignored rather th
 their own end dates; the sheet's `Duration (Days)` is negative on exactly those rows, so it's
 bad data at source, not a mapping error.
 
-**Gender is Guys/Girls now, not Men/Women, and Unisex is retired.** Client decision, applied by
-`0026_task_gender_rename.sql` via `ALTER TYPE ... RENAME VALUE` — every existing row kept its
-data (a `men` row is `guys` after the rename, same row). `unisex` is a different case: the client
-said only two values should exist going forward and explicitly didn't want existing data
-migrated, but Postgres has no `DROP VALUE` for enums, so it stays a legal `task_gender` value at
-the database layer — it's just gone from `taskGenderValues`/`TASK_GENDER_CONFIG`
-(`tasks/schema.ts` / `constants/task-gender.ts`), meaning nothing in the app can select it
-anymore, new or edited. Two concrete effects worth knowing:
-- **Every seeded historical task is `unisex`** (the source export never carried a gender column
-  at all — see above), so this isn't a rare edge case; it's the *entire* pre-existing dataset. A
-  legacy `unisex` task's badge falls back to `StatusBadge`'s unstyled raw-value display since
-  there's no config entry for it anymore.
-- **The Dashboard's gender breakdown silently drops them.** `data/dashboard.ts` seeds
-  `genderGroups` from `taskGenderValues` (now just Guys/Girls) and skips counting a fact whose
-  gender has no matching group — so every legacy `unisex` task (again, the whole pre-existing
-  dataset) is invisible to that one chart specifically, undercounting its total the same way
-  `tasks-by-brand` already under-represents totals for a null `brand_id`. Accepted, not a bug:
-  this is what "don't care about existing data, focus on upcoming data" was asked for.
+**Gender is temporarily Unisex-only.** History: `0026_task_gender_rename.sql` renamed
+`men`/`women` → `guys`/`girls` and the app stopped offering `unisex`. The client then reversed
+that: until v2, every new task (Add Task form, CSV/Excel import, inline edit) may only be
+`unisex`; Guys/Girls return in v2. No migration — all three stay legal `task_gender` values.
+- **Two lists, on purpose.** `taskGenderValues` (`tasks/schema.ts`) = what can be *selected*
+  (`["unisex"]`); every option list and validator derives from it (form, inline-edit
+  `GENDER_OPTIONS`, import's `GENDER_INDEX`). `storedTaskGenderValues` = everything the enum
+  holds; reads use it (`data/tasks.ts` filter guard, `data/dashboard.ts` gender groups,
+  Notifications picker filter) so existing `guys`/`girls` rows aren't dropped.
+  `TASK_GENDER_CONFIG` keeps labels for all three so old rows still render — don't derive
+  selectable options from it. For v2, add the values back to `taskGenderValues` only.
+- An existing `guys`/`girls` task can't be re-saved with that value via inline edit (the update
+  schema rejects it) — moot while the Gender column is hidden (see below).
 
 ---
 
@@ -991,7 +984,7 @@ or the filters, the page would be sliced from a different set than it was fetche
 - **`PaginationControls` (`components/shared/`) is shared with the data tables.**
   `DataTablePagination` is now a thin @tanstack adapter over it, so page numbers, ellipses and
   the size selector exist once. The Timeline offers 25/50/100/200/300 per page (default 25), the
-  Tasks grid 15/25/50/100/200/300 (default 15) — both from `constants/task-page-size.ts`, and
+  Tasks grid and My Tasks 15/25/50/100/200/300 (default 100) — both from `constants/task-page-size.ts`, and
   `listTasks`/`listTasksForTimeline` clamp `pageSize` to 300 so a hand-edited URL can't ask for more.
 - **A page's full rows are fetched in chunks of 100 ids** (`fetchRowsByIdChunks`, `data/tasks.ts`).
   At 300 rows a single `in` list gets close to the URL length the endpoint rejects (~800 ids

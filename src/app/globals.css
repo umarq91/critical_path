@@ -189,8 +189,8 @@
   --prio-low-soft: #eaf1ff;
 
   /* task gender — guys (was "men") reuses the primary blue (matches the Season pill's blue),
-     girls (was "women") is a pink token with no equivalent elsewhere in the palette. The old
-     "unisex" tokens are gone with the value itself — see constants/task-gender.ts */
+     girls (was "women") is a pink token with no equivalent elsewhere in the palette. Unisex
+     uses the neutral muted tokens — see constants/task-gender.ts */
   --gender-guys-base: #2b6ef6;
   --gender-guys-soft: #eaf1ff;
   --gender-guys-text: #1d54db;

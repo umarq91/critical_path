@@ -1,6 +1,6 @@
 import "server-only";
 import { isValid } from "date-fns";
-import { taskCreateSchema, type TaskCreateInput } from "@/app/(app)/tasks/schema";
+import { taskCreateSchema, taskGenderValues, type TaskCreateInput } from "@/app/(app)/tasks/schema";
 import { importFieldLabel, type TaskImportField } from "@/app/(app)/tasks/import/task-import-columns";
 import type { ImportSheetRow } from "@/app/(app)/tasks/import/parse-import-file";
 import { TASK_STATUS_CONFIG } from "@/constants/task-status";
@@ -32,7 +32,9 @@ function indexEnum(config: StatusBadgeConfig): Map<string, string> {
 }
 
 const STATUS_INDEX = indexEnum(TASK_STATUS_CONFIG);
-const GENDER_INDEX = indexEnum(TASK_GENDER_CONFIG);
+const GENDER_INDEX = indexEnum(
+  Object.fromEntries(taskGenderValues.map((value) => [value, TASK_GENDER_CONFIG[value]]))
+);
 const DPSP_INDEX = indexEnum(DPSP_CATEGORY_CONFIG);
 
 export interface TaskImportIndexes {
