@@ -175,7 +175,7 @@ export const TasksBoard = ({
             {
               columnId: "dpsp_category",
               title: "DPSP Category",
-              placeholder: "All Categories",
+              placeholder: "All DPSP Categories",
               options: Object.entries(DPSP_CATEGORY_CONFIG).map(([value, { label }]) => ({ value, label })),
               multiple: true,
             },
@@ -209,12 +209,14 @@ export const TasksBoard = ({
               options: partyOptions,
               multiple: true,
             },
-            { columnId: "due_week", title: "Due", placeholder: "Any Due Date", options: [...DUE_WEEK_OPTIONS] },
+            {
+              columnId: "due_week",
+              title: "Due",
+              placeholder: "Any Due Date",
+              options: [...DUE_WEEK_OPTIONS],
+              multiple: true,
+            },
             { columnId: "is_critical", title: "Critical", placeholder: "All Tasks", options: CRITICAL_FILTER_OPTIONS },
-          ],
-          sortOptions: [
-            { columnId: "due_date", desc: false, label: "Due Date (Earliest)" },
-            { columnId: "due_date", desc: true, label: "Due Date (Latest)" },
           ],
           // Not a column id: `search` is interpreted by listTasks as one term across the task
           // name, its season, brand and key stage, and its owners and people involved. The

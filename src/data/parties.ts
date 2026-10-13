@@ -39,32 +39,12 @@ export async function searchParties({ query }: SearchPartiesParams = {}) {
   );
 }
 
-// Flat `{ value: "kind:uuid", label }` options for the grid's Owner filter dropdown, which is
-// a plain select rather than the paginated search the form uses. Departments first, matching
-// searchParties' ordering. Its own query, not derived from a page of tasks — filter options
-// have to cover the whole dataset, not just the current page.
+// Flat `{ value: "kind:uuid", label }` options for every Owner / People Involved filter dropdown
+// (Tasks, Calendar, Timeline, Notifications), which are plain selects rather than the search the
+// form uses. Built from searchParties() so the filters offer exactly what the pickers can assign
+// — departments only. Its own query, not derived from a page of tasks: filter options have to
+// cover the whole dataset, not just the current page.
 export async function listPartyOptions() {
-  const supabase = await createClient();
-  const [departments, profiles] = await Promise.all([
-    supabase.from("departments").select("id, name").is("deleted_at", null).order("name", { ascending: true }),
-    supabase
-      .from("profiles")
-      .select("id, full_name, email")
-      .eq("status", "active")
-      .order("full_name", { ascending: true }),
-  ]);
-
-  if (departments.error) throw departments.error;
-  if (profiles.error) throw profiles.error;
-
-  return [
-    ...(departments.data ?? []).map((row) => ({
-      value: partyKey({ kind: "department", id: row.id }),
-      label: row.name,
-    })),
-    ...(profiles.data ?? []).map((row) => ({
-      value: partyKey({ kind: "user", id: row.id }),
-      label: row.full_name ?? row.email,
-    })),
-  ];
+  const parties = await searchParties();
+  return parties.map((party) => ({ value: party.key, label: party.name }));
 }

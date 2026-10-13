@@ -61,7 +61,9 @@ export function useDataTableQueryState(options: DataTableSearchParamsOptions = {
           .filter((filter) => filter.value !== undefined && filter.value !== "")
           .map((filter) => [filter.id, String(filter.value)])
       );
-      void setUrlState({ filters: Object.keys(nextFilters).length ? nextFilters : null, page: 1 });
+      // Always the object, never null: null would fall back to `defaultFilters`, so a table with
+      // defaults could never be cleared. clearOnDefault drops it from the URL when it matches.
+      void setUrlState({ filters: nextFilters, page: 1 });
     },
     [columnFilters, setUrlState]
   );
@@ -78,7 +80,7 @@ export function useDataTableQueryState(options: DataTableSearchParamsOptions = {
   const replaceFiltersAndSort = useCallback(
     (next: { filters: Record<string, string>; sortBy?: string | null; sortDir?: string | null }) =>
       setUrlState({
-        filters: Object.keys(next.filters).length ? next.filters : null,
+        filters: next.filters,
         sortBy: next.sortBy ?? null,
         sortDir: next.sortDir ?? null,
         page: 1,
@@ -86,8 +88,15 @@ export function useDataTableQueryState(options: DataTableSearchParamsOptions = {
     [setUrlState]
   );
 
+  // What Reset Filters returns to (DataTable seeds the table's initialState with it).
+  const defaultColumnFilters = useMemo<ColumnFiltersState>(
+    () => Object.entries(options.defaultFilters ?? {}).map(([id, value]) => ({ id, value })),
+    [options.defaultFilters]
+  );
+
   return {
     state: { sorting, columnFilters, pagination },
+    defaultColumnFilters,
     onSortingChange,
     onColumnFiltersChange,
     onPaginationChange,

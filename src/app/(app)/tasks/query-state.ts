@@ -7,4 +7,6 @@ import type { DataTableSearchParamsOptions } from "@/components/data-table/data-
 export const TASKS_QUERY_STATE: DataTableSearchParamsOptions = {
   defaultPageSize: 15,
   defaultSort: { id: "due_date", desc: false },
+  // Client request: the grid opens on today-onwards work. Clearing the Due filter shows all.
+  defaultFilters: { due_week: "today_onwards" },
 };

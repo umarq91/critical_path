@@ -18,7 +18,7 @@ const TASK_VIEW_FILTER_CHECKS: Record<string, ((value: string) => boolean) | nul
   key_stage_id: isUuidList,
   owner: isPartyList,
   involved: isPartyList,
-  due_week: isDueWeekPreset,
+  due_week: (value) => decodeMultiFilterValue(value).every(isDueWeekPreset),
   is_critical: (value) => value === "yes" || value === "no",
   dpsp_category: null,
   gender: null,

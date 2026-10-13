@@ -354,8 +354,9 @@ already puts the task on every member's My Tasks page. `searchParties` returns d
 names still resolve so the row gets a clear "only departments" error rather than "not found");
 `setTaskParticipants` rejects a person who wasn't already on the task. Existing individual rows
 are kept, shown, and removable. This applies to external users too: to give one a task, put them
-in a department. The Owner / People Involved *filters* (`listPartyOptions`) still list people,
-since existing tasks can still name one. The old `0009_departments.sql` note that "a task's department is read via its assignee's
+in a department. The Owner / People Involved *filters* (`listPartyOptions`) are built from
+`searchParties` too, so they list departments only — the same list the pickers offer (client
+request; no live task names an individual today). The old `0009_departments.sql` note that "a task's department is read via its assignee's
 profile" is obsolete.
 
 **A department participant with zero members is valid.** `Vendor` (254 owner rows) and `Supplier`
@@ -495,19 +496,29 @@ step, since gender has no such sentinel (it's required, never cleared, at creati
 "relevant to me". An empty result set filters on an impossible uuid (`EMPTY_RESULT_ID`) rather
 than dropping the clause, which would silently widen the query to "no filter at all".
 
-**The Tasks "Due" filter is a Monday-to-Sunday week preset (`filters.due_week`), not My Tasks'
-day count (`filters.due_date`).** This Week / Next Week / Next 2 Weeks (`constants/due-week-filter.ts`),
-resolved by `dueWeekRange` (`lib/dates.ts`) on Melbourne's date, never the UTC server's, which is a
-day behind for the first 10–11 hours of a Melbourne day. "Next 2 Weeks" is the two full weeks after
-this one, so it never overlaps This Week. Undated tasks never match. The Tasks sort menu no longer
-offers Task Name A–Z / Z–A (client request); `task_name` stays sortable server-side for My Tasks.
+**The Tasks "Due" filter is a multi-select of date presets (`filters.due_week`), not My Tasks'
+day count (`filters.due_date`).** Today & Upcoming Due Dates (due today or later), Overdue Due Dates (due before
+today, by date alone — completed tasks included, `status` isn't consulted), This Week / Next Week /
+Next 2 Weeks (`constants/due-week-filter.ts`), resolved by `dueFilterRange` (`lib/dates.ts`) on
+Melbourne's date, never the UTC server's, which is a day behind for the first 10–11 hours of a
+Melbourne day. Several presets are a union, one `.or()` of ranges. "Next 2 Weeks" is the two full
+weeks after this one, so it never overlaps This Week. Undated tasks never match any preset. The key
+is still called `due_week` so older saved views keep loading.
+
+**The grid opens on Today & Upcoming Due Dates** (`defaultFilters` in `tasks/query-state.ts`, client
+request). That default applies only while the URL has no `filters` param at all: clearing filters
+writes an explicit `filters={}` (`useDataTableQueryState` never sets `null`, which would fall back
+to the default), so deselecting the Due filter really does show every task. Reset Filters goes back
+to the default, because `DataTable` seeds the table's `initialState` with it. A link or saved view
+with its own filters replaces the default entirely; it isn't merged in. The Tasks board has no sort menu
+at all (client request — Task Name and then Due Date Earliest/Latest were removed in turn); it
+sorts by `listTasks`'s due-date default. My Tasks keeps Task Name A–Z / Z–A only.
 
 **The Owner and People Involved filters each accept several parties at once (`multiple: true`),
 matched as a union within each filter.** Both use the same party list (`listPartyOptions`, the
-`partyOptions` prop) and map to `filters.owner` / `filters.involved`, which `participantTaskIds`
-already resolved for the Calendar. Picking Planning and Marketing means owned by either, not both — same as every other multi-select
-toolbar filter (see "Data tables" above). Owner and People Involved are still `.reduce`d together
-as an intersection when both are set, unchanged from before.
+`partyOptions` prop) and map to `filters.owner` / `filters.involved`, matched in the query by
+`applyParticipantFilters` (see "Data tables"). Picking Planning and Marketing means owned by either, not both — same as every other multi-select
+toolbar filter (see "Data tables" above). Owner and People Involved intersect when both are set.
 
 **"My tasks" is now transitive.** My Tasks scopes through `task_participant_profiles`, so being
 in Planning shows you every task Planning owns, not just ones naming you. My Tasks deliberately
@@ -983,8 +994,8 @@ or the filters, the page would be sliced from a different set than it was fetche
   Tasks grid 15/25/50/100/200/300 (default 15) — both from `constants/task-page-size.ts`, and
   `listTasks`/`listTasksForTimeline` clamp `pageSize` to 300 so a hand-edited URL can't ask for more.
 - **A page's full rows are fetched in chunks of 100 ids** (`fetchRowsByIdChunks`, `data/tasks.ts`).
-  At 300 rows a single `in` list, plus any participant-id clause the scope already carries, gets
-  close to the URL length the endpoint rejects (~800 ids measured). Chunks are consecutive slices
+  At 300 rows a single `in` list gets close to the URL length the endpoint rejects (~800 ids
+  measured). Chunks are consecutive slices
   of the already-ordered ids, so joining them keeps the page order.
 - **`data/tasks.ts` runs over the ~250-line guideline, deliberately.** Splitting the timeline
   query into its own module would mean exporting `TASK_SELECT`, `isTaskStatus` and
@@ -1277,8 +1288,16 @@ runs server-side in `listTasks`, so it searches the whole table, not the page on
   the page's ~15 rows in full. An ordinary page load pays none of that.
 - **`taskScope()` is synchronous, and must stay that way.** A PostgREST builder is itself
   thenable, so `await`ing an async function that returned one *runs the query* instead of handing
-  it back. That is why the id lookups are resolved up front by `resolveTaskScopeIds()` and passed
-  in — which also stops a search resolving them twice.
+  it back. Anything it filters on has to be expressible inline — which is one reason the
+  Owner/People Involved filters are embeds, not a looked-up id list (next point).
+- **The Owner / People Involved filters match inside the query, as `!inner` embeds** of
+  `task_participants` (`applyParticipantFilters` + `withParticipantFilterSelect`,
+  `data/task-participants.ts`), one alias per role so the two filters intersect. Every filtered
+  task query (grid, export, calendar, timeline, overdue panel, flywheel) goes through them. They
+  used to resolve to a task-id list applied as `.in("id", …)`, which 500'd on the big departments:
+  Brand Managers is on 1,214 involved / 835 owner rows, Product Development 1,137 involved —
+  past the ~800-id URL ceiling, and past PostgREST's 1,000-row response cap that silently
+  truncated the lookup besides. Don't reintroduce an id-list step for these filters.
 - **`.order("id")` is a correctness fix, not decoration.** Due dates repeat heavily across 794
   tasks; without a total order, tied rows can come back in a different sequence per query, which
   lets a row appear on two pages or on none — for ordinary pagination as much as for the search's
@@ -1894,6 +1913,16 @@ filters and the `CANDIDATE_PAGE_SIZE` (100) cap currently show — so it compose
 with those filters instead of silently grabbing the user's entire task list. Deselect all clears
 the whole selection regardless of what's currently filtered into view, mirroring what Save would
 otherwise persist — an honest "start over," not a scoped removal.
+
+**Both lists on the page can be emptied in bulk, but they save differently.** Step 1's picked
+list (`notify-selected-tasks-list.tsx`) has Select all / Deselect all and "Remove selected"; like
+its per-row ✕, that only edits the local picks until Step 1's Save, and the list is unpaginated so
+Select all is the whole set. The Scheduled reminders table uses `DataTable`'s row selection
+(current page only, like the Tasks grid) and "Remove from reminders", which writes at once via
+`removeReminderTasks` (deletes just those `reminder_rule_tasks` rows, unlike
+`updateReminderTasks`' wholesale replace). Because Step 1's picks are seeded once into local state,
+`NotificationsConfig` keys `NotifyTasksCard` on the sorted saved task ids: a table removal remounts
+it with the new set. Without that, the next Step 1 Save would put the removed tasks back.
 
 **Offsets are one `integer[]` column, not three preset booleans plus a custom field.**
 `reminder_rules.offset_days` holds every "notify N days before due_date" value the user has

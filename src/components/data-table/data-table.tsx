@@ -158,6 +158,9 @@ export const DataTable = <TData extends Record<string, unknown>>({
     data,
     getRowId,
     enableRowSelection,
+    // resetColumnFilters() (the toolbar's Reset Filters) returns to initialState, so a table
+    // with default filters resets to those rather than to nothing.
+    ...(queryState ? { initialState: { columnFilters: queryState.defaultColumnFilters } } : {}),
     state: {
       rowSelection,
       columnVisibility,

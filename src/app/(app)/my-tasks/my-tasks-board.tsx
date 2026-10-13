@@ -202,8 +202,6 @@ export const MyTasksBoard = ({
             { columnId: "due_date", title: "Due", placeholder: "Any Due Date", options: DUE_OPTIONS },
           ],
           sortOptions: [
-            { columnId: "due_date", desc: false, label: "Due Date (Earliest)" },
-            { columnId: "due_date", desc: true, label: "Due Date (Latest)" },
             { columnId: "task_name", desc: false, label: "Task Name (A-Z)" },
             { columnId: "task_name", desc: true, label: "Task Name (Z-A)" },
           ],

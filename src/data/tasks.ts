@@ -2,14 +2,14 @@ import "server-only";
 import { addDays, format } from "date-fns";
 import { createClient } from "@/lib/supabase/server";
 import { decodeMultiFilterValue } from "@/constants/data-table-filters";
-import { isDueWeekPreset } from "@/constants/due-week-filter";
+import { decodeDueWeekPresets } from "@/constants/due-week-filter";
 import { clampTaskPageSize } from "@/constants/task-page-size";
-import { dueWeekRange } from "@/lib/dates";
+import { dueFilterRange } from "@/lib/dates";
 import { isUuid } from "@/lib/utils";
 import {
-  EMPTY_RESULT_ID,
-  participantTaskIds,
+  applyParticipantFilters,
   taskIdsForProfile,
+  withParticipantFilterSelect,
   type SupabaseClient,
 } from "@/data/task-participants";
 import { TASK_SEARCH_SELECT, resolveTaskSearchMatcher, type TaskSearchRow } from "@/data/task-search";
@@ -75,24 +75,15 @@ function applyMultiEq<Q extends { eq: (column: string, value: string) => Q; in: 
 }
 
 // "Critical" toolbar filter (Tasks, Timeline): "yes" / "no". Anything else is ignored, not an error.
+function dueRangeClause({ from, to }: { from?: string; to?: string }) {
+  const bounds = [...(from ? [`due_date.gte.${from}`] : []), ...(to ? [`due_date.lte.${to}`] : [])];
+  return bounds.length === 1 ? bounds[0] : `and(${bounds.join(",")})`;
+}
+
 function applyCriticalFilter<Q extends { eq: (column: string, value: boolean) => Q }>(query: Q, value: string | undefined): Q {
   if (value === "yes") return query.eq("is_critical", true);
   if (value === "no") return query.eq("is_critical", false);
   return query;
-}
-
-/** Task-id allow-lists that can't be expressed as inline PostgREST filters, resolved once per
- *  call so the two passes below don't look them up twice. `null` = that scope isn't set. */
-interface TaskScopeIds {
-  participants: string[] | null;
-}
-
-async function resolveTaskScopeIds(supabase: SupabaseClient, params: ListTasksParams): Promise<TaskScopeIds> {
-  const { filters = {} } = params;
-  return {
-    // "Owner" / "People Involved" toolbar filters — see participantTaskIds.
-    participants: await participantTaskIds(supabase, filters),
-  };
 }
 
 interface TaskScopeOptions {
@@ -109,12 +100,11 @@ interface TaskScopeOptions {
 //
 // Synchronous on purpose: a PostgREST builder is itself thenable, so `await`ing an async
 // function that returned one would RUN the query instead of handing it back. Hence the
-// pre-resolved ids.
+// participant filters being embeds rather than a looked-up id list.
 function taskScope(
   supabase: SupabaseClient,
   select: string,
   params: ListTasksParams,
-  ids: TaskScopeIds,
   options: TaskScopeOptions | boolean = {}
 ) {
   // The boolean form is legacy shorthand for `{ withCount: bool }`, kept so the three existing
@@ -123,7 +113,7 @@ function taskScope(
   const { filters = {}, sortBy, sortDir } = params;
   let query = supabase
     .from("tasks")
-    .select(select, withCount || headOnly ? { count: "exact", head: headOnly } : undefined)
+    .select(withParticipantFilterSelect(select, filters), withCount || headOnly ? { count: "exact", head: headOnly } : undefined)
     .is("deleted_at", null);
 
   if (filters.task_name) query = query.ilike("task_name", `%${filters.task_name}%`);
@@ -145,11 +135,7 @@ function taskScope(
   // its own filter key rather than overloading `status`.
   if (filters.hide_done === "true") query = query.neq("status", "completed");
   query = applyCriticalFilter(query, filters.is_critical);
-  // An unmatched party must yield zero rows, not every row, hence the impossible-id fallback
-  // rather than skipping the clause.
-  if (ids.participants) {
-    query = ids.participants.length > 0 ? query.in("id", ids.participants) : query.eq("id", EMPTY_RESULT_ID);
-  }
+  query = applyParticipantFilters(query, filters);
   // "Due" toolbar filter (My Tasks) — a day-count preset ("7"/"30"/"90"), not a literal
   // date; caps due_date at today + N days.
   if (filters.due_date) {
@@ -158,11 +144,10 @@ function taskScope(
       query = query.lte("due_date", format(addDays(new Date(), days), "yyyy-MM-dd"));
     }
   }
-  // "Due" toolbar filter (Tasks) — a Monday-to-Sunday week preset. Undated tasks never match.
-  if (isDueWeekPreset(filters.due_week)) {
-    const { from, to } = dueWeekRange(filters.due_week);
-    query = query.gte("due_date", from).lte("due_date", to);
-  }
+  // "Due" toolbar filter (Tasks) — one or more presets, matched as a union. Undated tasks
+  // never match.
+  const dueRanges = decodeDueWeekPresets(filters.due_week).map(dueFilterRange);
+  if (dueRanges.length > 0) query = query.or(dueRanges.map(dueRangeClause).join(","));
 
   const orderColumn = sortBy && SORTABLE_COLUMNS.has(sortBy) ? sortBy : "due_date";
   // `id` is the tiebreaker and is NOT decorative: due dates (and statuses, and priorities)
@@ -193,8 +178,8 @@ async function resolvePersonalScope(supabase: SupabaseClient, profileId: string)
 }
 
 // Ids per request when a page's full rows are fetched by id. A page can be 300 rows
-// (MAX_TASK_PAGE_SIZE), and an `in` list that long, plus any participant-id clause the scope
-// already carries, approaches the URL length the endpoint rejects (~800 ids measured). Chunks
+// (MAX_TASK_PAGE_SIZE), and an `in` list that long approaches the URL length the endpoint
+// rejects (~800 ids measured). Chunks
 // are consecutive slices of an already-ordered id list, so concatenating them keeps the order.
 const PAGE_ID_CHUNK_SIZE = 100;
 
@@ -224,11 +209,10 @@ export async function listTasks(params: ListTasksParams = {}): Promise<{ data: T
   const pageSize = clampTaskPageSize(params.pageSize ?? 15);
   const term = (filters.search ?? "").trim();
 
-  const ids = await resolveTaskScopeIds(supabase, params);
   const from = (page - 1) * pageSize;
 
   if (!term && !scopeToProfileId) {
-    const { data, error, count } = await taskScope(supabase, TASK_SELECT, params, ids, true).range(
+    const { data, error, count } = await taskScope(supabase, TASK_SELECT, params, true).range(
       from,
       from + pageSize - 1
     );
@@ -236,7 +220,7 @@ export async function listTasks(params: ListTasksParams = {}): Promise<{ data: T
     return { data: (data ?? []) as unknown as Task[], rowCount: count ?? 0 };
   }
 
-  const { data: candidates, error: candidateError } = await taskScope(supabase, TASK_NARROW_SELECT, params, ids, false);
+  const { data: candidates, error: candidateError } = await taskScope(supabase, TASK_NARROW_SELECT, params, false);
   if (candidateError) throw candidateError;
 
   let matched = (candidates ?? []) as unknown as TaskNarrowRow[];
@@ -250,7 +234,7 @@ export async function listTasks(params: ListTasksParams = {}): Promise<{ data: T
   // sliced in. The scope's filters are redundant here (these ids already passed them) but cost
   // nothing and keep one definition of "how this list is ordered".
   const data = await fetchRowsByIdChunks<Task>(pageIds, (chunk) =>
-    taskScope(supabase, TASK_SELECT, params, ids, false).in("id", chunk)
+    taskScope(supabase, TASK_SELECT, params, false).in("id", chunk)
   );
 
   return { data, rowCount: matched.length };
@@ -294,8 +278,8 @@ const EXPORT_PAGE_SIZE = 1000;
 // turn into a file. Unlike the first version of this function, it DOES follow listTasks() onto
 // the two-pass route when `filters.search` is set — the Task Management export dialog is meant
 // to export what the grid is currently showing, and a search term is part of that — see
-// exportSearchMatches() below. Owner/People Involved participant filters resolve through the
-// same resolveTaskScopeIds() the grid itself uses, for the same reason.
+// exportSearchMatches() below. Owner/People Involved participant filters apply through the
+// same taskScope() the grid itself uses, for the same reason.
 //
 // Bounded at MAX_EXPORT_ROWS rather than exporting an unbounded table: past a few thousand
 // rows, a synchronous request/response export stops being a reasonable architecture regardless
@@ -306,11 +290,10 @@ export async function listTasksForExport(
   params: ListTasksForExportParams = {}
 ): Promise<{ data: Task[]; rowCount: number; truncated: boolean }> {
   const supabase = await createClient();
-  const ids = await resolveTaskScopeIds(supabase, params);
   const term = (params.filters?.search ?? "").trim();
-  if (term) return exportSearchMatches(supabase, params, ids, term);
+  if (term) return exportSearchMatches(supabase, params, term);
 
-  const { count, error: countError } = await taskScope(supabase, "id", params, ids, { headOnly: true });
+  const { count, error: countError } = await taskScope(supabase, "id", params, { headOnly: true });
   if (countError) throw countError;
   const rowCount = count ?? 0;
   if (rowCount === 0) return { data: [], rowCount: 0, truncated: false };
@@ -319,7 +302,7 @@ export async function listTasksForExport(
   const rows: Task[] = [];
   for (let from = 0; from < fetchCount; from += EXPORT_PAGE_SIZE) {
     const to = Math.min(from + EXPORT_PAGE_SIZE, fetchCount) - 1;
-    const { data, error } = await taskScope(supabase, TASK_SELECT, params, ids, {}).range(from, to);
+    const { data, error } = await taskScope(supabase, TASK_SELECT, params, {}).range(from, to);
     if (error) throw error;
     rows.push(...((data ?? []) as unknown as Task[]));
     // A page short of a full EXPORT_PAGE_SIZE means the table had fewer rows than the count
@@ -337,10 +320,9 @@ export async function listTasksForExport(
 async function exportSearchMatches(
   supabase: SupabaseClient,
   params: ListTasksForExportParams,
-  ids: TaskScopeIds,
   term: string
 ): Promise<{ data: Task[]; rowCount: number; truncated: boolean }> {
-  const { data: candidates, error: candidateError } = await taskScope(supabase, TASK_NARROW_SELECT, params, ids, false);
+  const { data: candidates, error: candidateError } = await taskScope(supabase, TASK_NARROW_SELECT, params, false);
   if (candidateError) throw candidateError;
 
   const matcher = await resolveTaskSearchMatcher(supabase, term);
@@ -352,7 +334,7 @@ async function exportSearchMatches(
   const rows: Task[] = [];
   for (let from = 0; from < exportIds.length; from += EXPORT_PAGE_SIZE) {
     const chunk = exportIds.slice(from, from + EXPORT_PAGE_SIZE);
-    const { data, error } = await taskScope(supabase, TASK_SELECT, params, ids, false).in("id", chunk);
+    const { data, error } = await taskScope(supabase, TASK_SELECT, params, false).in("id", chunk);
     if (error) throw error;
     rows.push(...((data ?? []) as unknown as Task[]));
   }
@@ -367,17 +349,16 @@ async function exportSearchMatches(
 export async function countTasksForExport(filters: Record<string, string> = {}): Promise<number> {
   const supabase = await createClient();
   const params: ListTasksForExportParams = { filters };
-  const ids = await resolveTaskScopeIds(supabase, params);
   const term = (filters.search ?? "").trim();
 
   if (term) {
-    const { data: candidates, error } = await taskScope(supabase, TASK_NARROW_SELECT, params, ids, false);
+    const { data: candidates, error } = await taskScope(supabase, TASK_NARROW_SELECT, params, false);
     if (error) throw error;
     const matcher = await resolveTaskSearchMatcher(supabase, term);
     return ((candidates ?? []) as unknown as TaskNarrowRow[]).filter(matcher).length;
   }
 
-  const { count, error } = await taskScope(supabase, "id", params, ids, { headOnly: true });
+  const { count, error } = await taskScope(supabase, "id", params, { headOnly: true });
   if (error) throw error;
   return count ?? 0;
 }
@@ -397,18 +378,17 @@ const MAX_FLYWHEEL_ROWS = 1000;
 export async function listTasksForFlywheel(filters: Record<string, string> = {}): Promise<Task[]> {
   const supabase = await createClient();
   const params: ListTasksParams = { filters };
-  const ids = await resolveTaskScopeIds(supabase, params);
   const term = (filters.search ?? "").trim();
 
   if (!term) {
-    const { data, error } = await taskScope(supabase, TASK_SELECT, params, ids, false)
+    const { data, error } = await taskScope(supabase, TASK_SELECT, params, false)
       .not("dpsp_category", "is", null)
       .range(0, MAX_FLYWHEEL_ROWS - 1);
     if (error) throw error;
     return (data ?? []) as unknown as Task[];
   }
 
-  const { data: candidates, error: candidateError } = await taskScope(supabase, TASK_NARROW_SELECT, params, ids, false).not(
+  const { data: candidates, error: candidateError } = await taskScope(supabase, TASK_NARROW_SELECT, params, false).not(
     "dpsp_category",
     "is",
     null
@@ -422,7 +402,7 @@ export async function listTasksForFlywheel(filters: Record<string, string> = {})
     .map((row) => row.id);
   if (matchedIds.length === 0) return [];
 
-  const { data, error } = await taskScope(supabase, TASK_SELECT, params, ids, false).in("id", matchedIds);
+  const { data, error } = await taskScope(supabase, TASK_SELECT, params, false).in("id", matchedIds);
   if (error) throw error;
   return (data ?? []) as unknown as Task[];
 }
@@ -484,12 +464,9 @@ const RANGE_FETCH_PAGE_SIZE = 1000;
 export async function listTasksByDueDateRange({ from, to, filters = {} }: ListTasksByDueDateRangeParams) {
   const supabase = await createClient();
 
-  // Owner / People Involved toolbar filters, same matching as the Tasks grid's taskScope().
-  const participantIds = await participantTaskIds(supabase, filters);
-
   let query = supabase
     .from("tasks")
-    .select(TASK_SELECT)
+    .select(withParticipantFilterSelect(TASK_SELECT, filters))
     .is("deleted_at", null)
     .gte("due_date", from)
     .lte("due_date", to);
@@ -500,9 +477,8 @@ export async function listTasksByDueDateRange({ from, to, filters = {} }: ListTa
   query = applyMultiEq(query, "brand_id", decodeMultiFilterValue(filters.brand_id));
   query = applyMultiEq(query, "status", decodeMultiFilterValue(filters.status).filter((value) => isTaskStatus(value)));
   query = applyMultiEq(query, "gender", decodeMultiFilterValue(filters.gender).filter((value) => isTaskGender(value)));
-  if (participantIds) {
-    query = participantIds.length > 0 ? query.in("id", participantIds) : query.eq("id", EMPTY_RESULT_ID);
-  }
+  // Owner / People Involved toolbar filters, same matching as the Tasks grid's taskScope().
+  query = applyParticipantFilters(query, filters);
 
   // id as a tiebreaker, so a page boundary can't split rows that share a due date unstably.
   query = query.order("due_date", { ascending: true }).order("id", { ascending: true });
@@ -511,7 +487,7 @@ export async function listTasksByDueDateRange({ from, to, filters = {} }: ListTa
   for (let start = 0; ; start += RANGE_FETCH_PAGE_SIZE) {
     const { data, error } = await query.range(start, start + RANGE_FETCH_PAGE_SIZE - 1);
     if (error) throw error;
-    tasks.push(...((data ?? []) as Task[]));
+    tasks.push(...((data ?? []) as unknown as Task[]));
     if (!data || data.length < RANGE_FETCH_PAGE_SIZE) return tasks;
   }
 }
@@ -546,8 +522,8 @@ function timelineOverlapFilter(from: string, to: string) {
 
 // Window + dropdown filters + ordering, shared by both passes below so the narrow pass that
 // decides WHICH tasks match and the wide pass that fetches them can never disagree.
-async function timelineScope(supabase: SupabaseClient, select: string, { from, to, filters = {} }: ListTasksForTimelineParams) {
-  let query = supabase.from("tasks").select(select).is("deleted_at", null);
+function timelineScope(supabase: SupabaseClient, select: string, { from, to, filters = {} }: ListTasksForTimelineParams) {
+  let query = supabase.from("tasks").select(withParticipantFilterSelect(select, filters)).is("deleted_at", null);
 
   query = applyMultiEq(query, "season_id", decodeMultiFilterValue(filters.season_id));
   query = applyMultiEq(query, "brand_id", decodeMultiFilterValue(filters.brand_id));
@@ -555,10 +531,7 @@ async function timelineScope(supabase: SupabaseClient, select: string, { from, t
   if (isTaskStatus(filters.status)) query = query.eq("status", filters.status);
   query = applyCriticalFilter(query, filters.is_critical);
 
-  const participantIds = await participantTaskIds(supabase, filters);
-  if (participantIds) {
-    query = participantIds.length > 0 ? query.in("id", participantIds) : query.eq("id", EMPTY_RESULT_ID);
-  }
+  query = applyParticipantFilters(query, filters);
 
   query = query.or(timelineOverlapFilter(from, to));
   // Earliest bar first, so rows read top-left to bottom-right like a schedule. `id` is the
@@ -673,21 +646,22 @@ export async function listDeletedTasks({ page = 1, pageSize = 15, filters = {} }
 // every one of the page's filters so the panel agrees with the chart beside it.
 export async function listOverdueTasks({ filters = {}, limit = 50 }: { filters?: Record<string, string>; limit?: number } = {}) {
   const supabase = await createClient();
-  let query = supabase.from("tasks").select(TASK_SELECT).is("deleted_at", null).eq("status", "overdue");
+  let query = supabase
+    .from("tasks")
+    .select(withParticipantFilterSelect(TASK_SELECT, filters))
+    .is("deleted_at", null)
+    .eq("status", "overdue");
 
   query = applyMultiEq(query, "season_id", decodeMultiFilterValue(filters.season_id));
   query = applyMultiEq(query, "brand_id", decodeMultiFilterValue(filters.brand_id));
   query = applyMultiEq(query, "key_stage_id", decodeMultiFilterValue(filters.key_stage_id));
   query = applyCriticalFilter(query, filters.is_critical);
 
-  const participantIds = await participantTaskIds(supabase, filters);
-  if (participantIds) {
-    query = participantIds.length > 0 ? query.in("id", participantIds) : query.eq("id", EMPTY_RESULT_ID);
-  }
+  query = applyParticipantFilters(query, filters);
 
   const { data, error } = await query.order("due_date", { ascending: true, nullsFirst: false }).limit(limit);
   if (error) throw error;
-  return (data ?? []) as Task[];
+  return (data ?? []) as unknown as Task[];
 }
 
 // PostgREST's per-request row ceiling — a bigger season set is fetched in pages of this size.

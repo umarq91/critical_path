@@ -6,10 +6,10 @@ import { decodeMultiFilterValue } from "@/constants/data-table-filters";
 
 export type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
 
-// Task participation lives in a join table, and PostgREST can't express a join-table subquery
-// inline — so every participation-based filter resolves to a task-id list here first, and the
-// caller applies it as a plain `.in("id", ...)`. Kept apart from data/tasks.ts because all
-// three task queries (grid, timeline, overdue panel) need exactly this and nothing else of it.
+// Task participation lives in a join table. The toolbar filters match it inside the tasks query
+// (applyParticipantFilters); the personal scope and the search box resolve it to task ids here
+// and match those in memory. Kept apart from data/tasks.ts because every task query (grid,
+// calendar, timeline, overdue panel) needs exactly this and nothing else of it.
 
 /** A syntactically valid uuid that no row can hold, for filters that resolved to an empty set.
  *  Dropping the clause instead would silently widen the query to "no filter at all". */
@@ -26,28 +26,13 @@ export async function taskIdsForProfile(supabase: SupabaseClient, profileId: str
   return (data ?? []).flatMap((row) => (row.task_id ? [row.task_id] : []));
 }
 
-// `partyKeyValues` is one or more `kind:uuid` party keys — the "Owner"/"People Involved" toolbar
-// filter is `multiple: true`, so its raw URL value is a MULTI_FILTER_DELIMITER-joined list (see
-// constants/data-table-filters.ts), decoded by the caller. Matching ANY of them is a union, not
-// an intersection — selecting two owners means "owned by either", same as every other multi-select
-// filter on this grid.
-async function taskIdsForAnyParty(supabase: SupabaseClient, partyKeyValues: string[], role: ParticipantRole) {
-  const userIds: string[] = [];
-  const departmentIds: string[] = [];
-  for (const value of partyKeyValues) {
-    const party = parsePartyKey(value);
-    if (!party) continue;
-    (party.kind === "user" ? userIds : departmentIds).push(party.id);
-  }
-  if (userIds.length === 0 && departmentIds.length === 0) return [];
-
+// One `.or()` leg per party kind, matching a task_participants row to any of the given parties.
+// Only parsed uuids reach this string — never raw input, where commas and parens are syntax.
+function partyLegs(profileIds: string[], departmentIds: string[]) {
   const legs: string[] = [];
-  if (userIds.length > 0) legs.push(`profile_id.in.(${userIds.join(",")})`);
+  if (profileIds.length > 0) legs.push(`profile_id.in.(${profileIds.join(",")})`);
   if (departmentIds.length > 0) legs.push(`department_id.in.(${departmentIds.join(",")})`);
-
-  const { data, error } = await supabase.from("task_participants").select("task_id").eq("role", role).or(legs.join(","));
-  if (error) throw error;
-  return (data ?? []).map((row) => row.task_id);
+  return legs.join(",");
 }
 
 // Past this many matching people a search term isn't identifying anyone — it's the whole
@@ -78,33 +63,58 @@ export async function taskIdsMatchingPartyName(supabase: SupabaseClient, term: s
   const profileIds = (profiles.data ?? []).map((row) => row.id);
   if (departmentIds.length === 0 && profileIds.length === 0) return new Set<string>();
 
-  // Only ids reach the or-string, never the raw term — a term carrying a comma or a paren would
-  // otherwise corrupt the filter syntax.
-  const legs: string[] = [];
-  if (profileIds.length > 0) legs.push(`profile_id.in.(${profileIds.join(",")})`);
-  if (departmentIds.length > 0) legs.push(`department_id.in.(${departmentIds.join(",")})`);
-
-  const { data, error } = await supabase.from("task_participants").select("task_id").or(legs.join(","));
+  const { data, error } = await supabase.from("task_participants").select("task_id").or(partyLegs(profileIds, departmentIds));
   if (error) throw error;
   return new Set((data ?? []).map((row) => row.task_id));
 }
 
-// The "Owner" and "People Involved" toolbar filters, resolved to one task-id allow-list. Both
-// are `kind:uuid` party keys, and set together they must INTERSECT — a task owned by Planning
-// that involves Ayşe, not every task matching either.
+// The "Owner" and "People Involved" toolbar filters. Matched inside the tasks query itself, as
+// an `!inner` embed of task_participants per role — one alias each, so setting both INTERSECTS
+// (a task owned by Planning that involves Ayşe, not every task matching either), while several
+// parties within one filter are a union ("owned by either"), like every other multi-select.
 //
-// `null` means neither filter is set. An empty array means they matched nothing, which callers
-// must translate into zero rows (EMPTY_RESULT_ID), not into "no filter at all".
-export async function participantTaskIds(supabase: SupabaseClient, filters: Record<string, string>) {
-  const sets: string[][] = [];
-  const owners = decodeMultiFilterValue(filters.owner);
-  if (owners.length > 0) sets.push(await taskIdsForAnyParty(supabase, owners, "owner"));
-  const involved = decodeMultiFilterValue(filters.involved);
-  if (involved.length > 0) sets.push(await taskIdsForAnyParty(supabase, involved, "involved"));
+// Never resolved to a task-id list first: a large department (Brand Managers, Product
+// Development) sits on 1,000+ participant rows, which overflows the request URL as an
+// `.in("id", …)` (~800 ids is the measured limit) and is past PostgREST's row cap besides.
+const PARTICIPANT_FILTERS = [
+  { filterKey: "owner", role: "owner", alias: "owner_match" },
+  { filterKey: "involved", role: "involved", alias: "involved_match" },
+] as const satisfies readonly { filterKey: string; role: ParticipantRole; alias: string }[];
 
-  if (sets.length === 0) return null;
-  return sets.reduce((intersection, ids) => {
-    const allowed = new Set(ids);
-    return intersection.filter((id) => allowed.has(id));
+function activeParticipantFilters(filters: Record<string, string>) {
+  return PARTICIPANT_FILTERS.flatMap((filter) => {
+    const values = decodeMultiFilterValue(filters[filter.filterKey]);
+    return values.length > 0 ? [{ ...filter, values }] : [];
   });
+}
+
+/** `select` plus the embeds applyParticipantFilters() filters on. Empty `()` — they only
+ *  constrain which tasks match, and add nothing to the returned rows. */
+export function withParticipantFilterSelect(select: string, filters: Record<string, string>) {
+  const embeds = activeParticipantFilters(filters).map(({ alias }) => `${alias}:task_participants!inner()`);
+  return [select, ...embeds].join(", ");
+}
+
+/** Must be paired with withParticipantFilterSelect() on the same query's select. */
+export function applyParticipantFilters<
+  Q extends {
+    eq: (column: string, value: string) => Q;
+    or: (filters: string, options: { referencedTable: string }) => Q;
+  },
+>(query: Q, filters: Record<string, string>): Q {
+  for (const { alias, role, values } of activeParticipantFilters(filters)) {
+    const profileIds: string[] = [];
+    const departmentIds: string[] = [];
+    for (const value of values) {
+      const party = parsePartyKey(value);
+      if (party) (party.kind === "user" ? profileIds : departmentIds).push(party.id);
+    }
+    // A filter whose parties all failed to parse must yield zero rows, not drop the clause.
+    if (profileIds.length === 0 && departmentIds.length === 0) {
+      query = query.eq("id", EMPTY_RESULT_ID);
+      continue;
+    }
+    query = query.eq(`${alias}.role`, role).or(partyLegs(profileIds, departmentIds), { referencedTable: alias });
+  }
+  return query;
 }

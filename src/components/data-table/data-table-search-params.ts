@@ -18,15 +18,18 @@ function parseFilters(value: unknown): Record<string, string> | null {
 export interface DataTableSearchParamsOptions {
   defaultPageSize?: number;
   defaultSort?: { id: string; desc: boolean };
+  /** Applied while the URL carries no `filters` param at all. Clearing them stores an explicit
+   *  `{}`, so "no filters" stays distinguishable from "the defaults". */
+  defaultFilters?: Record<string, string>;
 }
 
-export function dataTableSearchParams({ defaultPageSize = 10, defaultSort }: DataTableSearchParamsOptions = {}) {
+export function dataTableSearchParams({ defaultPageSize = 10, defaultSort, defaultFilters = {} }: DataTableSearchParamsOptions = {}) {
   return {
     page: parseAsInteger.withDefault(1),
     pageSize: parseAsInteger.withDefault(defaultPageSize),
     sortBy: parseAsString.withDefault(defaultSort?.id ?? ""),
     sortDir: parseAsString.withDefault(defaultSort?.desc ? "desc" : "asc"),
-    filters: parseAsJson(parseFilters).withDefault({}),
+    filters: parseAsJson(parseFilters).withDefault(defaultFilters),
   };
 }
 

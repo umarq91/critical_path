@@ -1,4 +1,4 @@
-import { addWeeks, endOfWeek, format, parseISO, startOfWeek } from "date-fns";
+import { addWeeks, endOfWeek, format, parseISO, startOfWeek, subDays } from "date-fns";
 import type { DueWeekPreset } from "@/constants/due-week-filter";
 
 const DATE_LOCALE = "en-AU";
@@ -93,10 +93,14 @@ export function isPastDue(dueDate: string) {
   return dueDate.slice(0, 10) < orgTodayIso();
 }
 
-// Inclusive yyyy-MM-dd bounds for the Tasks "Due" filter. Weeks run Monday to Sunday.
-// "Next 2 Weeks" is the two full weeks after this one (next Monday to the Sunday after next),
-// so it never overlaps "This Week".
-export function dueWeekRange(preset: DueWeekPreset): { from: string; to: string } {
+// Inclusive yyyy-MM-dd bounds for the Tasks "Due" filter; a missing bound is open-ended.
+// "Today & Upcoming" is today onwards and "Overdue" is strictly before today — by due date
+// alone, whatever the status, so between them they cover every dated task. Weeks run Monday to
+// Sunday. "Next 2 Weeks" is the two full weeks after this one (next Monday to the Sunday after
+// next), so it never overlaps "This Week".
+export function dueFilterRange(preset: DueWeekPreset): { from?: string; to?: string } {
+  if (preset === "today_onwards") return { from: orgTodayIso() };
+  if (preset === "overdue") return { to: format(subDays(orgToday(), 1), "yyyy-MM-dd") };
   const thisMonday = startOfWeek(orgToday(), WEEK_STARTS_ON_MONDAY);
   const firstWeek = preset === "this_week" ? thisMonday : addWeeks(thisMonday, 1);
   const lastWeek = preset === "next_2_weeks" ? addWeeks(firstWeek, 1) : firstWeek;
