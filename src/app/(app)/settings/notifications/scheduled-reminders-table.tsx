@@ -11,6 +11,7 @@ import { createTaskColumns } from "@/app/(app)/tasks/columns";
 import { useRowParticipants } from "@/app/(app)/tasks/use-row-participants";
 import { taskRowClassName } from "@/app/(app)/tasks/task-row-class-name";
 import { createReminderEmailsColumn } from "@/app/(app)/settings/notifications/scheduled-reminders-columns";
+import { RemoveReminderTasksButton } from "@/app/(app)/settings/notifications/remove-reminder-tasks-button";
 import { SCHEDULE_QUERY_STATE } from "@/app/(app)/settings/notifications/schedule-query-state";
 import { reminderHourLabel } from "@/app/(app)/settings/notifications/reminder-schema";
 import type { DataTableFilterOption } from "@/components/data-table/table-features";
@@ -85,6 +86,12 @@ export const ScheduledRemindersTable = ({
           columns={columns}
           data={rows}
           getRowClassName={taskRowClassName}
+          getRowId={(task) => task.id}
+          enableRowSelection
+          // The removal's Server Action revalidates this page, so the rows refresh on their own.
+          selectionActions={(selected, clearSelection) => (
+            <RemoveReminderTasksButton tasks={selected} onRemoved={clearSelection} />
+          )}
           queryState={queryState}
           rowCount={rowCount}
           enableColumnFilterRow={false}

@@ -41,6 +41,10 @@ export const NotificationsConfig = ({
     <>
       <NotifyEnabledCard initialIsEnabled={initialIsEnabled} onChange={setIsEnabled} />
       <NotifyTasksCard
+        // Its picks are local state seeded once from initialTasks, so a removal made from the
+        // Scheduled reminders table would otherwise leave them stale — and the next Step 1 Save
+        // would quietly put the removed tasks back. Remounting on a changed saved set re-seeds it.
+        key={initialTasks.map((task) => task.id).sort().join(",")}
         initialTasks={initialTasks}
         seasonOptions={seasonOptions}
         ownerOptions={ownerOptions}

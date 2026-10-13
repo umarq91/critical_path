@@ -2,13 +2,13 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { Plus, X } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FormDialog } from "@/components/shared/form-dialog";
 import { NotifyTaskPickerDialog } from "@/app/(app)/settings/notifications/notify-task-picker-dialog";
 import { updateReminderTasks } from "@/app/(app)/settings/notifications/_reminder-actions";
-import { formatDate } from "@/lib/dates";
+import { NotifySelectedTasksList } from "@/app/(app)/settings/notifications/notify-selected-tasks-list";
 import type { FilterSelectOption } from "@/components/shared/filter-select";
 import type { ReminderRuleTask } from "@/data/reminders";
 
@@ -55,6 +55,14 @@ export const NotifyTasksCard = ({
     setSelected((previous) => {
       const next = new Map(previous);
       for (const task of tasks) next.set(task.id, task);
+      return next;
+    });
+  }
+
+  function removeTasks(taskIds: string[]) {
+    setSelected((previous) => {
+      const next = new Map(previous);
+      for (const taskId of taskIds) next.delete(taskId);
       return next;
     });
   }
@@ -131,31 +139,7 @@ export const NotifyTasksCard = ({
         </FormDialog>
 
         {selectedTasks.length > 0 ? (
-          <div className="flex flex-col gap-1.5">
-            {selectedTasks.map((task) => (
-              <div
-                key={task.id}
-                className="flex items-center gap-2 rounded-md border border-border bg-muted/30 px-3 py-2 text-sm"
-              >
-                <span className="min-w-0 flex-1 truncate text-foreground">{task.task_name}</span>
-                <span className="shrink-0 text-xs text-muted-foreground">
-                  {task.season ? `${task.season} · ` : ""}
-                  {task.due_date ? formatDate(task.due_date) : "No due date"}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setSelected((previous) => {
-                    const next = new Map(previous);
-                    next.delete(task.id);
-                    return next;
-                  })}
-                  aria-label={`Remove ${task.task_name}`}
-                >
-                  <X className="size-3.5 text-muted-foreground" />
-                </button>
-              </div>
-            ))}
-          </div>
+          <NotifySelectedTasksList tasks={selectedTasks} onRemove={removeTasks} />
         ) : (
           <p className="text-sm text-muted-foreground">No tasks selected yet — you won&apos;t get any reminder emails.</p>
         )}

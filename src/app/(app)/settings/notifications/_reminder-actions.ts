@@ -110,3 +110,32 @@ export async function updateReminderTasks(input: unknown) {
   revalidatePath("/settings/notifications");
   return { ok: true as const };
 }
+
+// The Scheduled reminders table's "Remove from reminders" — drops just the ticked tasks from the
+// saved set, leaving the rest alone, unlike updateReminderTasks' wholesale replace. Scoped to the
+// caller's own rule by the lookup here as well as by RLS.
+export async function removeReminderTasks(input: unknown) {
+  const auth = await requirePermission("profile.update_own");
+  if (!auth.ok) return auth;
+
+  const parsed = reminderTasksSchema.safeParse(input);
+  if (!parsed.success) return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Invalid input" };
+
+  const { data: rule, error: ruleError } = await auth.supabase
+    .from("reminder_rules")
+    .select("id")
+    .eq("profile_id", auth.userId)
+    .maybeSingle();
+  if (ruleError) return { ok: false as const, error: ruleError.message };
+  if (!rule || parsed.data.taskIds.length === 0) return { ok: true as const };
+
+  const { error } = await auth.supabase
+    .from("reminder_rule_tasks")
+    .delete()
+    .eq("rule_id", rule.id)
+    .in("task_id", parsed.data.taskIds);
+  if (error) return { ok: false as const, error: error.message };
+
+  revalidatePath("/settings/notifications");
+  return { ok: true as const };
+}
