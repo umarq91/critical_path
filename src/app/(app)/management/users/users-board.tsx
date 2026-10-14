@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { DataTable } from "@/components/data-table/data-table";
 import { useDataTableQueryState } from "@/components/data-table/use-data-table-query-state";
 import { createUserColumns } from "@/app/(app)/management/users/columns";
-import { ACCOUNT_TYPE_CONFIG, USER_ROLE_CONFIG, USER_STATUS_CONFIG } from "@/constants/user-account";
+import { ACCOUNT_TYPE_CONFIG, USER_ROLE_CONFIG } from "@/constants/user-account";
 import type { ManagedUser } from "@/data/users";
 import type { DataTableFilterOption } from "@/components/data-table/table-features";
 
@@ -40,7 +40,6 @@ export const UsersBoard = ({ users, rowCount, currentUserId, departmentOptions }
           // listUsers(), which maps this onto role at the query level.
           { columnId: "accountType", title: "Account Type", placeholder: "Account Type", options: toFilterOptions(ACCOUNT_TYPE_CONFIG) },
           { columnId: "role", title: "Role", placeholder: "Role", options: toFilterOptions(USER_ROLE_CONFIG) },
-          { columnId: "status", title: "Status", placeholder: "Status", options: toFilterOptions(USER_STATUS_CONFIG) },
         ],
         sortOptions: [
           { columnId: "full_name", desc: false, label: "Name (A-Z)" },

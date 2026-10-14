@@ -47,6 +47,12 @@ direction of the containment: `external` sees *less* than `viewer` (only its own
 is also why `handle_new_user`'s `app_role` metadata hint can safely honour `external` and
 nothing else — a forged hint can only lower privilege.
 
+**The `/management/users` table lists active accounts only.** `listUsers()` pins
+`status = 'active'`; deactivated accounts sit behind the "Inactive Users (N)" button, a dialog fed
+by its own unpaginated `listInactiveUsers()` and reusing `UserRowActions` for edit/reactivate.
+That's why the table has no Status column or filter. Users are deactivated, never deleted. The
+stat cards still count every account, inactive ones included.
+
 **The "Role Permissions" dialog on `/management/users` computes every cell by calling `can()`,**
 not by re-listing the matrix. `constants/permission-catalog.ts` supplies only labels, grouping and
 ordering, so a grant added in `lib/permissions.ts` shows up correctly with no edit here — a *new*

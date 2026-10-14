@@ -31,8 +31,9 @@ function isRole(value: string | undefined): value is Role {
   return !!value && ROLE_VALUES.includes(value);
 }
 
-// The Management → Users list. Server-paginated like every other DataTable-backed list; the
-// `accountType` filter is a presentation of `role` (external vs the three Workspace roles)
+// The Management → Users list — active accounts only. Deactivated ones live behind the
+// "Inactive Users" dialog (listInactiveUsers) so they don't clutter the working list.
+// Server-paginated like every other DataTable-backed list; the `accountType` filter is a presentation of `role` (external vs the three Workspace roles)
 // rather than a column of its own, because role IS the account type — see constants/roles.ts.
 export async function listUsers({
   page = 1,
@@ -42,12 +43,11 @@ export async function listUsers({
   filters = {},
 }: ListUsersParams = {}) {
   const supabase = await createClient();
-  let query = supabase.from("profiles").select(USER_SELECT, { count: "exact" });
+  let query = supabase.from("profiles").select(USER_SELECT, { count: "exact" }).eq("status", "active");
 
   const term = filters.full_name ? sanitiseOrSearchTerm(filters.full_name) : "";
   if (term) query = query.or(`full_name.ilike.%${term}%,email.ilike.%${term}%`);
   if (isRole(filters.role)) query = query.eq("role", filters.role);
-  if (filters.status) query = query.eq("status", filters.status);
   if (filters.accountType === "external") query = query.eq("role", ROLE.EXTERNAL);
   if (filters.accountType === "workspace") query = query.neq("role", ROLE.EXTERNAL);
 
@@ -62,6 +62,19 @@ export async function listUsers({
 }
 
 export type ManagedUser = Awaited<ReturnType<typeof listUsers>>["data"][number];
+
+// Unpaginated on purpose: deactivated accounts are a short tail, shown as a plain list in a
+// dialog rather than a second DataTable.
+export async function listInactiveUsers(): Promise<ManagedUser[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("profiles")
+    .select(USER_SELECT)
+    .neq("status", "active")
+    .order("full_name", { ascending: true });
+  if (error) throw error;
+  return data ?? [];
+}
 
 export interface UserSummary {
   total: number;

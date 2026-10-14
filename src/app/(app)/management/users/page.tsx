@@ -3,7 +3,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { UserPageActions } from "@/app/(app)/management/users/user-page-actions";
 import { UsersBoard } from "@/app/(app)/management/users/users-board";
-import { listUsers, getUserSummary } from "@/data/users";
+import { listUsers, listInactiveUsers, getUserSummary } from "@/data/users";
 import { listDepartmentOptions } from "@/data/departments";
 import { requirePageAccess } from "@/lib/require-page-access";
 import { loadDataTableSearchParams } from "@/components/data-table/data-table-search-params";
@@ -18,8 +18,9 @@ export default async function ManagementUsersPage({
   const profile = await requirePageAccess("admin.manage_users");
   const queryState = await loadDataTableSearchParams(searchParams, QUERY_STATE_OPTIONS);
 
-  const [{ data: users, rowCount }, summary, departments] = await Promise.all([
+  const [{ data: users, rowCount }, inactiveUsers, summary, departments] = await Promise.all([
     listUsers(queryState),
+    listInactiveUsers(),
     getUserSummary(),
     listDepartmentOptions(),
   ]);
@@ -31,7 +32,13 @@ export default async function ManagementUsersPage({
       <PageHeader
         title="Users"
         description="Google Workspace staff appear here on first sign-in. External users are created here and sign in with a password."
-        action={<UserPageActions departmentOptions={departmentOptions} />}
+        action={
+          <UserPageActions
+            departmentOptions={departmentOptions}
+            inactiveUsers={inactiveUsers}
+            currentUserId={profile.id}
+          />
+        }
       />
       <div className="flex flex-col gap-4 px-6 pb-6">
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

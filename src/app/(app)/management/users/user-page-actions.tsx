@@ -1,26 +1,48 @@
 "use client";
 
 import { useState } from "react";
-import { Info, UserPlus } from "lucide-react";
+import { Info, UserPlus, UserX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FormDialog } from "@/components/shared/form-dialog";
 import { ExternalUserForm } from "@/app/(app)/management/users/external-user-form";
 import { PermissionsInfoDialog } from "@/app/(app)/management/users/permissions-info-dialog";
+import { InactiveUsersList } from "@/app/(app)/management/users/inactive-users-list";
+import type { ManagedUser } from "@/data/users";
 import type { DataTableFilterOption } from "@/components/data-table/table-features";
 
 interface UserPageActionsProps {
   departmentOptions: DataTableFilterOption[];
+  inactiveUsers: ManagedUser[];
+  currentUserId: string;
 }
 
 // Only external users are created here. Workspace staff appear automatically the first time
 // they sign in with Google (the on_auth_user_created trigger), so there is nothing for an
 // admin to create for them — only a role to adjust afterwards, which lives in the row menu.
-export const UserPageActions = ({ departmentOptions }: UserPageActionsProps) => {
+export const UserPageActions = ({ departmentOptions, inactiveUsers, currentUserId }: UserPageActionsProps) => {
   const [open, setOpen] = useState(false);
   const [permissionsOpen, setPermissionsOpen] = useState(false);
 
   return (
     <div className="flex items-center gap-2">
+      <FormDialog
+        title="Inactive Users"
+        description="Deactivated accounts. They can't sign in until reactivated."
+        size="lg"
+        trigger={
+          <Button variant="outline">
+            <UserX />
+            Inactive Users ({inactiveUsers.length})
+          </Button>
+        }
+      >
+        <InactiveUsersList
+          users={inactiveUsers}
+          departmentOptions={departmentOptions}
+          currentUserId={currentUserId}
+        />
+      </FormDialog>
+
       <Button variant="outline" onClick={() => setPermissionsOpen(true)}>
         <Info />
         Role Permissions

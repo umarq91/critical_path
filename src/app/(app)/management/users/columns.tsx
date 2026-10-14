@@ -6,7 +6,7 @@ import { dataTableFeatures } from "@/components/data-table/table-features";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { UserRowActions } from "@/app/(app)/management/users/user-row-actions";
 import { accountTypeOf } from "@/app/(app)/management/users/schema";
-import { ACCOUNT_TYPE_CONFIG, USER_ROLE_CONFIG, USER_STATUS_CONFIG } from "@/constants/user-account";
+import { ACCOUNT_TYPE_CONFIG, USER_ROLE_CONFIG } from "@/constants/user-account";
 import type { ManagedUser } from "@/data/users";
 import { formatDate } from "@/lib/dates";
 
@@ -45,11 +45,6 @@ export function createUserColumns({ currentUserId, departmentOptions }: CreateUs
       header: "Department",
       meta: { label: "Department", width: "md" },
       cell: ({ row }) => row.original.department?.name ?? "—",
-    }),
-    columnHelper.accessor("status", {
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
-      meta: { label: "Status", width: "sm" },
-      cell: ({ getValue }) => <StatusBadge value={getValue()} config={USER_STATUS_CONFIG} />,
     }),
     columnHelper.accessor("created_at", {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Added On" />,

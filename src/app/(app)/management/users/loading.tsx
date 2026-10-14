@@ -19,7 +19,7 @@ export default function ManagementUsersLoading() {
           <StatCardSkeleton />
           <StatCardSkeleton />
         </div>
-        <DataTableSkeleton filterCount={3} columnCount={7} rowCount={10} />
+        <DataTableSkeleton filterCount={2} columnCount={6} rowCount={10} />
       </div>
     </div>
   );
