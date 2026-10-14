@@ -13,11 +13,12 @@ export const AUDIT_ACTION = {
   TASK_PARTICIPANTS_CHANGE: "task.participants_change",
   API_KEY_CREATE: "api_key.create",
   API_KEY_REVOKE: "api_key.revoke",
+  USER_DELETE: "user.delete",
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTION)[keyof typeof AUDIT_ACTION];
 
-export const AUDIT_ENTITY_TYPE = { TASK: "task", API_KEY: "api_key" } as const;
+export const AUDIT_ENTITY_TYPE = { TASK: "task", API_KEY: "api_key", USER: "user" } as const;
 
 // Same soft-fill + border + text token trio as every other badge config — no new colours.
 // Create/delete borrow the complete/overdue status tokens because that's the semantic
@@ -50,6 +51,10 @@ export const AUDIT_ACTION_CONFIG: StatusBadgeConfig = {
   },
   [AUDIT_ACTION.API_KEY_REVOKE]: {
     label: "Revoked",
+    className: "border border-status-overdue-base bg-status-overdue-soft text-status-overdue-text",
+  },
+  [AUDIT_ACTION.USER_DELETE]: {
+    label: "Deleted",
     className: "border border-status-overdue-base bg-status-overdue-soft text-status-overdue-text",
   },
 };

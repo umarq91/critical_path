@@ -1,15 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { MoreVertical } from "lucide-react";
+import { MoreVertical, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { FormDialog } from "@/components/shared/form-dialog";
 import { UserForm } from "@/app/(app)/management/users/user-form";
 import { SetPasswordForm } from "@/app/(app)/management/users/set-password-form";
-import { setUserStatus } from "@/app/(app)/management/users/_actions";
+import { deleteUser, setUserStatus } from "@/app/(app)/management/users/_actions";
 import { ROLE } from "@/constants/roles";
 import type { ManagedUser } from "@/data/users";
 
@@ -23,6 +24,7 @@ export const UserRowActions = ({ user, departmentOptions, isCurrentUser }: UserR
   const [editOpen, setEditOpen] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [statusConfirmOpen, setStatusConfirmOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   const label = user.full_name ?? user.email;
   const isExternal = user.role === ROLE.EXTERNAL;
@@ -35,6 +37,15 @@ export const UserRowActions = ({ user, departmentOptions, isCurrentUser }: UserR
       return;
     }
     toast.success(isActive ? `${label} deactivated` : `${label} reactivated`);
+  }
+
+  async function handleDelete() {
+    const result = await deleteUser(user.id);
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
+    }
+    toast.success(`${label} deleted`);
   }
 
   return (
@@ -56,6 +67,11 @@ export const UserRowActions = ({ user, departmentOptions, isCurrentUser }: UserR
               onClick={() => setStatusConfirmOpen(true)}
             >
               {isActive ? "Deactivate" : "Reactivate"}
+            </DropdownMenuItem>
+          )}
+          {isCurrentUser || isActive ? null : (
+            <DropdownMenuItem variant="destructive" onClick={() => setDeleteConfirmOpen(true)}>
+              Delete user
             </DropdownMenuItem>
           )}
         </DropdownMenuContent>
@@ -97,6 +113,24 @@ export const UserRowActions = ({ user, departmentOptions, isCurrentUser }: UserR
         onOpenChange={setStatusConfirmOpen}
         onConfirm={handleToggleStatus}
       />
+
+      <ConfirmDialog
+        title="Delete user"
+        description={`${label} will be permanently deleted. Their tasks stay.`}
+        confirmLabel="Delete"
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        onConfirm={handleDelete}
+      >
+        <Alert className="border-status-overdue-base bg-status-overdue-soft text-status-overdue-text">
+          <TriangleAlert />
+          <AlertTitle>This can&apos;t be undone</AlertTitle>
+          <AlertDescription className="text-status-overdue-text">
+            They&apos;re removed as owner or involved person on every task, and anything they created
+            or edited will show no name. Reactivating is no longer possible.
+          </AlertDescription>
+        </Alert>
+      </ConfirmDialog>
     </div>
   );
 };
