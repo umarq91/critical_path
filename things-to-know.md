@@ -124,15 +124,6 @@ them in unchecked.
 - `/auth/verify` is exempt from `proxy.ts`'s "signed in → leave `/auth`" bounce; the page itself
   redirects anyone who doesn't owe a code. No audit log rows for code events, by request.
 
-**Deleting a user is a hard delete, allowed only once they're deactivated.** `deleteUser`
-refuses an active account and the caller's own, then calls `auth.admin.deleteUser`, which
-cascades the profile. Every FK onto `profiles` is `cascade` (participations, saved views,
-reminder settings, calendar links/tokens, sign-in codes) or `set null` (assignee, created/
-edited/deleted/locked by, season owner, audit `actor_id`, API key created/revoked by) — tasks
-survive, attributions go blank. Nothing removes events already pushed to their Google Calendar.
-One `user.delete` audit row is written, labelled `Name (email)` since the profile is gone. If you
-add an FK to `profiles` without an `on delete` clause, this action starts failing.
-
 **Creating an auth user is the one sanctioned service-role call inside a Server Action**
 (besides `lib/sign-in-code.ts`, whose table must be unwritable by the user it verifies).
 `supabase.auth.admin.createUser` has no per-user equivalent. `createExternalUser` gates on
@@ -2077,7 +2068,7 @@ already there), not a rename-and-ship exercise.
   `key_hash` (for lookup) and `key_prefix` (first 12 chars, for the admin list to be
   recognisable) survive past that one response. Losing it means revoking and reissuing, not
   recovering — there is nothing to recover from.
-- **Revoked, never deleted** — same idiom as soft-deleting a task.
+- **Revoked, never deleted** — same idiom as deactivating a user or soft-deleting a task.
   `api_keys.status` (`active`/`revoked`) plus `revoked_at`/`revoked_by`; `0025_api_keys.sql` has
   no delete policy at all, so a key's row (and its place in the audit trail) is permanent.
 - **`/integration/v1/*` is deliberately NOT in `PROTECTED_PREFIXES`.** That list exists to force
@@ -2145,11 +2136,11 @@ already there), not a rename-and-ship exercise.
   response shape should still match the spec.
 - **`/users` sends `last_active_at` and `deleted_at` as `null` too, for a different reason than
   `version`** — not "no column anywhere," but "no equivalent concept for this entity."
-  `profiles` tracks no sign-in timestamp at all, and a deleted user is hard-deleted (no row
-  left to report) — mapping `deleted_at` from `status !== 'active'` would misrepresent a
-  deactivation as a deletion, so it stays `null` rather than being derived. `include_deleted` is
-  accepted (it's in the spec's query param list for this endpoint) but is a no-op for the same
-  reason — there is nothing for it to toggle. `role_name` is real data, not a gap: `lib/integration/users.ts`
+  `profiles` tracks no sign-in timestamp at all, and a user is deactivated (`status`), never
+  deleted — mapping `deleted_at` from `status !== 'active'` would misrepresent a deactivation as
+  a deletion, so it stays `null` rather than being derived. `include_deleted` is accepted (it's
+  in the spec's query param list for this endpoint) but is a no-op for the same reason — there
+  is nothing for it to toggle. `role_name` is real data, not a gap: `lib/integration/users.ts`
   reuses `ROLE_LABEL` (`constants/roles.ts`), the same map the UI's own role badges read from,
   rather than re-deriving "Administrator" from "admin" a second time.
 - **`/teams` is `departments`, and its three count fields are the first real aggregates in this

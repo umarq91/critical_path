@@ -2,11 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { requirePermission } from "@/lib/require-permission";
-import { recordAuditEvent } from "@/lib/audit";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isWorkspaceEmail } from "@/lib/calendar-eligibility";
 import { ROLE } from "@/constants/roles";
-import { AUDIT_ACTION, AUDIT_ENTITY_TYPE } from "@/constants/audit";
 import {
   externalUserSchema,
   setPasswordSchema,
@@ -191,46 +189,5 @@ export async function setExternalUserPassword(userId: string, input: unknown) {
   const { error } = await admin.auth.admin.updateUserById(userId, { password: parsed.data.password });
   if (error) return { ok: false as const, error: error.message };
 
-  return { ok: true as const };
-}
-
-// Hard delete, and only of an account that is already deactivated — deactivation is the
-// reversible step, this is the irreversible one after it. Deleting the auth user cascades the
-// profile; every FK onto profiles is either `on delete cascade` (their participations, saved
-// views, reminder settings, calendar links) or `on delete set null` (assignee, created/edited/
-// locked by, season owner, audit actor), so tasks survive with those references blanked.
-// Deleting from auth.users needs the service-role admin API, same exception as createExternalUser.
-export async function deleteUser(userId: string) {
-  const auth = await requirePermission("admin.manage_users");
-  if (!auth.ok) return auth;
-
-  if (userId === auth.userId) return { ok: false as const, error: "You can't delete your own account" };
-
-  const { data: target } = await auth.supabase
-    .from("profiles")
-    .select("id, status, email, full_name")
-    .eq("id", userId)
-    .single();
-  if (!target) return { ok: false as const, error: "That user no longer exists" };
-  if (target.status !== "inactive") {
-    return { ok: false as const, error: "Deactivate this user before deleting them" };
-  }
-
-  const admin = createAdminClient();
-  const { error } = await admin.auth.admin.deleteUser(userId);
-  if (error) return { ok: false as const, error: error.message };
-
-  // entity_label is the only thing that keeps this row legible — the profile it names is gone.
-  await recordAuditEvent(auth.supabase, {
-    actorId: auth.userId,
-    actorEmail: auth.email,
-    action: AUDIT_ACTION.USER_DELETE,
-    entityType: AUDIT_ENTITY_TYPE.USER,
-    entityId: userId,
-    entityLabel: target.full_name ? `${target.full_name} (${target.email})` : target.email,
-  });
-
-  revalidatePath("/management/users");
-  revalidatePath("/management/teams");
   return { ok: true as const };
 }

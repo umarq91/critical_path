@@ -291,7 +291,7 @@ export const ENDPOINT_DOCS: EndpointDoc[] = [
     status: "live",
     purpose: "User master data.",
     queryParams: params("cursor", "page_size", "updated_since", "include_deleted"),
-    note: "`last_active_at` and `deleted_at` are always null — no sign-in tracking exists, and a deleted user is hard-deleted, so no row remains to carry a deletion date (a deactivated user is still listed, with `status`). `include_deleted` is accepted but has no effect for the same reason. `version` is always null like every other endpoint. `role_name` is real (e.g. \"Administrator\"), from the same label map the UI's role badges use.",
+    note: "`last_active_at` and `deleted_at` are always null — no sign-in tracking exists, and users are deactivated via `status`, never deleted. `include_deleted` is accepted but has no effect for the same reason. `version` is always null like every other endpoint. `role_name` is real (e.g. \"Administrator\"), from the same label map the UI's role badges use.",
     exampleResponse: {
       data: [
         {
