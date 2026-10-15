@@ -22,7 +22,7 @@ const ERROR_MESSAGES: Record<string, string> = {
 
 export default async function SignInPage({ searchParams }: PageProps<"/auth/sign-in">) {
   const params = await searchParams;
-  const next = typeof params.next === "string" ? params.next : ROUTES.dashboard;
+  const next = typeof params.next === "string" ? params.next : ROUTES.home;
   const error = typeof params.error === "string" ? ERROR_MESSAGES[params.error] : undefined;
 
   return (

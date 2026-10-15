@@ -22,7 +22,7 @@ const ASSUMED_PROVIDER_TOKEN_TTL_SECONDS = 3500;
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
-  const next = url.searchParams.get("next") ?? ROUTES.dashboard;
+  const next = url.searchParams.get("next") ?? ROUTES.home;
 
   if (!code) {
     return NextResponse.redirect(new URL(`${ROUTES.signIn}?error=auth`, url.origin));

@@ -9,7 +9,7 @@ import { VerifyCodeForm } from "@/app/auth/verify/verify-code-form";
 // Only same-origin paths — `next` comes from the URL, and "//evil.com" is a protocol-relative
 // absolute URL, not a path.
 function safeNext(value: string | string[] | undefined) {
-  if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//")) return ROUTES.dashboard;
+  if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//")) return ROUTES.home;
   return value;
 }
 

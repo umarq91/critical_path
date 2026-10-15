@@ -710,6 +710,11 @@ UUIDs.
 
 ## Dashboard (`/dashboard`)
 
+> **Hidden from the sidebar** (row removed from `constants/nav.ts`). The page still works by URL.
+> The default landing page is now `ROUTES.home` (`/dpsp-flywheel`): root redirect, post-sign-in,
+> the `/auth/*` bounce in `proxy.ts`, and the `requirePageAccess()` fallback. To restore, put the
+> nav row back and point `ROUTES.home` at `/dashboard`.
+>
 > Most of the cards below are currently hidden behind `TASK_FIELD_VISIBILITY`. See § "Brand,
 > Status, Gender & Overdue (hidden)". The notes still describe them as built.
 

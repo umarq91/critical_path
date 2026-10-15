@@ -26,7 +26,7 @@ export async function proxy(request: NextRequest) {
   // POST hands the action a page instead of its result ("unexpected response"). The password
   // form calls one on /auth/sign-in right after the session cookie is set.
   if (request.method === "GET" && pathname.startsWith("/auth") && !isAuthCallback && !isVerifySignIn && user) {
-    return NextResponse.redirect(new URL(ROUTES.dashboard, request.url));
+    return NextResponse.redirect(new URL(ROUTES.home, request.url));
   }
 
   return response;

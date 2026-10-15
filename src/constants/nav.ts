@@ -1,5 +1,4 @@
 import {
-  LayoutDashboard,
   ListTodo,
   Workflow,
   Recycle,
@@ -45,7 +44,6 @@ export type NavGroup = {
 export const NAV_GROUPS: NavGroup[] = [
   {
     items: [
-      { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
       // DPSP Flywheel and Timeline are two more lenses over the same task data as Tasks
       // (Board) — each is its own route with its own query state/filters/fetch, not shared
       // client state. They used to be reachable only via a shared tab strip on top of one

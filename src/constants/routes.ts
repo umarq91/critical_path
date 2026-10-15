@@ -3,6 +3,9 @@ export const ROUTES = {
   authCallback: "/auth/callback",
   verifySignIn: "/auth/verify",
   dashboard: "/dashboard",
+  // Default landing page — root redirect, post-sign-in, and the requirePageAccess fallback.
+  // DPSP Flywheel has no page guard, so every role (external included) can land here.
+  home: "/dpsp-flywheel",
   tasks: "/tasks",
   myTasks: "/my-tasks",
 } as const;

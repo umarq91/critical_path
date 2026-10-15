@@ -11,11 +11,11 @@ import { ROUTES } from "@/constants/routes";
 // getCurrentProfile() is request-cached, so a page that also needs the profile for its own
 // rendering gets it back here rather than paying for a second round trip.
 //
-// Redirects to the dashboard rather than 403-ing: `dashboard.view` is granted to every role
-// including `external`, so it is always a valid destination.
+// Redirects to ROUTES.home rather than 403-ing: DPSP Flywheel has no page guard, so it is a
+// valid destination for every role including `external`.
 export async function requirePageAccess(action: Action) {
   const profile = await getCurrentProfile();
   if (!profile) redirect(ROUTES.signIn);
-  if (!can(profile.role, action)) redirect(ROUTES.dashboard);
+  if (!can(profile.role, action)) redirect(ROUTES.home);
   return profile;
 }
